@@ -44,6 +44,12 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
+def _env_csv(name: str, default: str) -> List[str]:
+    raw = os.environ.get(name, default)
+    values = [item.strip() for item in raw.split(",")]
+    return [item for item in values if item]
+
+
 # Supabase document store (DB by default, REST fallback optional)
 supabase_db_url = os.environ.get("SUPABASE_DB_URL") or os.environ.get("DATABASE_URL")
 supabase_url = os.environ.get("SUPABASE_URL")
@@ -1638,10 +1644,12 @@ async def root():
 # Include the router in the main app
 app.include_router(api_router)
 
+CORS_ORIGINS = _env_csv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
