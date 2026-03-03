@@ -1,0 +1,79 @@
+{
+  "summary": "Completed comprehensive testing of all 8 features for iteration 2: language switching (7 languages), Stripe admin settings page, PDF viewer iframe, and backend APIs. Found and fixed one critical bug: Slovenian language code 'sl' was missing from backend valid_languages list. Language reset to English for admin user after testing. All 15 backend tests pass.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "PUT /api/auth/language",
+        "issue": "FIXED: 'sl' (Slovenian) was missing from valid_languages list, causing 400 error when switching to Slovenian",
+        "status": "FIXED in /app/backend/server.py line 420"
+      }
+    ]
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "component": "DashboardLayout.jsx - Admin sidebar nav",
+        "issue": "'Stripe Settings' label is hardcoded (line 32: label: 'Stripe Settings') - not using t() translation function, so it remains in English across all languages",
+        "priority": "LOW",
+        "suggested_fix": "Add translation key admin.stripeSettings and use t('admin.stripeSettings') in DashboardLayout.jsx"
+      }
+    ]
+  },
+
+  "passed_tests": [
+    "Language switching to French: UI changes to French (title: Paramètres, sidebar: Tableau de bord, Mes PDFs, Mes Liens, etc.) ✅",
+    "Language switching to Italian: UI changes to Italian (title: Impostazioni, sidebar: I Miei PDF, I Miei Link, etc.) ✅",
+    "Language switching to Hindi: UI changes to Hindi (title: सेटिंग, sidebar: डैशबोर्ड, मेरे PDF, etc.) ✅",
+    "Language switching to Slovenian: UI changes to Slovenian (title: Nastavitve, sidebar: Nadzorna plošča, Moji PDF-ji, etc.) ✅ (after backend fix)",
+    "Language selector shows exactly 7 languages: English, Italiano, Slovenščina, Français, Español, Deutsch, हिन्दी ✅",
+    "Admin Settings page /admin/settings loads with: Sandbox Mode badge, sk_live_... key input, 'Save & Activate Live' button, Security Notice ✅",
+    "Dashboard in French: 'Tableau de bord', 'Liens Actifs', 'Vues Totales', 'Utilisation du Stockage', 'Actions Rapides' ✅",
+    "Sidebar nav translates in all tested languages ✅",
+    "Backend GET /api/admin/settings/stripe returns mode, has_live_key, key_preview fields ✅",
+    "Backend PUT /api/admin/settings/stripe accepts mode update ✅",
+    "Backend PUT /api/admin/settings/stripe rejects invalid key format (400) ✅",
+    "Backend admin endpoints require auth (401 without token) ✅",
+    "PDF viewer at /view/{token}: iframe present WITHOUT sandbox attribute ✅",
+    "PDF iframe src points to /api/view/{token}/pdf endpoint ✅",
+    "Backend /api/view/{token}/pdf returns 200 with application/pdf content-type ✅",
+    "Language RESET to English for admin user ✅"
+  ],
+
+  "test_report_links": [
+    "/app/backend/tests/test_autodestroy_iteration2.py",
+    "/app/test_reports/pytest/iteration2_results.xml"
+  ],
+
+  "action_items": [
+    "LOW: Add 'Stripe Settings' translation key to i18n (admin.stripeSettings) and use t('admin.stripeSettings') in DashboardLayout.jsx line 32"
+  ],
+
+  "critical_code_review_comments": [
+    "DashboardLayout.jsx line 32: adminNavItems has hardcoded 'Stripe Settings' label not using t() - minor translation miss",
+    "server.py: valid_languages list was missing 'sl' (FIXED in this iteration)"
+  ],
+
+  "updated_files": [
+    "/app/backend/server.py - Added 'sl' to valid_languages list in update_language endpoint",
+    "/app/backend/tests/test_autodestroy_iteration2.py - New test file created"
+  ],
+
+  "success_rate": {
+    "backend": "100% - 15/15 tests passed",
+    "frontend": "95% - All language switching confirmed, Admin Stripe settings page working, PDF viewer iframe correctly set up. Minor: 'Stripe Settings' not translated in admin sidebar"
+  },
+
+  "seed_data_creation": "None - used existing admin@autodestroy.com account and test token 6xVpzyzXxvpYl2kcejLtoyCJePTbFbL7YAf1JS3Y8dg",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+
+  "context_for_next_testing_agent": "Admin credentials: admin@autodestroy.com / admin123. Language is reset to English after testing. Test PDF token: 6xVpzyzXxvpYl2kcejLtoyCJePTbFbL7YAf1JS3Y8dg (manual-mode link). Bug fixed: 'sl' added to valid_languages in PUT /api/auth/language. Minor remaining: 'Stripe Settings' in admin sidebar nav is hardcoded not translated. Stripe MOCKED - in sandbox mode. MOCKED API: Stripe payments use emergent sandbox key.",
+
+  "rca_of_issue": "Bug: Slovenian (sl) language switch failed with 'Failed to update language'. Root cause: /app/backend/server.py line 420 - valid_languages list did not include 'sl'. When frontend sent PUT /api/auth/language with {language: 'sl'}, backend returned HTTP 400 'Invalid language code'. Fix: Added 'sl' to valid_languages list. The UI correctly sets language in localStorage and shows Slovenian translations immediately (client-side), but the API call to persist preference failed - so on next login, the language would revert to the previously saved language."
+}
