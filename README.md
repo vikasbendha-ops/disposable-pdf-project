@@ -6,6 +6,7 @@ This repo is now configured so frontend and backend can run under one Vercel pro
 
 - Next.js frontend at repo root (`pages/` + `frontend/src/` UI code)
 - Next.js API backend (`pages/api/index.js` + `pages/api/[...path].js`)
+- Supabase schema reference at `db/supabase_schema.sql`
 
 ### Deploy on Vercel
 
