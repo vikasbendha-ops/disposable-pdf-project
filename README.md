@@ -1,11 +1,11 @@
 # Disposable PDF Project
 
-## Next.js + Vercel (Single Deployment)
+## Next.js + Vercel (Single Deployment, No Python)
 
 This repo is now configured so frontend and backend can run under one Vercel project:
 
 - Next.js frontend at repo root (`pages/` + `frontend/src/` UI code)
-- FastAPI backend exposed as Vercel Python functions (`api/index.py` + `api/[...path].py`)
+- Next.js API backend (`pages/api/index.js` + `pages/api/[...path].js`)
 
 ### Deploy on Vercel
 
