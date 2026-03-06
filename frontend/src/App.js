@@ -24,10 +24,11 @@ import AdminLinks from './pages/AdminLinks';
 import AuthCallback from './pages/AuthCallback';
 
 const DEFAULT_BACKEND_URL =
-  typeof window !== 'undefined' && window.location?.port === '3000'
-    ? 'http://localhost:8001'
-    : window.location.origin;
-const BACKEND_URL = (process.env.REACT_APP_BACKEND_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
+  typeof window !== 'undefined'
+    ? window.location.origin
+    : '';
+const ENV_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || '';
+const BACKEND_URL = (ENV_BACKEND_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
 const API = `${BACKEND_URL}/api`;
 
 // Auth Context

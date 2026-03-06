@@ -1,15 +1,20 @@
 # Disposable PDF Project
 
-## Quick Backend Deploy (to get `REACT_APP_BACKEND_URL`)
+## Next.js + Vercel (Single Deployment)
 
-Use Render:
+This repo is now configured so frontend and backend can run under one Vercel project:
 
-1. Push this repo to GitHub.
-2. In Render, create a new **Blueprint** service from this repo.
-3. Render will pick [`render.yaml`](/Users/apple/Downloads/Disposable-pdf-main/render.yaml) automatically.
-4. Set backend environment variables from [`backend/.env.example`](/Users/apple/Downloads/Disposable-pdf-main/backend/.env.example).
-5. After deploy, copy backend URL (example: `https://disposable-pdf-backend.onrender.com`).
+- Next.js frontend at repo root (`pages/` + `frontend/src/` UI code)
+- FastAPI backend exposed as Vercel Python functions (`api/index.py` + `api/[...path].py`)
 
-Then in Vercel frontend env:
+### Deploy on Vercel
 
-- `REACT_APP_BACKEND_URL=https://disposable-pdf-backend.onrender.com`
+1. Import this repository as a Vercel project.
+2. Keep **Root Directory** as repository root.
+3. Build command: `npm run build`
+4. Output: Next.js default (leave empty).
+5. Add env vars from [`.env.example`](/Users/apple/Downloads/Disposable-pdf-main/.env.example).
+
+Optional frontend env override:
+
+- `NEXT_PUBLIC_BACKEND_URL` (leave empty to use same-origin `/api` on Vercel).

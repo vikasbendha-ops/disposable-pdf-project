@@ -6,14 +6,15 @@ import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { Button } from '../components/ui/button';
 
 const DEFAULT_BACKEND_URL =
-  typeof window !== 'undefined' && window.location?.port === '3000'
-    ? 'http://localhost:8001'
-    : window.location.origin;
-const BACKEND_URL = (process.env.REACT_APP_BACKEND_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
+  typeof window !== 'undefined'
+    ? window.location.origin
+    : '';
+const ENV_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || '';
+const BACKEND_URL = (ENV_BACKEND_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
 const API = `${BACKEND_URL}/api`;
 
-// Use an absolute worker URL so routes like /view/:token don't break worker loading.
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+// Use a CDN worker so the migration does not depend on legacy CRA public asset placement.
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
 
 const isSafeAnnotationUrl = (value) => {
   if (!value) return false;
