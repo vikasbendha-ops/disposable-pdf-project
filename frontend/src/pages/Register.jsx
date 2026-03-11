@@ -39,15 +39,27 @@ const Register = () => {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
       return;
     }
 
     setLoading(true);
 
     try {
-      await register(name, email, password, language);
+      const result = await register(name, email, password, language);
+      if (result?.pending_verification) {
+        toast.success('Account created. Verify your email to continue.');
+        navigate('/login', {
+          replace: true,
+          state: {
+            pendingVerification: true,
+            registeredEmail: email,
+          },
+        });
+        return;
+      }
+
       toast.success('Account created successfully!');
       navigate('/pricing', { replace: true });
     } catch (err) {

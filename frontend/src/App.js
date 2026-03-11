@@ -9,6 +9,9 @@ import { LanguageProvider } from './contexts/LanguageContext';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import VerifyEmail from './pages/VerifyEmail';
 import Dashboard from './pages/Dashboard';
 import PDFManagement from './pages/PDFManagement';
 import LinkGenerator from './pages/LinkGenerator';
@@ -21,6 +24,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminSettings from './pages/AdminSettings';
 import AdminUsers from './pages/AdminUsers';
 import AdminLinks from './pages/AdminLinks';
+import AdminAuditLogs from './pages/AdminAuditLogs';
 import AuthCallback from './pages/AuthCallback';
 
 const DEFAULT_BACKEND_URL =
@@ -103,11 +107,20 @@ const AuthProvider = ({ children }) => {
 
   const register = async (name, email, password, language = 'en') => {
     const response = await api.post('/auth/register', { name, email, password, language });
-    const { access_token, user: userData } = response.data;
-    localStorage.setItem('token', access_token);
+    const payload = response.data || {};
+    const { access_token, user: userData } = payload;
+
     localStorage.setItem('preferredLanguage', language);
-    setUser(userData);
-    return userData;
+
+    if (access_token && userData) {
+      localStorage.setItem('token', access_token);
+      setUser(userData);
+    } else {
+      localStorage.removeItem('token');
+      setUser(null);
+    }
+
+    return payload;
   };
 
   const logout = async () => {
@@ -140,8 +153,60 @@ const AuthProvider = ({ children }) => {
     }
   };
 
+  const requestPasswordReset = async (email) => {
+    const response = await api.post('/auth/password-reset', { email });
+    return response.data;
+  };
+
+  const validatePasswordResetToken = async (token) => {
+    const response = await api.get('/auth/password-reset/validate', {
+      params: { token },
+    });
+    return response.data;
+  };
+
+  const confirmPasswordReset = async (token, newPassword) => {
+    const response = await api.post('/auth/password-reset/confirm', {
+      token,
+      new_password: newPassword,
+    });
+    return response.data;
+  };
+
+  const confirmEmailVerification = async (token) => {
+    const response = await api.post('/auth/verify-email/confirm', { token });
+    const { access_token, user: userData } = response.data || {};
+    if (access_token && userData) {
+      localStorage.setItem('token', access_token);
+      if (userData.language) {
+        localStorage.setItem('preferredLanguage', userData.language);
+      }
+      setUser(userData);
+    }
+    return response.data;
+  };
+
+  const resendVerificationEmail = async (email) => {
+    const response = await api.post('/auth/verify-email/resend', { email });
+    return response.data;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, setUser, login, register, logout, loading, refreshUser, updateUserLanguage }}>
+    <AuthContext.Provider value={{
+      user,
+      setUser,
+      login,
+      register,
+      logout,
+      loading,
+      refreshUser,
+      updateUserLanguage,
+      requestPasswordReset,
+      validatePasswordResetToken,
+      confirmPasswordReset,
+      confirmEmailVerification,
+      resendVerificationEmail,
+    }}>
       {children}
     </AuthContext.Provider>
   );
@@ -186,6 +251,9 @@ function AppRouter() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/view/:token" element={<SecureViewer />} />
       <Route path="/expired" element={<ExpiredPage />} />
@@ -201,6 +269,7 @@ function AppRouter() {
       <Route path="/admin" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
       <Route path="/admin/users" element={<ProtectedRoute adminOnly><AdminUsers /></ProtectedRoute>} />
       <Route path="/admin/links" element={<ProtectedRoute adminOnly><AdminLinks /></ProtectedRoute>} />
+      <Route path="/admin/audit-events" element={<ProtectedRoute adminOnly><AdminAuditLogs /></ProtectedRoute>} />
       <Route path="/admin/settings" element={<ProtectedRoute adminOnly><AdminSettings /></ProtectedRoute>} />
       
       {/* Catch all */}

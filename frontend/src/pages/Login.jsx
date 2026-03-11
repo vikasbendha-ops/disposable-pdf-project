@@ -13,13 +13,17 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showVerificationHelp, setShowVerificationHelp] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState('');
   
-  const { login, user } = useAuth();
+  const { login, user, resendVerificationEmail } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const from = location.state?.from?.pathname || '/dashboard';
+  const registrationPendingVerification = Boolean(location.state?.pendingVerification);
 
   // Redirect if already logged in
   React.useEffect(() => {
@@ -28,9 +32,17 @@ const Login = () => {
     }
   }, [user, navigate]);
 
+  React.useEffect(() => {
+    if (registrationPendingVerification && location.state?.registeredEmail) {
+      setUnverifiedEmail(location.state.registeredEmail);
+      setShowVerificationHelp(true);
+    }
+  }, [registrationPendingVerification, location.state]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setShowVerificationHelp(false);
     setLoading(true);
 
     try {
@@ -38,10 +50,33 @@ const Login = () => {
       toast.success('Welcome back!');
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err.response?.data?.detail || 'Invalid email or password');
+      const detail = err.response?.data?.detail || 'Invalid email or password';
+      setError(detail);
+      const needsVerification =
+        err.response?.status === 403 || /verify your email/i.test(detail);
+      if (needsVerification) {
+        setShowVerificationHelp(true);
+        setUnverifiedEmail(email);
+      }
       toast.error('Login failed');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!unverifiedEmail) {
+      toast.error('Enter your email first');
+      return;
+    }
+    setResendLoading(true);
+    try {
+      await resendVerificationEmail(unverifiedEmail);
+      toast.success('Verification email sent if account is pending verification.');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to resend verification email');
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -115,10 +150,35 @@ const Login = () => {
           <h2 className="font-heading text-3xl font-bold text-stone-900 mb-2">Sign In</h2>
           <p className="text-stone-600 mb-8">Enter your credentials to access your vault</p>
 
+          {registrationPendingVerification && (
+            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+              <p className="text-emerald-800 text-sm">
+                Account created. Please verify your email before signing in.
+              </p>
+            </div>
+          )}
+
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center space-x-3">
               <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
               <span className="text-red-700 text-sm">{error}</span>
+            </div>
+          )}
+
+          {showVerificationHelp && (
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-amber-900 text-sm mb-3">
+                Your email is not verified yet. Resend the verification link.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-amber-300 text-amber-900 hover:bg-amber-100"
+                onClick={handleResendVerification}
+                disabled={resendLoading}
+              >
+                {resendLoading ? 'Sending...' : 'Resend verification email'}
+              </Button>
             </div>
           )}
 

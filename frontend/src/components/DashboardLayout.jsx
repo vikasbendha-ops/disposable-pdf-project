@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, FileText, Link2, Settings, LogOut, Shield, 
-  ChevronRight, Users, BarChart3, Menu, X 
+  ChevronRight, Users, BarChart3, Menu, X, ClipboardList
 } from 'lucide-react';
 import { useAuth } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -29,6 +29,7 @@ const DashboardLayout = ({ children, title, subtitle }) => {
     { icon: BarChart3, label: t('admin.dashboard'), path: '/admin' },
     { icon: Users, label: t('admin.manageUsers'), path: '/admin/users' },
     { icon: Link2, label: t('admin.allLinks'), path: '/admin/links' },
+    { icon: ClipboardList, label: 'Audit Logs', path: '/admin/audit-events' },
     { icon: Settings, label: t('admin.stripeSettings') || 'Stripe Settings', path: '/admin/settings' },
   ];
 
