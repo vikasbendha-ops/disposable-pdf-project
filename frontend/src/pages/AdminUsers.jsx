@@ -147,9 +147,11 @@ const AdminUsers = () => {
                       </TableCell>
                       <TableCell>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          user.role === 'admin' 
-                            ? 'bg-purple-100 text-purple-800' 
-                            : 'bg-stone-100 text-stone-600'
+                          user.role === 'super_admin'
+                            ? 'bg-red-100 text-red-800'
+                            : user.role === 'admin'
+                              ? 'bg-purple-100 text-purple-800'
+                              : 'bg-stone-100 text-stone-600'
                         }`}>
                           {user.role}
                         </span>
@@ -193,21 +195,26 @@ const AdminUsers = () => {
                                 Deactivate Subscription
                               </DropdownMenuItem>
                             )}
-                            {user.role !== 'admin' ? (
-                              <DropdownMenuItem
-                                onClick={() => handleUpdateUser(user.user_id, { role: 'admin' })}
-                              >
-                                <Shield className="w-4 h-4 mr-2 text-purple-600" />
-                                Make Admin
+                            {user.role === 'super_admin' ? (
+                              <DropdownMenuItem disabled>
+                                <Shield className="w-4 h-4 mr-2 text-red-600" />
+                                Super Admin (Protected)
                               </DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem
-                                onClick={() => handleUpdateUser(user.user_id, { role: 'user' })}
-                              >
-                                <Users className="w-4 h-4 mr-2" />
-                                Remove Admin
-                              </DropdownMenuItem>
-                            )}
+                            ) : user.role !== 'admin' ? (
+                                <DropdownMenuItem
+                                  onClick={() => handleUpdateUser(user.user_id, { role: 'admin' })}
+                                >
+                                  <Shield className="w-4 h-4 mr-2 text-purple-600" />
+                                  Make Admin
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  onClick={() => handleUpdateUser(user.user_id, { role: 'user' })}
+                                >
+                                  <Users className="w-4 h-4 mr-2" />
+                                  Remove Admin
+                                </DropdownMenuItem>
+                              )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => setDeleteTarget(user)}

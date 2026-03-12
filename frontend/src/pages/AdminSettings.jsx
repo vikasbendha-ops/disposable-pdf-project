@@ -5,10 +5,15 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import { api } from '../App';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Switch } from '../components/ui/switch';
+import { api, useAuth } from '../App';
 import { toast } from 'sonner';
 
 const AdminSettings = () => {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'super_admin';
+
   const [stripeConfig, setStripeConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [liveKey, setLiveKey] = useState('');
@@ -16,9 +21,23 @@ const AdminSettings = () => {
   const [showKey, setShowKey] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const [storageConfig, setStorageConfig] = useState(null);
+  const [storageLoading, setStorageLoading] = useState(false);
+  const [storageSaving, setStorageSaving] = useState(false);
+  const [storageProvider, setStorageProvider] = useState('supabase_db');
+  const [wasabiEndpoint, setWasabiEndpoint] = useState('');
+  const [wasabiRegion, setWasabiRegion] = useState('us-east-1');
+  const [wasabiBucket, setWasabiBucket] = useState('');
+  const [wasabiAccessKey, setWasabiAccessKey] = useState('');
+  const [wasabiSecretKey, setWasabiSecretKey] = useState('');
+  const [wasabiForcePathStyle, setWasabiForcePathStyle] = useState(true);
+
   useEffect(() => {
     fetchStripeConfig();
-  }, []);
+    if (isSuperAdmin) {
+      fetchStorageConfig();
+    }
+  }, [isSuperAdmin]);
 
   const fetchStripeConfig = async () => {
     try {
@@ -28,6 +47,30 @@ const AdminSettings = () => {
       toast.error('Failed to load Stripe settings');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const applyStorageState = (config) => {
+    setStorageConfig(config);
+    setStorageProvider(config?.active_provider || 'supabase_db');
+    setWasabiEndpoint(config?.wasabi?.endpoint || '');
+    setWasabiRegion(config?.wasabi?.region || 'us-east-1');
+    setWasabiBucket(config?.wasabi?.bucket || '');
+    setWasabiForcePathStyle(config?.wasabi?.force_path_style !== false);
+  };
+
+  const fetchStorageConfig = async () => {
+    setStorageLoading(true);
+    try {
+      const res = await api.get('/admin/settings/storage');
+      applyStorageState(res.data);
+    } catch (err) {
+      setStorageConfig(null);
+      if (err.response?.status !== 403) {
+        toast.error(err.response?.data?.detail || 'Failed to load storage settings');
+      }
+    } finally {
+      setStorageLoading(false);
     }
   };
 
@@ -85,6 +128,40 @@ const AdminSettings = () => {
       toast.error(err.response?.data?.detail || 'Failed to save sandbox key');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveStorageConfig = async () => {
+    if (!isSuperAdmin) {
+      toast.error('Only super admin can update storage settings');
+      return;
+    }
+
+    const payload = {
+      active_provider: storageProvider,
+      wasabi_endpoint: wasabiEndpoint,
+      wasabi_region: wasabiRegion,
+      wasabi_bucket: wasabiBucket,
+      wasabi_force_path_style: wasabiForcePathStyle,
+    };
+    if (wasabiAccessKey.trim()) {
+      payload.wasabi_access_key_id = wasabiAccessKey.trim();
+    }
+    if (wasabiSecretKey.trim()) {
+      payload.wasabi_secret_access_key = wasabiSecretKey.trim();
+    }
+
+    setStorageSaving(true);
+    try {
+      const res = await api.put('/admin/settings/storage', payload);
+      applyStorageState(res.data);
+      setWasabiAccessKey('');
+      setWasabiSecretKey('');
+      toast.success('Storage settings saved');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to save storage settings');
+    } finally {
+      setStorageSaving(false);
     }
   };
 
@@ -253,6 +330,102 @@ const AdminSettings = () => {
                 </p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Storage Provider (Super Admin only) */}
+        <Card className="border-stone-200" data-testid="storage-settings-card">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>PDF Storage Provider</CardTitle>
+                <CardDescription>
+                  Select where PDFs are stored for new uploads. Existing links remain unaffected.
+                </CardDescription>
+              </div>
+              <Badge
+                className={
+                  storageProvider === 'wasabi_s3'
+                    ? 'bg-blue-100 text-blue-800 border-blue-200'
+                    : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                }
+              >
+                {storageProvider === 'wasabi_s3' ? 'Wasabi Active' : 'Supabase Active'}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!isSuperAdmin ? (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                Only super admin can change storage provider. Current role: {user?.role || 'unknown'}.
+              </div>
+            ) : storageLoading ? (
+              <div className="text-sm text-stone-500">Loading storage settings...</div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-stone-700">Active provider</p>
+                  <Select value={storageProvider} onValueChange={setStorageProvider}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select storage provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="supabase_db">Supabase (Database Storage)</SelectItem>
+                      <SelectItem value="wasabi_s3">Wasabi (S3 Compatible)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-3 pt-3 border-t border-stone-200">
+                  <p className="text-sm font-semibold text-stone-700">Wasabi Configuration</p>
+                  <Input
+                    placeholder="Endpoint (e.g. https://s3.ap-south-1.wasabisys.com)"
+                    value={wasabiEndpoint}
+                    onChange={(e) => setWasabiEndpoint(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Region (e.g. ap-south-1)"
+                    value={wasabiRegion}
+                    onChange={(e) => setWasabiRegion(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Bucket name"
+                    value={wasabiBucket}
+                    onChange={(e) => setWasabiBucket(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Access key ID (leave blank to keep current)"
+                    value={wasabiAccessKey}
+                    onChange={(e) => setWasabiAccessKey(e.target.value)}
+                  />
+                  <Input
+                    type="password"
+                    placeholder="Secret access key (leave blank to keep current)"
+                    value={wasabiSecretKey}
+                    onChange={(e) => setWasabiSecretKey(e.target.value)}
+                  />
+                  <div className="flex items-center justify-between rounded-lg border border-stone-200 p-3">
+                    <div>
+                      <p className="text-sm font-medium text-stone-900">Force path style</p>
+                      <p className="text-xs text-stone-500">Recommended for S3-compatible providers</p>
+                    </div>
+                    <Switch checked={wasabiForcePathStyle} onCheckedChange={setWasabiForcePathStyle} />
+                  </div>
+                  <div className="text-xs text-stone-500">
+                    Current key status: {storageConfig?.wasabi?.access_key_set ? 'access key set' : 'access key missing'} /{' '}
+                    {storageConfig?.wasabi?.secret_key_set ? 'secret key set' : 'secret key missing'}
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleSaveStorageConfig}
+                  disabled={storageSaving}
+                  className="bg-emerald-900 hover:bg-emerald-800"
+                >
+                  {storageSaving ? 'Saving...' : 'Save Storage Settings'}
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
 

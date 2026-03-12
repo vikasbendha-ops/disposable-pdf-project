@@ -56,6 +56,18 @@ create index if not exists idx_app_docs_pdfs_user_id
 create index if not exists idx_app_docs_pdfs_folder
   on public.app_documents ((doc->>'folder'))
   where collection = 'pdfs';
+create index if not exists idx_app_docs_pdfs_storage_provider
+  on public.app_documents ((doc->>'storage_provider'))
+  where collection = 'pdfs';
+create index if not exists idx_app_docs_pdfs_direct_access_token
+  on public.app_documents ((doc->>'direct_access_token'))
+  where collection = 'pdfs';
+create index if not exists idx_app_docs_pdfs_direct_access_enabled
+  on public.app_documents ((doc->>'direct_access_enabled'))
+  where collection = 'pdfs';
+create index if not exists idx_app_docs_pdfs_direct_access_public
+  on public.app_documents ((doc->>'direct_access_public'))
+  where collection = 'pdfs';
 create index if not exists idx_app_docs_folders_folder_id
   on public.app_documents ((doc->>'folder_id'))
   where collection = 'folders';

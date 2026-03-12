@@ -194,11 +194,11 @@ async function run() {
     let userResult = null;
     if (seedSampleUser) {
       userResult = await upsertUser(client, {
-        name: "Sample User",
+        name: "Super Admin User",
         email: sampleUserEmail,
         password: sampleUserPassword,
-        role: "user",
-        plan: "basic",
+        role: "super_admin",
+        plan: "enterprise",
         subscriptionStatus: "active",
       });
     }

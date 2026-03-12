@@ -36,6 +36,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
+import { Switch } from '../components/ui/switch';
 import { api, useAuth, BACKEND_URL } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
@@ -56,6 +57,7 @@ const PDFManagement = () => {
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [moveTarget, setMoveTarget] = useState(null);
   const [copiedLink, setCopiedLink] = useState(null);
+  const [updatingDirect, setUpdatingDirect] = useState(null);
   const { user } = useAuth();
   const { t } = useLanguage();
 
@@ -187,15 +189,54 @@ const PDFManagement = () => {
     }
   };
 
-  const copyLink = async (token) => {
-    const fullUrl = `${window.location.origin}/view/${token}`;
+  const copyLink = async (key, fullUrl) => {
     try {
       await navigator.clipboard.writeText(fullUrl);
-      setCopiedLink(token);
+      setCopiedLink(key);
       toast.success('Link copied!');
       setTimeout(() => setCopiedLink(null), 2000);
     } catch (error) {
       toast.error('Failed to copy');
+    }
+  };
+
+  const getDirectUrl = (pdf) => {
+    if (pdf?.direct_access_url) {
+      if (pdf.direct_access_url.startsWith('http://') || pdf.direct_access_url.startsWith('https://')) {
+        return pdf.direct_access_url;
+      }
+      return `${window.location.origin}${pdf.direct_access_url}`;
+    }
+    if (pdf?.direct_access_token) {
+      return `${window.location.origin}/api/direct/${pdf.direct_access_token}`;
+    }
+    return '';
+  };
+
+  const handleUpdateDirectAccess = async (pdf, payload) => {
+    setUpdatingDirect(pdf.pdf_id);
+    try {
+      const response = await api.put(`/pdfs/${pdf.pdf_id}/direct-access`, payload);
+      const updates = response.data || {};
+      setPdfs((prev) =>
+        prev.map((item) =>
+          item.pdf_id === pdf.pdf_id
+            ? {
+                ...item,
+                direct_access_enabled: updates.direct_access_enabled,
+                direct_access_public: updates.direct_access_public,
+                direct_access_mode: updates.direct_access_mode,
+                direct_access_token: updates.direct_access_token,
+                direct_access_url: updates.direct_access_url,
+              }
+            : item,
+        ),
+      );
+      toast.success('Direct link settings updated');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update direct link settings');
+    } finally {
+      setUpdatingDirect(null);
     }
   };
 
@@ -441,7 +482,7 @@ const PDFManagement = () => {
                                       variant="ghost"
                                       size="icon"
                                       className="h-7 w-7"
-                                      onClick={() => copyLink(link.token)}
+                                      onClick={() => copyLink(link.token, `${window.location.origin}/view/${link.token}`)}
                                     >
                                       {copiedLink === link.token ? (
                                         <Check className="w-3 h-3 text-emerald-600" />
@@ -473,6 +514,83 @@ const PDFManagement = () => {
                               )}
                             </div>
                           )}
+
+                          {/* Direct Link Access */}
+                          <div className="mt-3 rounded-lg border border-stone-200 bg-white p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-stone-900">Direct PDF Link</p>
+                                <p className="text-xs text-stone-500">
+                                  Full-view link without secure-view restrictions
+                                </p>
+                              </div>
+                              <span className={`text-xs px-2 py-1 rounded-full ${
+                                pdf.direct_access_enabled
+                                  ? pdf.direct_access_public
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : 'bg-amber-100 text-amber-700'
+                                  : 'bg-stone-100 text-stone-600'
+                              }`}>
+                                {!pdf.direct_access_enabled
+                                  ? 'Disabled'
+                                  : pdf.direct_access_public
+                                    ? 'Public'
+                                    : 'Login only'}
+                              </span>
+                            </div>
+
+                            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="flex items-center justify-between rounded-md border border-stone-200 px-3 py-2">
+                                <span className="text-sm text-stone-700">Enable direct link</span>
+                                <Switch
+                                  checked={Boolean(pdf.direct_access_enabled)}
+                                  disabled={updatingDirect === pdf.pdf_id}
+                                  onCheckedChange={(checked) =>
+                                    handleUpdateDirectAccess(pdf, { enabled: checked })
+                                  }
+                                />
+                              </div>
+
+                              <div className="flex items-center justify-between rounded-md border border-stone-200 px-3 py-2">
+                                <span className="text-sm text-stone-700">Open for all</span>
+                                <Switch
+                                  checked={Boolean(pdf.direct_access_public)}
+                                  disabled={!pdf.direct_access_enabled || updatingDirect === pdf.pdf_id}
+                                  onCheckedChange={(checked) =>
+                                    handleUpdateDirectAccess(pdf, {
+                                      is_public: checked,
+                                      ...(checked && !pdf.direct_access_enabled ? { enabled: true } : {}),
+                                    })
+                                  }
+                                />
+                              </div>
+                            </div>
+
+                            {pdf.direct_access_enabled && getDirectUrl(pdf) && (
+                              <div className="mt-3 flex items-center gap-2">
+                                <code className="flex-1 rounded-md bg-stone-50 px-2 py-1 text-xs text-stone-600 truncate">
+                                  {getDirectUrl(pdf)}
+                                </code>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => copyLink(`direct-${pdf.pdf_id}`, getDirectUrl(pdf))}
+                                >
+                                  {copiedLink === `direct-${pdf.pdf_id}` ? (
+                                    <Check className="w-3 h-3 text-emerald-600" />
+                                  ) : (
+                                    <Copy className="w-3 h-3" />
+                                  )}
+                                </Button>
+                                <a href={getDirectUrl(pdf)} target="_blank" rel="noopener noreferrer">
+                                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                                    <ExternalLink className="w-3 h-3" />
+                                  </Button>
+                                </a>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                       

@@ -16,7 +16,7 @@ const DashboardLayout = ({ children, title, subtitle }) => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
   const mainNavItems = [
     { icon: LayoutDashboard, label: t('dashboard.title'), path: '/dashboard' },
