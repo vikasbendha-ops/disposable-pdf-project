@@ -20,6 +20,19 @@ Optional frontend env override:
 
 - `NEXT_PUBLIC_BACKEND_URL` (leave empty to use same-origin `/api` on Vercel).
 
+### Email Delivery Setup (Required for Password Reset)
+
+Set these Vercel env vars:
+
+1. `RESEND_API_KEY=<your-resend-key>`
+2. `EMAIL_FROM=<verified-sender-email>`
+
+Notes:
+
+- For quick testing, `EMAIL_FROM=onboarding@resend.dev` can work (Resend account restrictions apply).
+- For production, use a sender from a verified domain in Resend.
+- If `RESEND_API_KEY` is missing, password reset and verification emails will not be delivered.
+
 ### Main Domain Setup (Vercel)
 
 Use your primary platform domain (example: `securepdf.vikasbendha.com`) as the app origin.
