@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Shield, CheckCircle, AlertCircle, Eye, EyeOff, Palette } from 'lucide-react';
+import { CreditCard, Shield, CheckCircle, AlertCircle, Eye, EyeOff, Palette, Search } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { Textarea } from '../components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Switch } from '../components/ui/switch';
-import { api, DEFAULT_BRANDING, useAuth, useBranding } from '../App';
+import { api, DEFAULT_BRANDING, useAuth, useBranding, useSeo } from '../App';
+import { DEFAULT_SEO_SETTINGS } from '../../../lib/seo';
 import { toast } from 'sonner';
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
@@ -15,6 +17,7 @@ const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 const AdminSettings = () => {
   const { user } = useAuth();
   const { refreshBranding } = useBranding();
+  const { refreshSeo } = useSeo();
   const isSuperAdmin = user?.role === 'super_admin';
 
   const [stripeConfig, setStripeConfig] = useState(null);
@@ -45,11 +48,27 @@ const AdminSettings = () => {
   const [brandAccentColor, setBrandAccentColor] = useState(DEFAULT_BRANDING.accent_color);
   const [brandFooterText, setBrandFooterText] = useState(DEFAULT_BRANDING.footer_text);
 
+  const [seoConfig, setSeoConfig] = useState(null);
+  const [seoLoading, setSeoLoading] = useState(false);
+  const [seoSaving, setSeoSaving] = useState(false);
+  const [seoSiteName, setSeoSiteName] = useState(DEFAULT_SEO_SETTINGS.site_name);
+  const [seoDefaultTitle, setSeoDefaultTitle] = useState(DEFAULT_SEO_SETTINGS.default_title);
+  const [seoDefaultDescription, setSeoDefaultDescription] = useState(
+    DEFAULT_SEO_SETTINGS.default_description,
+  );
+  const [seoKeywords, setSeoKeywords] = useState(DEFAULT_SEO_SETTINGS.default_keywords);
+  const [seoOgImageUrl, setSeoOgImageUrl] = useState(DEFAULT_SEO_SETTINGS.og_image_url);
+  const [seoFaviconUrl, setSeoFaviconUrl] = useState(DEFAULT_SEO_SETTINGS.favicon_url);
+  const [seoCanonicalBaseUrl, setSeoCanonicalBaseUrl] = useState('');
+  const [seoTwitterHandle, setSeoTwitterHandle] = useState('');
+  const [seoNoindex, setSeoNoindex] = useState(false);
+
   useEffect(() => {
     fetchStripeConfig();
     if (isSuperAdmin) {
       fetchStorageConfig();
       fetchBrandingConfig();
+      fetchSeoConfig();
     }
   }, [isSuperAdmin]);
 
@@ -110,6 +129,34 @@ const AdminSettings = () => {
       }
     } finally {
       setBrandingLoading(false);
+    }
+  };
+
+  const applySeoState = (config) => {
+    setSeoConfig(config);
+    setSeoSiteName(config?.site_name || DEFAULT_SEO_SETTINGS.site_name);
+    setSeoDefaultTitle(config?.default_title || DEFAULT_SEO_SETTINGS.default_title);
+    setSeoDefaultDescription(config?.default_description || DEFAULT_SEO_SETTINGS.default_description);
+    setSeoKeywords(config?.default_keywords || DEFAULT_SEO_SETTINGS.default_keywords);
+    setSeoOgImageUrl(config?.og_image_url || DEFAULT_SEO_SETTINGS.og_image_url);
+    setSeoFaviconUrl(config?.favicon_url || DEFAULT_SEO_SETTINGS.favicon_url);
+    setSeoCanonicalBaseUrl(config?.canonical_base_url || '');
+    setSeoTwitterHandle(config?.twitter_handle || '');
+    setSeoNoindex(Boolean(config?.noindex));
+  };
+
+  const fetchSeoConfig = async () => {
+    setSeoLoading(true);
+    try {
+      const res = await api.get('/admin/settings/seo');
+      applySeoState(res.data);
+    } catch (err) {
+      setSeoConfig(null);
+      if (err.response?.status !== 403) {
+        toast.error(err.response?.data?.detail || 'Failed to load SEO settings');
+      }
+    } finally {
+      setSeoLoading(false);
     }
   };
 
@@ -238,6 +285,43 @@ const AdminSettings = () => {
       toast.error(err.response?.data?.detail || 'Failed to save branding settings');
     } finally {
       setBrandingSaving(false);
+    }
+  };
+
+  const handleSaveSeoConfig = async () => {
+    if (!isSuperAdmin) {
+      toast.error('Only super admin can update SEO settings');
+      return;
+    }
+
+    const canonicalValue = seoCanonicalBaseUrl.trim();
+    if (canonicalValue && !/^https?:\/\/.+/i.test(canonicalValue)) {
+      toast.error('Canonical base URL must start with http:// or https://');
+      return;
+    }
+
+    const payload = {
+      site_name: seoSiteName.trim(),
+      default_title: seoDefaultTitle.trim(),
+      default_description: seoDefaultDescription.trim(),
+      default_keywords: seoKeywords.trim(),
+      og_image_url: seoOgImageUrl.trim(),
+      favicon_url: seoFaviconUrl.trim(),
+      canonical_base_url: canonicalValue,
+      twitter_handle: seoTwitterHandle.trim(),
+      noindex: seoNoindex,
+    };
+
+    setSeoSaving(true);
+    try {
+      const res = await api.put('/admin/settings/seo', payload);
+      applySeoState(res.data);
+      await refreshSeo();
+      toast.success('SEO settings saved');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to save SEO settings');
+    } finally {
+      setSeoSaving(false);
     }
   };
 
@@ -621,6 +705,147 @@ const AdminSettings = () => {
                   className="bg-emerald-900 hover:bg-emerald-800"
                 >
                   {brandingSaving ? 'Saving...' : 'Save Branding Settings'}
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* SEO (Super Admin only) */}
+        <Card className="border-stone-200" data-testid="seo-settings-card">
+          <CardHeader>
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-amber-100">
+                <Search className="w-5 h-5 text-amber-700" />
+              </div>
+              <div>
+                <CardTitle>SEO Settings</CardTitle>
+                <CardDescription>
+                  Control default page title, meta description, social image, and favicon.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!isSuperAdmin ? (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                Only super admin can update SEO settings. Current role: {user?.role || 'unknown'}.
+              </div>
+            ) : seoLoading ? (
+              <div className="text-sm text-stone-500">Loading SEO settings...</div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-stone-700">Site name</p>
+                  <Input
+                    value={seoSiteName}
+                    onChange={(e) => setSeoSiteName(e.target.value)}
+                    placeholder="Autodestroy PDF Platform"
+                    maxLength={80}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-stone-700">Default page title</p>
+                  <Input
+                    value={seoDefaultTitle}
+                    onChange={(e) => setSeoDefaultTitle(e.target.value)}
+                    placeholder="Secure PDF Sharing with Expiring Access Links"
+                    maxLength={120}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-stone-700">Default meta description</p>
+                  <Textarea
+                    value={seoDefaultDescription}
+                    onChange={(e) => setSeoDefaultDescription(e.target.value)}
+                    placeholder="Share sensitive PDFs with expiring links, view tracking, watermarking, and full access control."
+                    rows={3}
+                    maxLength={320}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-stone-700">Meta keywords</p>
+                  <Input
+                    value={seoKeywords}
+                    onChange={(e) => setSeoKeywords(e.target.value)}
+                    placeholder="secure pdf sharing, expiring links, document protection"
+                    maxLength={320}
+                  />
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-stone-700">Open Graph image URL</p>
+                    <Input
+                      value={seoOgImageUrl}
+                      onChange={(e) => setSeoOgImageUrl(e.target.value)}
+                      placeholder="/og-image.svg"
+                      maxLength={400}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-stone-700">Favicon URL</p>
+                    <Input
+                      value={seoFaviconUrl}
+                      onChange={(e) => setSeoFaviconUrl(e.target.value)}
+                      placeholder="/favicon.svg"
+                      maxLength={400}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-stone-700">Canonical base URL</p>
+                    <Input
+                      value={seoCanonicalBaseUrl}
+                      onChange={(e) => setSeoCanonicalBaseUrl(e.target.value)}
+                      placeholder="https://your-domain.com"
+                      maxLength={240}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-stone-700">Twitter handle (optional)</p>
+                    <Input
+                      value={seoTwitterHandle}
+                      onChange={(e) => setSeoTwitterHandle(e.target.value)}
+                      placeholder="@yourbrand"
+                      maxLength={64}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border border-stone-200 p-3">
+                  <div>
+                    <p className="text-sm font-medium text-stone-900">Disable indexing globally</p>
+                    <p className="text-xs text-stone-500">Sets all pages to `noindex, nofollow`</p>
+                  </div>
+                  <Switch checked={seoNoindex} onCheckedChange={setSeoNoindex} />
+                </div>
+
+                <div className="rounded-lg border border-stone-200 p-4 bg-stone-50">
+                  <p className="text-xs uppercase tracking-wider text-stone-500 mb-2">SEO Preview</p>
+                  <p className="text-sm font-semibold text-blue-700 truncate">{seoDefaultTitle || DEFAULT_SEO_SETTINGS.default_title}</p>
+                  <p className="text-xs text-emerald-700 truncate mt-1">
+                    {(seoCanonicalBaseUrl || 'https://your-domain.com').replace(/\/$/, '')}/
+                  </p>
+                  <p className="text-xs text-stone-600 mt-1 line-clamp-2">
+                    {seoDefaultDescription || DEFAULT_SEO_SETTINGS.default_description}
+                  </p>
+                  {seoConfig?.updated_at && (
+                    <p className="text-[11px] text-stone-400 mt-2">Last updated: {new Date(seoConfig.updated_at).toLocaleString()}</p>
+                  )}
+                </div>
+
+                <Button
+                  onClick={handleSaveSeoConfig}
+                  disabled={seoSaving}
+                  className="bg-emerald-900 hover:bg-emerald-800"
+                >
+                  {seoSaving ? 'Saving...' : 'Save SEO Settings'}
                 </Button>
               </>
             )}

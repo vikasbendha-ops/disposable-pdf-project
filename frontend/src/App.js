@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
 import { LanguageProvider } from './contexts/LanguageContext';
+import { buildSeoMetadata, DEFAULT_SEO_SETTINGS, normalizeSeoConfig } from '../../lib/seo';
 
 // Pages
 import Landing from './pages/Landing';
@@ -46,6 +47,7 @@ const DEFAULT_BRANDING = Object.freeze({
 // Auth Context
 const AuthContext = createContext(null);
 const BrandingContext = createContext(null);
+const SeoContext = createContext(null);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -59,6 +61,14 @@ export const useBranding = () => {
   const context = useContext(BrandingContext);
   if (!context) {
     throw new Error('useBranding must be used within BrandingProvider');
+  }
+  return context;
+};
+
+export const useSeo = () => {
+  const context = useContext(SeoContext);
+  if (!context) {
+    throw new Error('useSeo must be used within SeoProvider');
   }
   return context;
 };
@@ -128,6 +138,126 @@ const BrandingProvider = ({ children }) => {
     <BrandingContext.Provider value={{ branding, loading, refreshBranding }}>
       {children}
     </BrandingContext.Provider>
+  );
+};
+
+function upsertMetaByName(name, content) {
+  if (typeof document === 'undefined') return;
+  let tag = document.head.querySelector(`meta[name="${name}"]`);
+  if (!tag) {
+    tag = document.createElement('meta');
+    tag.setAttribute('name', name);
+    document.head.appendChild(tag);
+  }
+  tag.setAttribute('content', content || '');
+}
+
+function upsertMetaByProperty(property, content) {
+  if (typeof document === 'undefined') return;
+  let tag = document.head.querySelector(`meta[property="${property}"]`);
+  if (!tag) {
+    tag = document.createElement('meta');
+    tag.setAttribute('property', property);
+    document.head.appendChild(tag);
+  }
+  tag.setAttribute('content', content || '');
+}
+
+function upsertLinkTag(rel, href) {
+  if (typeof document === 'undefined') return;
+  let tag = document.head.querySelector(`link[rel="${rel}"]`);
+  if (!tag) {
+    tag = document.createElement('link');
+    tag.setAttribute('rel', rel);
+    document.head.appendChild(tag);
+  }
+  tag.setAttribute('href', href || '');
+}
+
+function removeHeadTag(selector) {
+  if (typeof document === 'undefined') return;
+  const tag = document.head.querySelector(selector);
+  if (tag) {
+    tag.remove();
+  }
+}
+
+function applySeoToDocument(seoMeta) {
+  if (typeof document === 'undefined' || !seoMeta) return;
+
+  document.title = seoMeta.title || DEFAULT_SEO_SETTINGS.default_title;
+  upsertMetaByName('description', seoMeta.description || '');
+  upsertMetaByName('keywords', seoMeta.keywords || '');
+  upsertMetaByName('robots', seoMeta.robots || 'index, follow');
+
+  upsertMetaByProperty('og:type', 'website');
+  upsertMetaByProperty('og:site_name', seoMeta.siteName || '');
+  upsertMetaByProperty('og:title', seoMeta.title || '');
+  upsertMetaByProperty('og:description', seoMeta.description || '');
+  upsertMetaByProperty('og:image', seoMeta.ogImageUrl || '');
+  if (seoMeta.ogUrl) {
+    upsertMetaByProperty('og:url', seoMeta.ogUrl);
+  } else {
+    removeHeadTag('meta[property="og:url"]');
+  }
+
+  upsertMetaByName('twitter:card', seoMeta.twitterCard || 'summary_large_image');
+  upsertMetaByName('twitter:title', seoMeta.title || '');
+  upsertMetaByName('twitter:description', seoMeta.description || '');
+  upsertMetaByName('twitter:image', seoMeta.ogImageUrl || '');
+  if (seoMeta.twitterHandle) {
+    upsertMetaByName('twitter:site', seoMeta.twitterHandle);
+  } else {
+    removeHeadTag('meta[name="twitter:site"]');
+  }
+
+  if (seoMeta.canonicalUrl) {
+    upsertLinkTag('canonical', seoMeta.canonicalUrl);
+  } else {
+    removeHeadTag('link[rel="canonical"]');
+  }
+  if (seoMeta.faviconUrl) {
+    upsertLinkTag('icon', seoMeta.faviconUrl);
+    upsertLinkTag('shortcut icon', seoMeta.faviconUrl);
+    upsertLinkTag('apple-touch-icon', seoMeta.faviconUrl);
+  }
+}
+
+const SeoProvider = ({ children }) => {
+  const location = useLocation();
+  const [seoConfig, setSeoConfig] = useState(DEFAULT_SEO_SETTINGS);
+  const [loading, setLoading] = useState(true);
+
+  const fetchSeo = useCallback(async () => {
+    try {
+      const response = await api.get('/seo');
+      const next = normalizeSeoConfig(response.data || {});
+      setSeoConfig(next);
+      return next;
+    } catch {
+      const fallback = normalizeSeoConfig({});
+      setSeoConfig(fallback);
+      return fallback;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSeo();
+  }, [fetchSeo]);
+
+  useEffect(() => {
+    const seoMeta = buildSeoMetadata(location.pathname, seoConfig);
+    applySeoToDocument(seoMeta);
+  }, [location.pathname, seoConfig]);
+
+  const refreshSeo = useCallback(async () => fetchSeo(), [fetchSeo]);
+
+  return (
+    <SeoContext.Provider value={{ seo: seoConfig, loading, refreshSeo }}>
+      {children}
+    </SeoContext.Provider>
   );
 };
 
@@ -354,11 +484,13 @@ function App() {
       <LanguageProvider>
         <AuthProvider>
           <BrandingProvider>
-            <div className="App">
-              <div className="noise-overlay" />
-              <AppRouter />
-              <Toaster position="top-right" richColors />
-            </div>
+            <SeoProvider>
+              <div className="App">
+                <div className="noise-overlay" />
+                <AppRouter />
+                <Toaster position="top-right" richColors />
+              </div>
+            </SeoProvider>
           </BrandingProvider>
         </AuthProvider>
       </LanguageProvider>
