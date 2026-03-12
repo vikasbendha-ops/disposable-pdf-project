@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Check, FileText, ChevronRight, Zap, Shield, Clock, Users } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
-import { api, useAuth } from '../App';
+import { api, useAuth, useBranding } from '../App';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 
@@ -13,6 +13,10 @@ const Pricing = () => {
   const [loading, setLoading] = useState(true);
   const [processingPlan, setProcessingPlan] = useState(null);
   const { user } = useAuth();
+  const { branding } = useBranding();
+  const brandName = branding?.app_name || 'Autodestroy';
+  const productName = branding?.product_name || 'Autodestroy PDF Platform';
+  const footerText = branding?.footer_text || 'All rights reserved.';
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -103,7 +107,7 @@ const Pricing = () => {
             <div className="w-10 h-10 bg-emerald-900 rounded-lg flex items-center justify-center">
               <FileText className="w-5 h-5 text-white" />
             </div>
-            <span className="font-heading font-bold text-xl text-stone-900">Autodestroy</span>
+            <span className="font-heading font-bold text-xl text-stone-900">{brandName}</span>
           </Link>
           
           {user ? (
@@ -283,7 +287,7 @@ const Pricing = () => {
       <footer className="bg-stone-900 text-white py-8 px-6">
         <div className="max-w-7xl mx-auto text-center">
           <p className="text-stone-400">
-            &copy; {new Date().getFullYear()} Autodestroy PDF Platform. All rights reserved.
+            &copy; {new Date().getFullYear()} {productName}. {footerText}
           </p>
         </div>
       </footer>

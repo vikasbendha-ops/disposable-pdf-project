@@ -5,11 +5,13 @@ import { FileText, Lock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { useAuth } from '../App';
+import { useAuth, useBranding } from '../App';
 import { toast } from 'sonner';
 
 const ResetPassword = () => {
   const { validatePasswordResetToken, confirmPasswordReset, user } = useAuth();
+  const { branding } = useBranding();
+  const brandName = branding?.app_name || 'Autodestroy';
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = searchParams.get('token') || '';
@@ -89,7 +91,7 @@ const ResetPassword = () => {
           <div className="w-10 h-10 bg-emerald-900 rounded-lg flex items-center justify-center">
             <FileText className="w-5 h-5 text-white" />
           </div>
-          <span className="font-heading font-bold text-xl text-stone-900">Autodestroy</span>
+          <span className="font-heading font-bold text-xl text-stone-900">{brandName}</span>
         </Link>
 
         <h1 className="font-heading text-2xl font-bold text-stone-900 mb-2">Create New Password</h1>

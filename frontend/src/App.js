@@ -34,14 +34,31 @@ const DEFAULT_BACKEND_URL =
 const ENV_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || '';
 const BACKEND_URL = (ENV_BACKEND_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
 const API = `${BACKEND_URL}/api`;
+const DEFAULT_BRANDING = Object.freeze({
+  app_name: 'Autodestroy',
+  product_name: 'Autodestroy PDF Platform',
+  tagline: 'Secure Document Sharing',
+  primary_color: '#064e3b',
+  accent_color: '#10b981',
+  footer_text: 'All rights reserved.',
+});
 
 // Auth Context
 const AuthContext = createContext(null);
+const BrandingContext = createContext(null);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error('useAuth must be used within AuthProvider');
+  }
+  return context;
+};
+
+export const useBranding = () => {
+  const context = useContext(BrandingContext);
+  if (!context) {
+    throw new Error('useBranding must be used within BrandingProvider');
   }
   return context;
 };
@@ -60,6 +77,59 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+const normalizeBranding = (payload) => {
+  const source = payload && typeof payload === 'object' ? payload : {};
+  return {
+    app_name: String(source.app_name || DEFAULT_BRANDING.app_name),
+    product_name: String(source.product_name || DEFAULT_BRANDING.product_name),
+    tagline: String(source.tagline || DEFAULT_BRANDING.tagline),
+    primary_color: String(source.primary_color || DEFAULT_BRANDING.primary_color),
+    accent_color: String(source.accent_color || DEFAULT_BRANDING.accent_color),
+    footer_text: String(source.footer_text || DEFAULT_BRANDING.footer_text),
+  };
+};
+
+const applyBrandingCssVars = (branding) => {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  root.style.setProperty('--brand-primary-color', branding.primary_color);
+  root.style.setProperty('--brand-accent-color', branding.accent_color);
+};
+
+const BrandingProvider = ({ children }) => {
+  const [branding, setBranding] = useState(DEFAULT_BRANDING);
+  const [loading, setLoading] = useState(true);
+
+  const fetchBranding = useCallback(async () => {
+    try {
+      const response = await api.get('/branding');
+      const next = normalizeBranding(response.data);
+      setBranding(next);
+      applyBrandingCssVars(next);
+      return next;
+    } catch (error) {
+      const fallback = normalizeBranding(null);
+      setBranding(fallback);
+      applyBrandingCssVars(fallback);
+      return fallback;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBranding();
+  }, [fetchBranding]);
+
+  const refreshBranding = useCallback(async () => fetchBranding(), [fetchBranding]);
+
+  return (
+    <BrandingContext.Provider value={{ branding, loading, refreshBranding }}>
+      {children}
+    </BrandingContext.Provider>
+  );
+};
 
 // Auth Provider
 const AuthProvider = ({ children }) => {
@@ -283,11 +353,13 @@ function App() {
     <BrowserRouter>
       <LanguageProvider>
         <AuthProvider>
-          <div className="App">
-            <div className="noise-overlay" />
-            <AppRouter />
-            <Toaster position="top-right" richColors />
-          </div>
+          <BrandingProvider>
+            <div className="App">
+              <div className="noise-overlay" />
+              <AppRouter />
+              <Toaster position="top-right" richColors />
+            </div>
+          </BrandingProvider>
         </AuthProvider>
       </LanguageProvider>
     </BrowserRouter>
@@ -295,4 +367,4 @@ function App() {
 }
 
 export default App;
-export { API, BACKEND_URL };
+export { API, BACKEND_URL, DEFAULT_BRANDING };

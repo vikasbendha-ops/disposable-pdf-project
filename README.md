@@ -19,3 +19,15 @@ This repo is now configured so frontend and backend can run under one Vercel pro
 Optional frontend env override:
 
 - `NEXT_PUBLIC_BACKEND_URL` (leave empty to use same-origin `/api` on Vercel).
+
+### Automatic DB Migration on Vercel
+
+This project now uses a Vercel build wrapper (`scripts/vercel/build.cjs`):
+
+- On **Vercel production** deployments, DB migration runs automatically before `next build`.
+- On local builds and preview builds, migration is skipped by default.
+
+Control flags:
+
+- `RUN_DB_MIGRATIONS_ON_BUILD=true|false` (default: auto true only on Vercel production)
+- `SKIP_DB_MIGRATE=true|false` (emergency override to skip migration)

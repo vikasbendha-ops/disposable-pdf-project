@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/vercel/build.cjs",
+    "build:next": "next build",
     "start": "next start",
     "db:migrate": "node scripts/db/migrate.cjs",
     "db:seed": "node scripts/db/seed.cjs",

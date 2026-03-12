@@ -5,11 +5,13 @@ import { FileText, Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { useAuth } from '../App';
+import { useAuth, useBranding } from '../App';
 import { toast } from 'sonner';
 
 const ForgotPassword = () => {
   const { requestPasswordReset, user } = useAuth();
+  const { branding } = useBranding();
+  const brandName = branding?.app_name || 'Autodestroy';
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -49,7 +51,7 @@ const ForgotPassword = () => {
           <div className="w-10 h-10 bg-emerald-900 rounded-lg flex items-center justify-center">
             <FileText className="w-5 h-5 text-white" />
           </div>
-          <span className="font-heading font-bold text-xl text-stone-900">Autodestroy</span>
+          <span className="font-heading font-bold text-xl text-stone-900">{brandName}</span>
         </Link>
 
         <h1 className="font-heading text-2xl font-bold text-stone-900 mb-2">Reset Password</h1>

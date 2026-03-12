@@ -5,7 +5,7 @@ import { FileText, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { useAuth } from '../App';
+import { useAuth, useBranding } from '../App';
 import { toast } from 'sonner';
 
 const Login = () => {
@@ -19,6 +19,8 @@ const Login = () => {
   const [unverifiedEmail, setUnverifiedEmail] = useState('');
   
   const { login, user, resendVerificationEmail } = useAuth();
+  const { branding } = useBranding();
+  const brandName = branding?.app_name || 'Autodestroy';
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -106,7 +108,7 @@ const Login = () => {
             <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
               <FileText className="w-6 h-6 text-white" />
             </div>
-            <span className="font-heading font-bold text-2xl text-white">Autodestroy</span>
+            <span className="font-heading font-bold text-2xl text-white">{brandName}</span>
           </Link>
         </div>
 
@@ -143,7 +145,7 @@ const Login = () => {
               <div className="w-10 h-10 bg-emerald-900 rounded-lg flex items-center justify-center">
                 <FileText className="w-5 h-5 text-white" />
               </div>
-              <span className="font-heading font-bold text-xl text-stone-900">Autodestroy</span>
+              <span className="font-heading font-bold text-xl text-stone-900">{brandName}</span>
             </Link>
           </div>
 

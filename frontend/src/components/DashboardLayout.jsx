@@ -4,19 +4,21 @@ import {
   LayoutDashboard, FileText, Link2, Settings, LogOut, Shield, 
   ChevronRight, Users, BarChart3, Menu, X, ClipboardList
 } from 'lucide-react';
-import { useAuth } from '../App';
+import { useAuth, useBranding } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Button } from '../components/ui/button';
 import { cn } from '../lib/utils';
 
 const DashboardLayout = ({ children, title, subtitle }) => {
   const { user, logout } = useAuth();
+  const { branding } = useBranding();
   const { t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const brandName = branding?.app_name || 'Autodestroy';
 
   const mainNavItems = [
     { icon: LayoutDashboard, label: t('dashboard.title'), path: '/dashboard' },
@@ -30,7 +32,7 @@ const DashboardLayout = ({ children, title, subtitle }) => {
     { icon: Users, label: t('admin.manageUsers'), path: '/admin/users' },
     { icon: Link2, label: t('admin.allLinks'), path: '/admin/links' },
     { icon: ClipboardList, label: 'Audit Logs', path: '/admin/audit-events' },
-    { icon: Settings, label: t('admin.stripeSettings') || 'Stripe Settings', path: '/admin/settings' },
+    { icon: Settings, label: 'Platform Settings', path: '/admin/settings' },
   ];
 
   const handleLogout = async () => {
@@ -64,10 +66,10 @@ const DashboardLayout = ({ children, title, subtitle }) => {
       <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-stone-200 px-4 py-3">
         <div className="flex items-center justify-between">
           <Link to="/dashboard" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-emerald-900 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--brand-primary-color)' }}>
               <FileText className="w-4 h-4 text-white" />
             </div>
-            <span className="font-heading font-bold text-lg">Autodestroy</span>
+            <span className="font-heading font-bold text-lg">{brandName}</span>
           </Link>
           <button 
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -87,10 +89,10 @@ const DashboardLayout = ({ children, title, subtitle }) => {
           {/* Logo */}
           <div className="p-6 border-b border-stone-200">
             <Link to="/dashboard" className="flex items-center space-x-2">
-              <div className="w-10 h-10 bg-emerald-900 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--brand-primary-color)' }}>
                 <FileText className="w-5 h-5 text-white" />
               </div>
-              <span className="font-heading font-bold text-xl text-stone-900">Autodestroy</span>
+              <span className="font-heading font-bold text-xl text-stone-900">{brandName}</span>
             </Link>
           </div>
 

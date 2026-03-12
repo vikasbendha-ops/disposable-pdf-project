@@ -65,6 +65,8 @@ body {
 
 @layer base {
     :root {
+        --brand-primary-color: #064e3b;
+        --brand-accent-color: #10b981;
         --background: 40 10% 98%;
         --foreground: 20 14% 10%;
         --card: 0 0% 100%;

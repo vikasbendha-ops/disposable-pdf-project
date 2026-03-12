@@ -3,10 +3,15 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Clock, Ban, FileText, ArrowRight } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import { useBranding } from '../App';
 
 const ExpiredPage = () => {
   const location = useLocation();
+  const { branding } = useBranding();
   const { message, status } = location.state || {};
+  const brandName = branding?.app_name || 'Autodestroy';
+  const productName = branding?.product_name || 'Autodestroy PDF Platform';
+  const tagline = branding?.tagline || 'Secure Document Sharing';
 
   const isRevoked = status === 'revoked';
 
@@ -49,7 +54,7 @@ const ExpiredPage = () => {
           <Link to="/">
             <Button variant="outline" className="w-full sm:w-auto h-12">
               <FileText className="w-4 h-4 mr-2" />
-              Learn About Autodestroy
+              Learn About {brandName}
             </Button>
           </Link>
           <Link to="/register">
@@ -61,7 +66,7 @@ const ExpiredPage = () => {
         </div>
 
         <p className="mt-8 text-sm text-stone-500">
-          Autodestroy PDF Platform - Secure Document Sharing
+          {productName} - {tagline}
         </p>
       </motion.div>
     </div>

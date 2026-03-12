@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Shield, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { CreditCard, Shield, CheckCircle, AlertCircle, Eye, EyeOff, Palette } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -7,11 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Switch } from '../components/ui/switch';
-import { api, useAuth } from '../App';
+import { api, DEFAULT_BRANDING, useAuth, useBranding } from '../App';
 import { toast } from 'sonner';
+
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
 const AdminSettings = () => {
   const { user } = useAuth();
+  const { refreshBranding } = useBranding();
   const isSuperAdmin = user?.role === 'super_admin';
 
   const [stripeConfig, setStripeConfig] = useState(null);
@@ -32,10 +35,21 @@ const AdminSettings = () => {
   const [wasabiSecretKey, setWasabiSecretKey] = useState('');
   const [wasabiForcePathStyle, setWasabiForcePathStyle] = useState(true);
 
+  const [brandingConfig, setBrandingConfig] = useState(null);
+  const [brandingLoading, setBrandingLoading] = useState(false);
+  const [brandingSaving, setBrandingSaving] = useState(false);
+  const [brandName, setBrandName] = useState(DEFAULT_BRANDING.app_name);
+  const [brandProductName, setBrandProductName] = useState(DEFAULT_BRANDING.product_name);
+  const [brandTagline, setBrandTagline] = useState(DEFAULT_BRANDING.tagline);
+  const [brandPrimaryColor, setBrandPrimaryColor] = useState(DEFAULT_BRANDING.primary_color);
+  const [brandAccentColor, setBrandAccentColor] = useState(DEFAULT_BRANDING.accent_color);
+  const [brandFooterText, setBrandFooterText] = useState(DEFAULT_BRANDING.footer_text);
+
   useEffect(() => {
     fetchStripeConfig();
     if (isSuperAdmin) {
       fetchStorageConfig();
+      fetchBrandingConfig();
     }
   }, [isSuperAdmin]);
 
@@ -71,6 +85,31 @@ const AdminSettings = () => {
       }
     } finally {
       setStorageLoading(false);
+    }
+  };
+
+  const applyBrandingState = (config) => {
+    setBrandingConfig(config);
+    setBrandName(config?.app_name || DEFAULT_BRANDING.app_name);
+    setBrandProductName(config?.product_name || DEFAULT_BRANDING.product_name);
+    setBrandTagline(config?.tagline || DEFAULT_BRANDING.tagline);
+    setBrandPrimaryColor(config?.primary_color || DEFAULT_BRANDING.primary_color);
+    setBrandAccentColor(config?.accent_color || DEFAULT_BRANDING.accent_color);
+    setBrandFooterText(config?.footer_text || DEFAULT_BRANDING.footer_text);
+  };
+
+  const fetchBrandingConfig = async () => {
+    setBrandingLoading(true);
+    try {
+      const res = await api.get('/admin/settings/branding');
+      applyBrandingState(res.data);
+    } catch (err) {
+      setBrandingConfig(null);
+      if (err.response?.status !== 403) {
+        toast.error(err.response?.data?.detail || 'Failed to load branding settings');
+      }
+    } finally {
+      setBrandingLoading(false);
     }
   };
 
@@ -162,6 +201,43 @@ const AdminSettings = () => {
       toast.error(err.response?.data?.detail || 'Failed to save storage settings');
     } finally {
       setStorageSaving(false);
+    }
+  };
+
+  const handleSaveBrandingConfig = async () => {
+    if (!isSuperAdmin) {
+      toast.error('Only super admin can update branding settings');
+      return;
+    }
+
+    if (!HEX_COLOR_RE.test(brandPrimaryColor.trim())) {
+      toast.error('Primary color must be a hex value like #064e3b');
+      return;
+    }
+    if (!HEX_COLOR_RE.test(brandAccentColor.trim())) {
+      toast.error('Accent color must be a hex value like #10b981');
+      return;
+    }
+
+    const payload = {
+      app_name: brandName.trim(),
+      product_name: brandProductName.trim(),
+      tagline: brandTagline.trim(),
+      primary_color: brandPrimaryColor.trim(),
+      accent_color: brandAccentColor.trim(),
+      footer_text: brandFooterText.trim(),
+    };
+
+    setBrandingSaving(true);
+    try {
+      const res = await api.put('/admin/settings/branding', payload);
+      applyBrandingState(res.data);
+      await refreshBranding();
+      toast.success('Branding settings saved');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to save branding settings');
+    } finally {
+      setBrandingSaving(false);
     }
   };
 
@@ -423,6 +499,128 @@ const AdminSettings = () => {
                   className="bg-emerald-900 hover:bg-emerald-800"
                 >
                   {storageSaving ? 'Saving...' : 'Save Storage Settings'}
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Branding (Super Admin only) */}
+        <Card className="border-stone-200" data-testid="branding-settings-card">
+          <CardHeader>
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-violet-100">
+                <Palette className="w-5 h-5 text-violet-700" />
+              </div>
+              <div>
+                <CardTitle>Branding Settings</CardTitle>
+                <CardDescription>
+                  Update brand name, tagline and colors shown across the app.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!isSuperAdmin ? (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                Only super admin can update branding settings. Current role: {user?.role || 'unknown'}.
+              </div>
+            ) : brandingLoading ? (
+              <div className="text-sm text-stone-500">Loading branding settings...</div>
+            ) : (
+              <>
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-stone-700">App name</p>
+                    <Input
+                      value={brandName}
+                      onChange={(e) => setBrandName(e.target.value)}
+                      placeholder="Autodestroy"
+                      maxLength={48}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-stone-700">Product name</p>
+                    <Input
+                      value={brandProductName}
+                      onChange={(e) => setBrandProductName(e.target.value)}
+                      placeholder="Autodestroy PDF Platform"
+                      maxLength={72}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-stone-700">Tagline</p>
+                  <Input
+                    value={brandTagline}
+                    onChange={(e) => setBrandTagline(e.target.value)}
+                    placeholder="Secure Document Sharing"
+                    maxLength={120}
+                  />
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-stone-700">Primary color</p>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={brandPrimaryColor}
+                        onChange={(e) => setBrandPrimaryColor(e.target.value)}
+                        placeholder="#064e3b"
+                        className="font-mono"
+                      />
+                      <div
+                        className="w-10 h-10 rounded border border-stone-200"
+                        style={{ backgroundColor: HEX_COLOR_RE.test(brandPrimaryColor) ? brandPrimaryColor : '#ffffff' }}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-stone-700">Accent color</p>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={brandAccentColor}
+                        onChange={(e) => setBrandAccentColor(e.target.value)}
+                        placeholder="#10b981"
+                        className="font-mono"
+                      />
+                      <div
+                        className="w-10 h-10 rounded border border-stone-200"
+                        style={{ backgroundColor: HEX_COLOR_RE.test(brandAccentColor) ? brandAccentColor : '#ffffff' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-stone-700">Footer text</p>
+                  <Input
+                    value={brandFooterText}
+                    onChange={(e) => setBrandFooterText(e.target.value)}
+                    placeholder="All rights reserved."
+                    maxLength={160}
+                  />
+                </div>
+
+                <div className="rounded-lg border border-stone-200 p-4 bg-stone-50">
+                  <p className="text-xs uppercase tracking-wider text-stone-500 mb-2">Preview</p>
+                  <p className="font-heading text-lg text-stone-900">{brandName || DEFAULT_BRANDING.app_name}</p>
+                  <p className="text-sm text-stone-600">{brandTagline || DEFAULT_BRANDING.tagline}</p>
+                  <p className="text-xs text-stone-500 mt-2">
+                    {new Date().getFullYear()} {brandProductName || DEFAULT_BRANDING.product_name}. {brandFooterText || DEFAULT_BRANDING.footer_text}
+                  </p>
+                  {brandingConfig?.updated_at && (
+                    <p className="text-[11px] text-stone-400 mt-2">Last updated: {new Date(brandingConfig.updated_at).toLocaleString()}</p>
+                  )}
+                </div>
+
+                <Button
+                  onClick={handleSaveBrandingConfig}
+                  disabled={brandingSaving}
+                  className="bg-emerald-900 hover:bg-emerald-800"
+                >
+                  {brandingSaving ? 'Saving...' : 'Save Branding Settings'}
                 </Button>
               </>
             )}

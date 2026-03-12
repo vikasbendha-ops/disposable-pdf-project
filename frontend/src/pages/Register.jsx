@@ -6,7 +6,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { useAuth } from '../App';
+import { useAuth, useBranding } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 
@@ -20,6 +20,8 @@ const Register = () => {
   const [error, setError] = useState('');
   
   const { register, user } = useAuth();
+  const { branding } = useBranding();
+  const brandName = branding?.app_name || 'Autodestroy';
   const { language, setLanguage, languages, t } = useLanguage();
   const navigate = useNavigate();
 
@@ -96,7 +98,7 @@ const Register = () => {
             <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
               <FileText className="w-6 h-6 text-white" />
             </div>
-            <span className="font-heading font-bold text-2xl text-white">Autodestroy</span>
+            <span className="font-heading font-bold text-2xl text-white">{brandName}</span>
           </Link>
         </div>
 
@@ -144,7 +146,7 @@ const Register = () => {
               <div className="w-10 h-10 bg-emerald-900 rounded-lg flex items-center justify-center">
                 <FileText className="w-5 h-5 text-white" />
               </div>
-              <span className="font-heading font-bold text-xl text-stone-900">Autodestroy</span>
+              <span className="font-heading font-bold text-xl text-stone-900">{brandName}</span>
             </Link>
           </div>
 

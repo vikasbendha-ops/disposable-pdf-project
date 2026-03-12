@@ -4,10 +4,15 @@ import { motion } from 'framer-motion';
 import Marquee from 'react-fast-marquee';
 import { Shield, Clock, Eye, Lock, FileText, Zap, ChevronRight, Check } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { useAuth } from '../App';
+import { useAuth, useBranding } from '../App';
 
 const Landing = () => {
   const { user } = useAuth();
+  const { branding } = useBranding();
+  const brandName = branding?.app_name || 'Autodestroy';
+  const productName = branding?.product_name || 'Autodestroy PDF Platform';
+  const tagline = branding?.tagline || 'Secure document sharing with complete control.';
+  const footerText = branding?.footer_text || 'All rights reserved.';
 
   const features = [
     { icon: Shield, title: 'Military-Grade Security', desc: 'Your PDFs are encrypted and stored in secure vaults, never accessible directly.' },
@@ -30,7 +35,7 @@ const Landing = () => {
             <div className="w-10 h-10 bg-emerald-900 rounded-lg flex items-center justify-center">
               <FileText className="w-5 h-5 text-white" />
             </div>
-            <span className="font-heading font-bold text-xl text-stone-900">Autodestroy</span>
+            <span className="font-heading font-bold text-xl text-stone-900">{brandName}</span>
           </Link>
           
           <div className="hidden md:flex items-center space-x-8">
@@ -246,9 +251,9 @@ const Landing = () => {
                 <div className="w-10 h-10 bg-emerald-600 rounded-lg flex items-center justify-center">
                   <FileText className="w-5 h-5 text-white" />
                 </div>
-                <span className="font-heading font-bold text-xl">Autodestroy</span>
+                <span className="font-heading font-bold text-xl">{brandName}</span>
               </div>
-              <p className="text-stone-400">Secure document sharing with complete control.</p>
+              <p className="text-stone-400">{tagline}</p>
             </div>
             <div>
               <h4 className="font-semibold mb-4">Product</h4>
@@ -276,7 +281,7 @@ const Landing = () => {
             </div>
           </div>
           <div className="border-t border-stone-800 mt-12 pt-8 text-center text-stone-500">
-            <p>&copy; {new Date().getFullYear()} Autodestroy PDF Platform. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} {productName}. {footerText}</p>
           </div>
         </div>
       </footer>
