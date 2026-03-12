@@ -37,7 +37,7 @@ import {
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Switch } from '../components/ui/switch';
-import { api, useAuth, BACKEND_URL } from '../App';
+import { api, useAuth } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -200,6 +200,11 @@ const PDFManagement = () => {
     }
   };
 
+  const getSecureLinkUrl = (link) => {
+    if (link?.secure_url) return link.secure_url;
+    return `${window.location.origin}/view/${link.token}`;
+  };
+
   const getDirectUrl = (pdf) => {
     if (pdf?.direct_access_url) {
       if (pdf.direct_access_url.startsWith('http://') || pdf.direct_access_url.startsWith('https://')) {
@@ -207,8 +212,11 @@ const PDFManagement = () => {
       }
       return `${window.location.origin}${pdf.direct_access_url}`;
     }
+    if (pdf?.direct_access_path) {
+      return `${window.location.origin}${pdf.direct_access_path}`;
+    }
     if (pdf?.direct_access_token) {
-      return `${window.location.origin}/api/direct/${pdf.direct_access_token}`;
+      return `${window.location.origin}/direct/${pdf.direct_access_token}`;
     }
     return '';
   };
@@ -453,7 +461,13 @@ const PDFManagement = () => {
                           {/* Links for this PDF */}
                           {pdfLinks.length > 0 && (
                             <div className="mt-3 space-y-2">
-                              {pdfLinks.slice(0, 3).map((link) => (
+                              {pdfLinks.slice(0, 3).map((link) => {
+                                const secureLinkUrl = getSecureLinkUrl(link);
+                                const securePreview =
+                                  secureLinkUrl.length > 60
+                                    ? `${secureLinkUrl.substring(0, 60)}...`
+                                    : secureLinkUrl;
+                                return (
                                 <div 
                                   key={link.link_id}
                                   className="flex items-center justify-between bg-stone-50 rounded-lg px-3 py-2"
@@ -463,9 +477,7 @@ const PDFManagement = () => {
                                       link.status === 'active' ? 'bg-emerald-500' :
                                       link.status === 'expired' ? 'bg-stone-400' : 'bg-red-500'
                                     }`} />
-                                    <code className="text-xs text-stone-600 truncate">
-                                      {window.location.origin}/view/{link.token.substring(0, 16)}...
-                                    </code>
+                                    <code className="text-xs text-stone-600 truncate">{securePreview}</code>
                                     <span className={`text-xs px-2 py-0.5 rounded-full ${
                                       link.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
                                       link.status === 'expired' ? 'bg-stone-100 text-stone-600' :
@@ -482,9 +494,9 @@ const PDFManagement = () => {
                                       variant="ghost"
                                       size="icon"
                                       className="h-7 w-7"
-                                      onClick={() => copyLink(link.token, `${window.location.origin}/view/${link.token}`)}
+                                      onClick={() => copyLink(link.link_id, secureLinkUrl)}
                                     >
-                                      {copiedLink === link.token ? (
+                                      {copiedLink === link.link_id ? (
                                         <Check className="w-3 h-3 text-emerald-600" />
                                       ) : (
                                         <Copy className="w-3 h-3" />
@@ -492,7 +504,7 @@ const PDFManagement = () => {
                                     </Button>
                                     {link.status === 'active' && (
                                       <a 
-                                        href={`/view/${link.token}`}
+                                        href={secureLinkUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                       >
@@ -503,7 +515,8 @@ const PDFManagement = () => {
                                     )}
                                   </div>
                                 </div>
-                              ))}
+                                );
+                              })}
                               {pdfLinks.length > 3 && (
                                 <Link 
                                   to="/links" 

@@ -10,7 +10,7 @@ const DEFAULT_BACKEND_URL =
     ? window.location.origin
     : '';
 const ENV_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || '';
-const BACKEND_URL = (ENV_BACKEND_URL || DEFAULT_BACKEND_URL).replace(/\/$/, '');
+const BACKEND_URL = (DEFAULT_BACKEND_URL || ENV_BACKEND_URL).replace(/\/$/, '');
 const API = `${BACKEND_URL}/api`;
 
 // Use a CDN worker so the migration does not depend on legacy CRA public asset placement.

@@ -47,10 +47,10 @@ const Dashboard = () => {
     try {
       const [statsRes, linksRes] = await Promise.all([
         api.get('/dashboard/stats'),
-        api.get('/links')
+        api.get('/links', { params: { limit: 5 } })
       ]);
       setStats(statsRes.data);
-      setRecentLinks(linksRes.data.slice(0, 5));
+      setRecentLinks(Array.isArray(linksRes.data) ? linksRes.data : []);
     } catch (error) {
       toast.error('Failed to load dashboard data');
     } finally {

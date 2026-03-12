@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Calendar as CalendarPicker } from '../components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
-import { api, useAuth, BACKEND_URL } from '../App';
+import { api, useAuth } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -19,6 +19,7 @@ import { cn } from '../lib/utils';
 
 const LinkGenerator = () => {
   const [pdfs, setPdfs] = useState([]);
+  const [domains, setDomains] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [searchParams] = useSearchParams();
@@ -37,13 +38,14 @@ const LinkGenerator = () => {
   const [fixedTime, setFixedTime] = useState('12:00');
   const [customExpiredUrl, setCustomExpiredUrl] = useState('');
   const [customExpiredMessage, setCustomExpiredMessage] = useState('');
+  const [selectedDomainId, setSelectedDomainId] = useState('platform');
   
   // Generated link
   const [generatedLink, setGeneratedLink] = useState(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    fetchPdfs();
+    fetchData();
     
     // Pre-select PDF from query params
     const pdfId = searchParams.get('pdf');
@@ -52,17 +54,25 @@ const LinkGenerator = () => {
     }
   }, [searchParams]);
 
-  const fetchPdfs = async () => {
+  const fetchData = async () => {
     try {
-      const response = await api.get('/pdfs');
-      setPdfs(response.data);
-      
-      // Auto-select first PDF if no query param
-      if (response.data.length > 0 && !searchParams.get('pdf')) {
-        setSelectedPdf(response.data[0].pdf_id);
+      const [pdfResponse, domainResponse] = await Promise.all([
+        api.get('/pdfs'),
+        api.get('/domains'),
+      ]);
+      const pdfData = Array.isArray(pdfResponse.data) ? pdfResponse.data : [];
+      const domainData = Array.isArray(domainResponse.data) ? domainResponse.data : [];
+
+      setPdfs(pdfData);
+      setDomains(domainData);
+      const defaultDomain = domainData.find((domain) => domain.is_default);
+      setSelectedDomainId(defaultDomain?.domain_id || 'platform');
+
+      if (pdfData.length > 0 && !searchParams.get('pdf')) {
+        setSelectedPdf(pdfData[0].pdf_id);
       }
     } catch (error) {
-      toast.error('Failed to load PDFs');
+      toast.error('Failed to load setup data');
     } finally {
       setLoading(false);
     }
@@ -107,6 +117,7 @@ const LinkGenerator = () => {
 
       const response = await api.post('/links', {
         pdf_id: selectedPdf,
+        custom_domain_id: selectedDomainId === 'platform' ? null : selectedDomainId,
         expiry_mode: expiryMode,
         expiry_days: expiryMode === 'countdown' ? days : 0,
         expiry_hours: expiryMode === 'countdown' ? hours : 0,
@@ -117,7 +128,7 @@ const LinkGenerator = () => {
         custom_expired_message: customExpiredMessage || null
       });
 
-      const fullUrl = `${window.location.origin}/view/${response.data.token}`;
+      const fullUrl = response.data?.secure_url || `${window.location.origin}/view/${response.data.token}`;
       setGeneratedLink({ ...response.data, full_url: fullUrl });
       toast.success('Secure link created successfully!');
     } catch (error) {
@@ -269,6 +280,31 @@ const LinkGenerator = () => {
                         <FileText className="w-4 h-4 text-red-600" />
                         <span>{pdf.filename}</span>
                       </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+
+          {/* Domain Selection */}
+          <Card className="border-stone-200">
+            <CardHeader>
+              <CardTitle>Link Domain</CardTitle>
+              <CardDescription>
+                Select which domain should be used for this secure link
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Select value={selectedDomainId} onValueChange={setSelectedDomainId}>
+                <SelectTrigger className="h-12" data-testid="link-domain-select">
+                  <SelectValue placeholder="Select domain" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="platform">Platform domain ({window.location.host})</SelectItem>
+                  {domains.map((domain) => (
+                    <SelectItem key={domain.domain_id} value={domain.domain_id}>
+                      {domain.domain}{domain.is_default ? ' (Default)' : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>

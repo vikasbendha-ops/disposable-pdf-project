@@ -91,8 +91,13 @@ const MyLinks = () => {
     }
   };
 
+  const getSecureUrl = (link) => {
+    if (link?.secure_url) return link.secure_url;
+    return `${window.location.origin}/view/${link.token}`;
+  };
+
   const copyToClipboard = async (link) => {
-    const fullUrl = `${window.location.origin}/view/${link.token}`;
+    const fullUrl = getSecureUrl(link);
     try {
       await navigator.clipboard.writeText(fullUrl);
       setCopiedId(link.link_id);
@@ -200,6 +205,8 @@ const MyLinks = () => {
           {filteredLinks.map((link, i) => {
             const ExpiryIcon = getExpiryIcon(link.expiry_mode);
             const pdf = pdfs[link.pdf_id];
+            const secureUrl = getSecureUrl(link);
+            const previewUrl = secureUrl.length > 56 ? `${secureUrl.substring(0, 56)}...` : secureUrl;
             
             return (
               <motion.div
@@ -219,7 +226,7 @@ const MyLinks = () => {
                             link.status === 'expired' ? 'bg-stone-400' : 'bg-red-500'
                           }`} />
                           <h3 className="font-mono text-sm text-stone-700 truncate">
-                            {`${window.location.origin}/view/${link.token.substring(0, 24)}...`}
+                            {previewUrl}
                           </h3>
                         </div>
                         
@@ -265,7 +272,7 @@ const MyLinks = () => {
                           
                           {link.status === 'active' && (
                             <a 
-                              href={`/view/${link.token}`} 
+                              href={secureUrl}
                               target="_blank" 
                               rel="noopener noreferrer"
                             >

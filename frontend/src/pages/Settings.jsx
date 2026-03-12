@@ -14,11 +14,13 @@ import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 
 const Settings = () => {
-  const { user, refreshUser, updateUserLanguage } = useAuth();
+  const { user, updateUserLanguage } = useAuth();
   const { language, setLanguage, languages, t } = useLanguage();
   const [domains, setDomains] = useState([]);
+  const [defaultDomainId, setDefaultDomainId] = useState('platform');
   const [newDomain, setNewDomain] = useState('');
   const [addingDomain, setAddingDomain] = useState(false);
+  const [updatingDefaultDomain, setUpdatingDefaultDomain] = useState(false);
   const [savingLanguage, setSavingLanguage] = useState(false);
   
   // Password change
@@ -28,7 +30,7 @@ const Settings = () => {
   const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
-    if (user?.plan === 'enterprise') {
+    if (user) {
       fetchDomains();
     }
   }, [user]);
@@ -36,7 +38,10 @@ const Settings = () => {
   const fetchDomains = async () => {
     try {
       const response = await api.get('/domains');
-      setDomains(response.data);
+      const items = Array.isArray(response.data) ? response.data : [];
+      setDomains(items);
+      const defaultDomain = items.find((domain) => domain.is_default);
+      setDefaultDomainId(defaultDomain?.domain_id || 'platform');
     } catch (error) {
       console.error('Failed to fetch domains');
     }
@@ -63,7 +68,10 @@ const Settings = () => {
     try {
       const response = await api.post('/domains', { domain: newDomain });
       toast.success('Domain added! Follow the verification instructions.');
-      setDomains([...domains, response.data]);
+      await fetchDomains();
+      if (response.data?.is_default) {
+        setDefaultDomainId(response.data.domain_id);
+      }
       setNewDomain('');
     } catch (error) {
       const message = error.response?.data?.detail || 'Failed to add domain';
@@ -77,9 +85,27 @@ const Settings = () => {
     try {
       await api.delete(`/domains/${domainId}`);
       toast.success('Domain removed');
-      setDomains(domains.filter(d => d.domain_id !== domainId));
+      await fetchDomains();
     } catch (error) {
       toast.error('Failed to remove domain');
+    }
+  };
+
+  const handleDefaultDomainChange = async (domainId) => {
+    const target = domainId || 'platform';
+    setDefaultDomainId(target);
+    setUpdatingDefaultDomain(true);
+    try {
+      await api.put('/domains/default', {
+        domain_id: target === 'platform' ? null : target,
+      });
+      toast.success('Default domain updated');
+      await fetchDomains();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update default domain');
+      await fetchDomains();
+    } finally {
+      setUpdatingDefaultDomain(false);
     }
   };
 
@@ -279,70 +305,96 @@ const Settings = () => {
           </CardContent>
         </Card>
 
-        {/* Custom Domains (Enterprise only) */}
-        {user?.plan === 'enterprise' && (
-          <Card className="border-stone-200">
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Globe className="w-5 h-5 text-emerald-700" />
-                <span>{t('settings.customDomains')}</span>
-              </CardTitle>
-              <CardDescription>{t('settings.customDomainsDesc')}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleAddDomain} className="flex gap-3 mb-6">
-                <Input
-                  placeholder="secure.yourdomain.com"
-                  value={newDomain}
-                  onChange={(e) => setNewDomain(e.target.value)}
-                  className="h-12 flex-1"
-                  data-testid="add-domain-input"
-                />
-                <Button 
-                  type="submit" 
-                  className="bg-emerald-900 hover:bg-emerald-800 h-12"
-                  disabled={addingDomain}
-                >
-                  {addingDomain ? t('settings.adding') : t('settings.addDomain')}
-                </Button>
-              </form>
-
-              {domains.length > 0 ? (
-                <div className="space-y-3">
+        {/* Custom Domains */}
+        <Card className="border-stone-200">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Globe className="w-5 h-5 text-emerald-700" />
+              <span>{t('settings.customDomains')}</span>
+            </CardTitle>
+            <CardDescription>
+              Add domains for secure links and direct PDF links, then choose a default.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4">
+              <Label className="text-sm text-stone-500 mb-2 block">Default domain for new links</Label>
+              <Select
+                value={defaultDomainId}
+                onValueChange={handleDefaultDomainChange}
+                disabled={updatingDefaultDomain}
+              >
+                <SelectTrigger className="h-12 max-w-md" data-testid="default-domain-select">
+                  <SelectValue placeholder="Select default domain" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="platform">Platform domain</SelectItem>
                   {domains.map((domain) => (
-                    <div 
-                      key={domain.domain_id}
-                      className="flex items-center justify-between p-4 bg-stone-50 rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium text-stone-900">{domain.domain}</p>
-                        <p className="text-sm text-stone-500">
-                          {t('settings.status')}: {domain.verification_status === 'verified' ? (
-                            <span className="text-emerald-600">{t('settings.verified')}</span>
-                          ) : (
-                            <span className="text-amber-600">{t('settings.pendingVerification')}</span>
-                          )}
-                        </p>
-                      </div>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleDeleteDomain(domain.domain_id)}
-                        className="text-red-600 hover:bg-red-50"
-                      >
-                        {t('settings.remove')}
-                      </Button>
-                    </div>
+                    <SelectItem key={domain.domain_id} value={domain.domain_id}>
+                      {domain.domain}
+                    </SelectItem>
                   ))}
-                </div>
-              ) : (
-                <p className="text-stone-500 text-center py-8">
-                  {t('settings.noDomains')}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <form onSubmit={handleAddDomain} className="flex gap-3 mb-6">
+              <Input
+                placeholder="secure.yourdomain.com"
+                value={newDomain}
+                onChange={(e) => setNewDomain(e.target.value)}
+                className="h-12 flex-1"
+                data-testid="add-domain-input"
+              />
+              <Button
+                type="submit"
+                className="bg-emerald-900 hover:bg-emerald-800 h-12"
+                disabled={addingDomain}
+              >
+                {addingDomain ? t('settings.adding') : t('settings.addDomain')}
+              </Button>
+            </form>
+
+            {domains.length > 0 ? (
+              <div className="space-y-3">
+                {domains.map((domain) => (
+                  <div
+                    key={domain.domain_id}
+                    className="flex items-center justify-between p-4 bg-stone-50 rounded-lg"
+                  >
+                    <div>
+                      <p className="font-medium text-stone-900">{domain.domain}</p>
+                      <p className="text-sm text-stone-500">
+                        {t('settings.status')}: {domain.verification_status === 'verified' ? (
+                          <span className="text-emerald-600">{t('settings.verified')}</span>
+                        ) : (
+                          <span className="text-amber-600">{t('settings.pendingVerification')}</span>
+                        )}
+                        {domain.is_default && (
+                          <span className="ml-2 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">
+                            Default
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDeleteDomain(domain.domain_id)}
+                      className="text-red-600 hover:bg-red-50"
+                    >
+                      {t('settings.remove')}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-stone-500 text-center py-8">
+                {t('settings.noDomains')}
+              </p>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );
