@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Shield, CheckCircle, AlertCircle, Eye, EyeOff, Palette, Search } from 'lucide-react';
+import { CreditCard, Shield, CheckCircle, AlertCircle, Eye, EyeOff, Palette, Search, Globe } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -37,6 +37,14 @@ const AdminSettings = () => {
   const [wasabiAccessKey, setWasabiAccessKey] = useState('');
   const [wasabiSecretKey, setWasabiSecretKey] = useState('');
   const [wasabiForcePathStyle, setWasabiForcePathStyle] = useState(true);
+  const [vercelConfig, setVercelConfig] = useState(null);
+  const [vercelLoading, setVercelLoading] = useState(false);
+  const [vercelSaving, setVercelSaving] = useState(false);
+  const [vercelProjectId, setVercelProjectId] = useState('');
+  const [vercelTeamId, setVercelTeamId] = useState('');
+  const [vercelApiToken, setVercelApiToken] = useState('');
+  const [vercelAutoAttach, setVercelAutoAttach] = useState(true);
+  const [showVercelToken, setShowVercelToken] = useState(false);
 
   const [brandingConfig, setBrandingConfig] = useState(null);
   const [brandingLoading, setBrandingLoading] = useState(false);
@@ -67,6 +75,7 @@ const AdminSettings = () => {
     fetchStripeConfig();
     if (isSuperAdmin) {
       fetchStorageConfig();
+      fetchVercelConfig();
       fetchBrandingConfig();
       fetchSeoConfig();
     }
@@ -92,6 +101,13 @@ const AdminSettings = () => {
     setWasabiForcePathStyle(config?.wasabi?.force_path_style !== false);
   };
 
+  const applyVercelState = (config) => {
+    setVercelConfig(config);
+    setVercelProjectId(config?.project_id || '');
+    setVercelTeamId(config?.team_id || '');
+    setVercelAutoAttach(config?.auto_attach !== false);
+  };
+
   const fetchStorageConfig = async () => {
     setStorageLoading(true);
     try {
@@ -104,6 +120,21 @@ const AdminSettings = () => {
       }
     } finally {
       setStorageLoading(false);
+    }
+  };
+
+  const fetchVercelConfig = async () => {
+    setVercelLoading(true);
+    try {
+      const res = await api.get('/admin/settings/vercel');
+      applyVercelState(res.data);
+    } catch (err) {
+      setVercelConfig(null);
+      if (err.response?.status !== 403) {
+        toast.error(err.response?.data?.detail || 'Failed to load Vercel settings');
+      }
+    } finally {
+      setVercelLoading(false);
     }
   };
 
@@ -248,6 +279,34 @@ const AdminSettings = () => {
       toast.error(err.response?.data?.detail || 'Failed to save storage settings');
     } finally {
       setStorageSaving(false);
+    }
+  };
+
+  const handleSaveVercelConfig = async () => {
+    if (!isSuperAdmin) {
+      toast.error('Only super admin can update Vercel settings');
+      return;
+    }
+
+    const payload = {
+      project_id: vercelProjectId.trim(),
+      team_id: vercelTeamId.trim(),
+      auto_attach: vercelAutoAttach,
+    };
+    if (vercelApiToken.trim()) {
+      payload.api_token = vercelApiToken.trim();
+    }
+
+    setVercelSaving(true);
+    try {
+      const res = await api.put('/admin/settings/vercel', payload);
+      applyVercelState(res.data);
+      setVercelApiToken('');
+      toast.success('Vercel settings saved');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to save Vercel settings');
+    } finally {
+      setVercelSaving(false);
     }
   };
 
@@ -583,6 +642,106 @@ const AdminSettings = () => {
                   className="bg-emerald-900 hover:bg-emerald-800"
                 >
                   {storageSaving ? 'Saving...' : 'Save Storage Settings'}
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Vercel Domain Automation (Super Admin only) */}
+        <Card className="border-stone-200" data-testid="vercel-settings-card">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-cyan-100">
+                  <Globe className="w-5 h-5 text-cyan-700" />
+                </div>
+                <div>
+                  <CardTitle>Vercel Domain Automation</CardTitle>
+                  <CardDescription>
+                    Auto-attach customer domains to this Vercel project for DNS verification and SSL issuance.
+                  </CardDescription>
+                </div>
+              </div>
+              <Badge
+                className={
+                  vercelConfig?.configured
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                    : 'bg-amber-100 text-amber-800 border-amber-200'
+                }
+              >
+                {vercelConfig?.configured ? 'Configured' : 'Needs Setup'}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!isSuperAdmin ? (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                Only super admin can update Vercel settings. Current role: {user?.role || 'unknown'}.
+              </div>
+            ) : vercelLoading ? (
+              <div className="text-sm text-stone-500">Loading Vercel settings...</div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-stone-700">Vercel Project ID</p>
+                  <Input
+                    value={vercelProjectId}
+                    onChange={(e) => setVercelProjectId(e.target.value)}
+                    placeholder="prj_xxxxxxxxxxxxx"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-stone-700">Vercel Team ID (optional)</p>
+                  <Input
+                    value={vercelTeamId}
+                    onChange={(e) => setVercelTeamId(e.target.value)}
+                    placeholder="team_xxxxxxxxxxxxx"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-stone-700">Vercel API Token</p>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        type={showVercelToken ? 'text' : 'password'}
+                        value={vercelApiToken}
+                        onChange={(e) => setVercelApiToken(e.target.value)}
+                        placeholder="Leave blank to keep existing token"
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowVercelToken(!showVercelToken)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700"
+                      >
+                        {showVercelToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-stone-500">
+                    Current token: {vercelConfig?.token_set ? vercelConfig?.token_preview : 'not set'}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border border-stone-200 p-3">
+                  <div>
+                    <p className="text-sm font-medium text-stone-900">Auto-attach domains in Vercel</p>
+                    <p className="text-xs text-stone-500">
+                      When enabled, user-added domains are automatically added to your Vercel project.
+                    </p>
+                  </div>
+                  <Switch checked={vercelAutoAttach} onCheckedChange={setVercelAutoAttach} />
+                </div>
+
+                <Button
+                  onClick={handleSaveVercelConfig}
+                  disabled={vercelSaving}
+                  className="bg-emerald-900 hover:bg-emerald-800"
+                >
+                  {vercelSaving ? 'Saving...' : 'Save Vercel Settings'}
                 </Button>
               </>
             )}

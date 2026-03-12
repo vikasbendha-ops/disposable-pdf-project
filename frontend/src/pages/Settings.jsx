@@ -21,6 +21,7 @@ const Settings = () => {
   const [newDomain, setNewDomain] = useState('');
   const [addingDomain, setAddingDomain] = useState(false);
   const [updatingDefaultDomain, setUpdatingDefaultDomain] = useState(false);
+  const [verifyingDomainId, setVerifyingDomainId] = useState(null);
   const [savingLanguage, setSavingLanguage] = useState(false);
   
   // Password change
@@ -41,11 +42,14 @@ const Settings = () => {
       const items = Array.isArray(response.data) ? response.data : [];
       setDomains(items);
       const defaultDomain = items.find((domain) => domain.is_default);
-      setDefaultDomainId(defaultDomain?.domain_id || 'platform');
+      const readyDefault = defaultDomain?.is_ready ? defaultDomain.domain_id : 'platform';
+      setDefaultDomainId(readyDefault);
     } catch (error) {
       console.error('Failed to fetch domains');
     }
   };
+
+  const isDomainReady = (domain) => Boolean(domain?.is_ready);
 
   const handleLanguageChange = async (newLang) => {
     setSavingLanguage(true);
@@ -69,7 +73,7 @@ const Settings = () => {
       const response = await api.post('/domains', { domain: newDomain });
       toast.success('Domain added! Follow the verification instructions.');
       await fetchDomains();
-      if (response.data?.is_default) {
+      if (response.data?.is_default && response.data?.is_ready) {
         setDefaultDomainId(response.data.domain_id);
       }
       setNewDomain('');
@@ -106,6 +110,23 @@ const Settings = () => {
       await fetchDomains();
     } finally {
       setUpdatingDefaultDomain(false);
+    }
+  };
+
+  const handleVerifyDomain = async (domainId) => {
+    setVerifyingDomainId(domainId);
+    try {
+      const response = await api.post(`/domains/${domainId}`);
+      if (response.data?.is_ready) {
+        toast.success('Domain verified with active SSL');
+      } else {
+        toast.warning(response.data?.verification_error || 'Domain not ready yet. Check DNS and SSL.');
+      }
+      await fetchDomains();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to verify domain');
+    } finally {
+      setVerifyingDomainId(null);
     }
   };
 
@@ -330,12 +351,19 @@ const Settings = () => {
                 <SelectContent>
                   <SelectItem value="platform">Platform domain</SelectItem>
                   {domains.map((domain) => (
-                    <SelectItem key={domain.domain_id} value={domain.domain_id}>
-                      {domain.domain}
+                    <SelectItem
+                      key={domain.domain_id}
+                      value={domain.domain_id}
+                      disabled={!isDomainReady(domain)}
+                    >
+                      {domain.domain}{isDomainReady(domain) ? '' : ' (Verify first)'}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-stone-500 mt-2">
+                Only verified domains with active SSL can be set as default.
+              </p>
             </div>
 
             <form onSubmit={handleAddDomain} className="flex gap-3 mb-6">
@@ -360,31 +388,85 @@ const Settings = () => {
                 {domains.map((domain) => (
                   <div
                     key={domain.domain_id}
-                    className="flex items-center justify-between p-4 bg-stone-50 rounded-lg"
+                    className="p-4 bg-stone-50 rounded-lg"
                   >
-                    <div>
-                      <p className="font-medium text-stone-900">{domain.domain}</p>
-                      <p className="text-sm text-stone-500">
-                        {t('settings.status')}: {domain.verification_status === 'verified' ? (
-                          <span className="text-emerald-600">{t('settings.verified')}</span>
-                        ) : (
-                          <span className="text-amber-600">{t('settings.pendingVerification')}</span>
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="font-medium text-stone-900">{domain.domain}</p>
+                          <p className="text-sm text-stone-500">
+                            DNS: {domain.verification_status === 'verified' ? (
+                              <span className="text-emerald-600">{t('settings.verified')}</span>
+                            ) : (
+                              <span className="text-amber-600">{t('settings.pendingVerification')}</span>
+                            )}
+                            <span className="mx-2">•</span>
+                            SSL: {domain.ssl_status === 'active' ? (
+                              <span className="text-emerald-600">Active (Let's Encrypt)</span>
+                            ) : domain.ssl_status === 'invalid' ? (
+                              <span className="text-red-600">Invalid</span>
+                            ) : (
+                              <span className="text-amber-600">Pending</span>
+                            )}
+                            <span className="mx-2">•</span>
+                            Vercel: {domain.vercel_status === 'verified' ? (
+                              <span className="text-emerald-600">Verified</span>
+                            ) : domain.vercel_status === 'pending' ? (
+                              <span className="text-amber-600">Pending</span>
+                            ) : domain.vercel_status === 'error' ? (
+                              <span className="text-red-600">Error</span>
+                            ) : domain.vercel_status === 'not_configured' ? (
+                              <span className="text-amber-600">Not Configured</span>
+                            ) : (
+                              <span className="text-stone-600">{domain.vercel_status || 'Unknown'}</span>
+                            )}
+                            {domain.is_default && (
+                              <span className="ml-2 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">
+                                Default
+                              </span>
+                            )}
+                          </p>
+                          {domain.verification_error && !domain.is_ready && (
+                            <p className="text-xs text-amber-700 mt-1">{domain.verification_error}</p>
+                          )}
+                          {domain.vercel_error && (
+                            <p className="text-xs text-amber-700 mt-1">Vercel: {domain.vercel_error}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleVerifyDomain(domain.domain_id)}
+                            disabled={verifyingDomainId === domain.domain_id}
+                          >
+                            {verifyingDomainId === domain.domain_id ? 'Verifying...' : 'Verify DNS & SSL'}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteDomain(domain.domain_id)}
+                            className="text-red-600 hover:bg-red-50"
+                          >
+                            {t('settings.remove')}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="rounded-md border border-stone-200 bg-white px-3 py-2 text-xs text-stone-600 space-y-1">
+                        <p>
+                          <span className="font-semibold">TXT</span> {domain.verification_txt_name} = {domain.verification_token}
+                        </p>
+                        <p>
+                          <span className="font-semibold">CNAME</span> {domain.domain} → {domain.cname_target}
+                        </p>
+                        {Array.isArray(domain.expected_a_targets) && domain.expected_a_targets.length > 0 && (
+                          <p>
+                            <span className="font-semibold">A</span> (optional for apex): {domain.expected_a_targets.join(', ')}
+                          </p>
                         )}
-                        {domain.is_default && (
-                          <span className="ml-2 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">
-                            Default
-                          </span>
-                        )}
-                      </p>
+                      </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDeleteDomain(domain.domain_id)}
-                      className="text-red-600 hover:bg-red-50"
-                    >
-                      {t('settings.remove')}
-                    </Button>
                   </div>
                 ))}
               </div>

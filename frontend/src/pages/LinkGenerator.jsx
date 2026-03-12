@@ -65,7 +65,7 @@ const LinkGenerator = () => {
 
       setPdfs(pdfData);
       setDomains(domainData);
-      const defaultDomain = domainData.find((domain) => domain.is_default);
+      const defaultDomain = domainData.find((domain) => domain.is_default && domain.is_ready);
       setSelectedDomainId(defaultDomain?.domain_id || 'platform');
 
       if (pdfData.length > 0 && !searchParams.get('pdf')) {
@@ -303,12 +303,19 @@ const LinkGenerator = () => {
                 <SelectContent>
                   <SelectItem value="platform">Platform domain ({window.location.host})</SelectItem>
                   {domains.map((domain) => (
-                    <SelectItem key={domain.domain_id} value={domain.domain_id}>
-                      {domain.domain}{domain.is_default ? ' (Default)' : ''}
+                    <SelectItem
+                      key={domain.domain_id}
+                      value={domain.domain_id}
+                      disabled={!domain.is_ready}
+                    >
+                      {domain.domain}{domain.is_default ? ' (Default)' : ''}{domain.is_ready ? '' : ' (Verify first)'}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-stone-500 mt-2">
+                Only DNS-verified domains with active SSL can be selected.
+              </p>
             </CardContent>
           </Card>
 
