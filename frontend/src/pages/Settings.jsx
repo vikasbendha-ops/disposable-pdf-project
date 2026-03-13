@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { User, Mail, Lock, Globe, CreditCard, ChevronRight } from 'lucide-react';
+import { User, Lock, Globe, CreditCard, ChevronRight, RefreshCw, Download, ExternalLink } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -29,10 +28,15 @@ const Settings = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
+  const [billingOverview, setBillingOverview] = useState(null);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [openingBillingPortal, setOpeningBillingPortal] = useState(false);
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState(null);
 
   useEffect(() => {
     if (user) {
       fetchDomains();
+      fetchBillingOverview();
     }
   }, [user]);
 
@@ -155,6 +159,73 @@ const Settings = () => {
     }, 1000);
   };
 
+  const formatAmount = (amount, currency = 'eur') => {
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: String(currency || 'eur').toUpperCase(),
+      }).format(Number(amount || 0));
+    } catch {
+      return `${Number(amount || 0).toFixed(2)} ${String(currency || 'eur').toUpperCase()}`;
+    }
+  };
+
+  const fetchBillingOverview = async () => {
+    setBillingLoading(true);
+    try {
+      const response = await api.get('/subscription/overview');
+      setBillingOverview(response.data || null);
+    } catch (error) {
+      setBillingOverview(null);
+      if (error.response?.status !== 404) {
+        toast.error(error.response?.data?.detail || 'Failed to load billing details');
+      }
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
+  const handleManageBilling = async () => {
+    setOpeningBillingPortal(true);
+    try {
+      const response = await api.post('/subscription/billing-portal', {
+        origin_url: window.location.origin,
+      });
+      if (!response.data?.url) {
+        throw new Error('No billing portal URL returned');
+      }
+      window.location.href = response.data.url;
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to open billing portal');
+    } finally {
+      setOpeningBillingPortal(false);
+    }
+  };
+
+  const handleDownloadInvoice = async (transactionId, invoiceNumber) => {
+    if (!transactionId) return;
+    setDownloadingInvoiceId(transactionId);
+    try {
+      const response = await api.get(`/subscription/invoices/${transactionId}/download`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], { type: 'text/html' });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${invoiceNumber || `invoice-${transactionId}`}.html`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Invoice downloaded');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to download invoice');
+    } finally {
+      setDownloadingInvoiceId(null);
+    }
+  };
+
   return (
     <DashboardLayout title={t('settings.title')} subtitle={t('settings.subtitle')}>
       <div className="max-w-3xl space-y-8">
@@ -235,7 +306,7 @@ const Settings = () => {
             </CardTitle>
             <CardDescription>{t('settings.subscriptionDesc')}</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <div className="flex items-center justify-between p-4 bg-stone-50 rounded-xl mb-4">
               <div>
                 <p className="font-semibold text-stone-900">
@@ -260,14 +331,130 @@ const Settings = () => {
                 </Link>
               )}
             </div>
-            
-            {user?.subscription_status === 'active' && (
-              <Link to="/pricing">
-                <Button variant="outline" className="w-full">
-                  {t('settings.changePlan')}
-                </Button>
-              </Link>
-            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="rounded-lg border border-stone-200 p-3">
+                <p className="text-xs uppercase text-stone-500">Successful Payments</p>
+                <p className="text-lg font-semibold text-stone-900">
+                  {billingOverview?.payment_summary?.successful_payments || 0}
+                </p>
+              </div>
+              <div className="rounded-lg border border-stone-200 p-3">
+                <p className="text-xs uppercase text-stone-500">Total Paid</p>
+                <p className="text-lg font-semibold text-stone-900">
+                  {formatAmount(
+                    billingOverview?.payment_summary?.total_paid || 0,
+                    billingOverview?.payment_summary?.currency || 'eur',
+                  )}
+                </p>
+              </div>
+              <div className="rounded-lg border border-stone-200 p-3">
+                <p className="text-xs uppercase text-stone-500">Next Renewal</p>
+                <p className="text-sm font-semibold text-stone-900">
+                  {billingOverview?.payment_summary?.next_renewal_at
+                    ? format(new Date(billingOverview.payment_summary.next_renewal_at), 'MMM d, yyyy HH:mm')
+                    : 'N/A'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                variant="outline"
+                onClick={fetchBillingOverview}
+                disabled={billingLoading}
+              >
+                {billingLoading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Refreshing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh Billing Data
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleManageBilling}
+                disabled={openingBillingPortal}
+              >
+                {openingBillingPortal ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Opening Portal...
+                  </>
+                ) : (
+                  <>
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Update Card & Billing
+                  </>
+                )}
+              </Button>
+              {user?.subscription_status === 'active' && (
+                <Link to="/pricing" className="sm:ml-auto">
+                  <Button variant="outline" className="w-full sm:w-auto">
+                    {t('settings.changePlan')}
+                  </Button>
+                </Link>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-stone-200 p-3">
+              <p className="text-sm font-semibold text-stone-900 mb-3">Invoices</p>
+              {Array.isArray(billingOverview?.payments) && billingOverview.payments.length > 0 ? (
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {billingOverview.payments.slice(0, 25).map((payment) => (
+                    <div
+                      key={payment.transaction_id}
+                      className="rounded-md border border-stone-200 p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+                    >
+                      <div>
+                        <p className="font-medium text-stone-900">
+                          {payment.invoice_number || payment.transaction_id}
+                        </p>
+                        <p className="text-xs text-stone-500 capitalize">
+                          {payment.plan || 'plan'} • {payment.payment_status}
+                        </p>
+                        <p className="text-xs text-stone-500">
+                          {payment.paid_at
+                            ? format(new Date(payment.paid_at), 'MMM d, yyyy HH:mm')
+                            : payment.created_at
+                              ? format(new Date(payment.created_at), 'MMM d, yyyy HH:mm')
+                              : 'N/A'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-stone-900">
+                          {formatAmount(payment.amount || 0, payment.currency || 'eur')}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDownloadInvoice(payment.transaction_id, payment.invoice_number)}
+                          disabled={downloadingInvoiceId === payment.transaction_id}
+                        >
+                          {downloadingInvoiceId === payment.transaction_id ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Download className="w-4 h-4 mr-1" />
+                              Invoice
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-stone-500">
+                  No invoices yet. After your first successful payment, invoices will appear here.
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
 

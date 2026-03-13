@@ -21,6 +21,15 @@ create index if not exists idx_app_docs_users_role
 create index if not exists idx_app_docs_users_email_verified
   on public.app_documents ((doc->>'email_verified'))
   where collection = 'users';
+create index if not exists idx_app_docs_users_stripe_customer_id
+  on public.app_documents ((doc->>'stripe_customer_id'))
+  where collection = 'users';
+create index if not exists idx_app_docs_users_stripe_subscription_id
+  on public.app_documents ((doc->>'stripe_subscription_id'))
+  where collection = 'users';
+create index if not exists idx_app_docs_users_subscription_period_end
+  on public.app_documents ((doc->>'subscription_current_period_end'))
+  where collection = 'users';
 
 -- user sessions
 create index if not exists idx_app_docs_user_sessions_token
@@ -110,11 +119,26 @@ create index if not exists idx_app_docs_domains_user_id
 create index if not exists idx_app_docs_payment_transactions_session_id
   on public.app_documents ((doc->>'session_id'))
   where collection = 'payment_transactions';
+create index if not exists idx_app_docs_payment_transactions_transaction_id
+  on public.app_documents ((doc->>'transaction_id'))
+  where collection = 'payment_transactions';
 create index if not exists idx_app_docs_payment_transactions_user_id
   on public.app_documents ((doc->>'user_id'))
   where collection = 'payment_transactions';
 create index if not exists idx_app_docs_payment_transactions_status
   on public.app_documents ((doc->>'payment_status'))
+  where collection = 'payment_transactions';
+create index if not exists idx_app_docs_payment_transactions_created_at
+  on public.app_documents ((doc->>'created_at'))
+  where collection = 'payment_transactions';
+create index if not exists idx_app_docs_payment_transactions_customer_id
+  on public.app_documents ((doc->>'stripe_customer_id'))
+  where collection = 'payment_transactions';
+create index if not exists idx_app_docs_payment_transactions_subscription_id
+  on public.app_documents ((doc->>'stripe_subscription_id'))
+  where collection = 'payment_transactions';
+create index if not exists idx_app_docs_payment_transactions_invoice_id
+  on public.app_documents ((doc->>'stripe_invoice_id'))
   where collection = 'payment_transactions';
 create index if not exists idx_app_docs_platform_settings_key
   on public.app_documents ((doc->>'key'))

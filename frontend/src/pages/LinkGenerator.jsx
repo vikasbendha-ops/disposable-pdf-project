@@ -39,6 +39,8 @@ const LinkGenerator = () => {
   const [customExpiredUrl, setCustomExpiredUrl] = useState('');
   const [customExpiredMessage, setCustomExpiredMessage] = useState('');
   const [selectedDomainId, setSelectedDomainId] = useState('platform');
+  const [internalTitle, setInternalTitle] = useState('');
+  const [internalNote, setInternalNote] = useState('');
   
   // Generated link
   const [generatedLink, setGeneratedLink] = useState(null);
@@ -102,6 +104,14 @@ const LinkGenerator = () => {
         return;
       }
     }
+    if (internalTitle.trim().length > 140) {
+      toast.error('Link title must be 140 characters or less');
+      return;
+    }
+    if (internalNote.trim().length > 400) {
+      toast.error('Internal note must be 400 characters or less');
+      return;
+    }
 
     setCreating(true);
 
@@ -125,7 +135,9 @@ const LinkGenerator = () => {
         expiry_seconds: expiryMode === 'countdown' ? seconds : 0,
         expiry_fixed_datetime: expiryFixedDatetime,
         custom_expired_url: customExpiredUrl || null,
-        custom_expired_message: customExpiredMessage || null
+        custom_expired_message: customExpiredMessage || null,
+        internal_title: internalTitle || null,
+        internal_note: internalNote || null,
       });
 
       const fullUrl = response.data?.secure_url || `${window.location.origin}/view/${response.data.token}`;
@@ -205,6 +217,16 @@ const LinkGenerator = () => {
                   <p className="font-semibold text-emerald-700">Active</p>
                 </div>
               </div>
+
+              {generatedLink.internal_title && (
+                <div className="mb-8 bg-white rounded-lg p-4 border border-stone-200 text-left">
+                  <p className="text-sm text-stone-500">Internal title</p>
+                  <p className="font-semibold text-stone-900">{generatedLink.internal_title}</p>
+                  {generatedLink.internal_note && (
+                    <p className="text-sm text-stone-600 mt-2">{generatedLink.internal_note}</p>
+                  )}
+                </div>
+              )}
 
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Button 
@@ -316,6 +338,40 @@ const LinkGenerator = () => {
               <p className="text-xs text-stone-500 mt-2">
                 Only DNS-verified domains with active SSL can be selected.
               </p>
+            </CardContent>
+          </Card>
+
+          {/* Internal Link Tracking */}
+          <Card className="border-stone-200">
+            <CardHeader>
+              <CardTitle>Internal Link Label</CardTitle>
+              <CardDescription>
+                Optional internal title and note to help your team identify this link in dashboard lists.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label className="text-sm font-semibold text-stone-700 mb-2 block">Link title</Label>
+                <Input
+                  placeholder="Example: NDA for Vendor A - March"
+                  value={internalTitle}
+                  onChange={(e) => setInternalTitle(e.target.value)}
+                  maxLength={140}
+                  className="h-12"
+                  data-testid="internal-link-title-input"
+                />
+              </div>
+              <div>
+                <Label className="text-sm font-semibold text-stone-700 mb-2 block">Internal note (optional)</Label>
+                <Textarea
+                  placeholder="Context for your team..."
+                  value={internalNote}
+                  onChange={(e) => setInternalNote(e.target.value)}
+                  maxLength={400}
+                  className="min-h-[90px]"
+                  data-testid="internal-link-note-input"
+                />
+              </div>
             </CardContent>
           </Card>
 

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { Users, Search, Shield, Ban, Trash2, Check, X, MoreVertical } from 'lucide-react';
+import { Users, Search, Shield, Trash2, Check, X, MoreVertical, CreditCard } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -21,6 +20,13 @@ import {
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -39,6 +45,9 @@ const AdminUsers = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [billingTarget, setBillingTarget] = useState(null);
+  const [billingDetails, setBillingDetails] = useState(null);
+  const [billingLoading, setBillingLoading] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -75,6 +84,31 @@ const AdminUsers = () => {
       toast.error(error.response?.data?.detail || 'Failed to delete user');
     } finally {
       setDeleteTarget(null);
+    }
+  };
+
+  const formatAmount = (amount, currency = 'eur') => {
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: String(currency || 'eur').toUpperCase(),
+      }).format(Number(amount || 0));
+    } catch {
+      return `${Number(amount || 0).toFixed(2)} ${String(currency || 'eur').toUpperCase()}`;
+    }
+  };
+
+  const handleOpenBilling = async (user) => {
+    setBillingTarget(user);
+    setBillingLoading(true);
+    setBillingDetails(null);
+    try {
+      const response = await api.get(`/admin/billing/customers/${user.user_id}`);
+      setBillingDetails(response.data || null);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to load billing details');
+    } finally {
+      setBillingLoading(false);
     }
   };
 
@@ -125,6 +159,9 @@ const AdminUsers = () => {
                   <TableHead>Storage</TableHead>
                   <TableHead>PDFs</TableHead>
                   <TableHead>Links</TableHead>
+                  <TableHead>Payments</TableHead>
+                  <TableHead>Total Paid</TableHead>
+                  <TableHead>Next Renewal</TableHead>
                   <TableHead>Joined</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -132,7 +169,7 @@ const AdminUsers = () => {
               <TableBody>
                 {filteredUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-12 text-stone-500">
+                    <TableCell colSpan={12} className="text-center py-12 text-stone-500">
                       No users found
                     </TableCell>
                   </TableRow>
@@ -169,6 +206,18 @@ const AdminUsers = () => {
                       <TableCell>{formatBytes(user.storage_used || 0)}</TableCell>
                       <TableCell>{user.pdf_count || 0}</TableCell>
                       <TableCell>{user.link_count || 0}</TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <p className="font-medium text-stone-900">{user.successful_payments || 0}</p>
+                          <p className="text-stone-500">{user.failed_payments || 0} failed</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {formatAmount(user.total_paid || 0, user.payment_currency || 'eur')}
+                      </TableCell>
+                      <TableCell>
+                        {user.next_renewal_at ? format(new Date(user.next_renewal_at), 'MMM d, yyyy') : 'N/A'}
+                      </TableCell>
                       <TableCell>
                         {user.created_at ? format(new Date(user.created_at), 'MMM d, yyyy') : 'N/A'}
                       </TableCell>
@@ -223,6 +272,12 @@ const AdminUsers = () => {
                               <Trash2 className="w-4 h-4 mr-2" />
                               Delete User
                             </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleOpenBilling(user)}
+                            >
+                              <CreditCard className="w-4 h-4 mr-2" />
+                              Billing Details
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -256,6 +311,124 @@ const AdminUsers = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!billingTarget} onOpenChange={(open) => {
+        if (!open) {
+          setBillingTarget(null);
+          setBillingDetails(null);
+        }
+      }}>
+        <DialogContent className="max-w-4xl max-h-[88vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Billing Details</DialogTitle>
+            <DialogDescription>
+              {billingTarget?.name} ({billingTarget?.email})
+            </DialogDescription>
+          </DialogHeader>
+
+          {billingLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-emerald-900" />
+            </div>
+          ) : !billingDetails ? (
+            <p className="text-sm text-stone-500">No billing data found.</p>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <Card className="border-stone-200">
+                  <CardContent className="p-4">
+                    <p className="text-xs uppercase text-stone-500">Subscription</p>
+                    <p className="text-lg font-semibold capitalize">{billingDetails.subscription?.status || 'inactive'}</p>
+                    <p className="text-sm text-stone-500 capitalize">{billingDetails.subscription?.plan || 'none'}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-stone-200">
+                  <CardContent className="p-4">
+                    <p className="text-xs uppercase text-stone-500">Total Paid</p>
+                    <p className="text-lg font-semibold">
+                      {formatAmount(billingDetails.payment_summary?.total_paid || 0, billingDetails.payment_summary?.currency || 'eur')}
+                    </p>
+                    <p className="text-sm text-stone-500">
+                      {billingDetails.payment_summary?.successful_payments || 0} successful payments
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card className="border-stone-200">
+                  <CardContent className="p-4">
+                    <p className="text-xs uppercase text-stone-500">Next Renewal</p>
+                    <p className="text-lg font-semibold">
+                      {billingDetails.payment_summary?.next_renewal_at
+                        ? format(new Date(billingDetails.payment_summary.next_renewal_at), 'MMM d, yyyy HH:mm')
+                        : 'N/A'}
+                    </p>
+                    <p className="text-sm text-stone-500">
+                      Stripe: {billingDetails.subscription?.stripe_subscription_status || 'n/a'}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card className="border-stone-200">
+                <CardContent className="p-4">
+                  <h3 className="font-semibold text-stone-900 mb-3">Payments</h3>
+                  {Array.isArray(billingDetails.payments) && billingDetails.payments.length > 0 ? (
+                    <div className="space-y-2">
+                      {billingDetails.payments.slice(0, 30).map((payment) => (
+                        <div key={payment.transaction_id} className="rounded-lg border border-stone-200 p-3">
+                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                            <div>
+                              <p className="font-medium text-stone-900">
+                                {payment.invoice_number || payment.transaction_id}
+                              </p>
+                              <p className="text-xs text-stone-500 capitalize">
+                                {payment.plan || 'plan'} • {payment.payment_status}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold text-stone-900">
+                                {formatAmount(payment.amount || 0, payment.currency || 'eur')}
+                              </p>
+                              <p className="text-xs text-stone-500">
+                                {payment.paid_at
+                                  ? format(new Date(payment.paid_at), 'MMM d, yyyy HH:mm')
+                                  : payment.created_at
+                                    ? format(new Date(payment.created_at), 'MMM d, yyyy HH:mm')
+                                    : 'N/A'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-stone-500">No payment transactions yet.</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border-stone-200">
+                <CardContent className="p-4">
+                  <h3 className="font-semibold text-stone-900 mb-3">Subscription Logs</h3>
+                  {Array.isArray(billingDetails.audit_log) && billingDetails.audit_log.length > 0 ? (
+                    <div className="space-y-2">
+                      {billingDetails.audit_log.slice(0, 30).map((event) => (
+                        <div key={event.event_id} className="rounded-lg border border-stone-200 p-3">
+                          <p className="font-medium text-stone-900">{event.event_type}</p>
+                          <p className="text-xs text-stone-500 mt-1">
+                            {event.message || 'No message'} • {event.created_at ? format(new Date(event.created_at), 'MMM d, yyyy HH:mm') : 'N/A'}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-stone-500">No subscription logs found.</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

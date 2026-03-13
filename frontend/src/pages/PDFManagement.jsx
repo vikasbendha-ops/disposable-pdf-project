@@ -380,7 +380,7 @@ const PDFManagement = () => {
       if (filenameMatch) return true;
 
       const linkedTokens = (linksByPdf[pdf.pdf_id] || [])
-        .map((item) => String(item.token || '').toLowerCase())
+        .map((item) => [item.token, item.internal_title, item.internal_note].filter(Boolean).join(' ').toLowerCase())
         .join(' ');
       return linkedTokens.includes(query);
     });
@@ -513,6 +513,16 @@ const PDFManagement = () => {
                   <code className="text-xs text-stone-600 truncate">{shortUrl}</code>
                   {renderStatusBadge(link.status)}
                 </div>
+                {link.internal_title && (
+                  <p className="text-sm font-semibold text-stone-800 mt-1 truncate">
+                    {link.internal_title}
+                  </p>
+                )}
+                {link.internal_note && (
+                  <p className="text-xs text-stone-500 mt-0.5 line-clamp-2">
+                    {link.internal_note}
+                  </p>
+                )}
                 <div className="text-xs text-stone-500 mt-1 flex flex-wrap items-center gap-3">
                   <span>{Number(link.open_count || 0)} views</span>
                   <span>{link.expiry_mode === 'countdown' ? 'Countdown' : link.expiry_mode === 'fixed' ? 'Fixed Date' : 'Manual'}</span>

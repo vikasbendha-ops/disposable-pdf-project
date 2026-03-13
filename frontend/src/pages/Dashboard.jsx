@@ -245,7 +245,12 @@ const Dashboard = () => {
                       link.status === 'expired' ? 'bg-stone-400' : 'bg-red-500'
                     }`} />
                     <div>
-                      <p className="font-medium text-stone-900">{link.token.substring(0, 20)}...</p>
+                      <p className="font-medium text-stone-900">
+                        {link.internal_title || `${link.token.substring(0, 20)}...`}
+                      </p>
+                      {link.internal_note && (
+                        <p className="text-xs text-stone-500">{link.internal_note}</p>
+                      )}
                       <p className="text-sm text-stone-500">
                         {link.expiry_mode === 'countdown' ? t('dashboard.countdown') : 
                          link.expiry_mode === 'fixed' ? t('dashboard.fixedDate') : t('dashboard.manual')} 

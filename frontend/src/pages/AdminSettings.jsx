@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Shield, CheckCircle, AlertCircle, Eye, EyeOff, Palette, Search, Globe } from 'lucide-react';
+import { CreditCard, Shield, CheckCircle, AlertCircle, Eye, EyeOff, Palette, Search, Globe, FileText } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -71,6 +71,25 @@ const AdminSettings = () => {
   const [seoTwitterHandle, setSeoTwitterHandle] = useState('');
   const [seoNoindex, setSeoNoindex] = useState(false);
 
+  const [invoiceTemplate, setInvoiceTemplate] = useState(null);
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [invoiceSaving, setInvoiceSaving] = useState(false);
+  const [invoiceCompanyName, setInvoiceCompanyName] = useState('Autodestroy PDF Platform');
+  const [invoiceCompanyAddress, setInvoiceCompanyAddress] = useState('Business Address, City, Country');
+  const [invoiceCompanyEmail, setInvoiceCompanyEmail] = useState('billing@autodestroy.app');
+  const [invoiceCompanyPhone, setInvoiceCompanyPhone] = useState('');
+  const [invoiceCompanyWebsite, setInvoiceCompanyWebsite] = useState('');
+  const [invoiceTaxLabel, setInvoiceTaxLabel] = useState('Tax ID');
+  const [invoiceTaxId, setInvoiceTaxId] = useState('');
+  const [invoicePrefix, setInvoicePrefix] = useState('INV');
+  const [invoiceNotes, setInvoiceNotes] = useState('Thank you for your business.');
+  const [invoiceTerms, setInvoiceTerms] = useState('Payments are processed securely by Stripe.');
+  const [invoiceFooterText, setInvoiceFooterText] = useState('This invoice is system generated and valid without signature.');
+  const [invoicePrimaryColor, setInvoicePrimaryColor] = useState('#064e3b');
+  const [invoiceAccentColor, setInvoiceAccentColor] = useState('#10b981');
+  const [invoiceLogoUrl, setInvoiceLogoUrl] = useState('');
+  const [invoiceShowLogo, setInvoiceShowLogo] = useState(true);
+
   useEffect(() => {
     fetchStripeConfig();
     if (isSuperAdmin) {
@@ -78,6 +97,7 @@ const AdminSettings = () => {
       fetchVercelConfig();
       fetchBrandingConfig();
       fetchSeoConfig();
+      fetchInvoiceTemplateConfig();
     }
   }, [isSuperAdmin]);
 
@@ -188,6 +208,40 @@ const AdminSettings = () => {
       }
     } finally {
       setSeoLoading(false);
+    }
+  };
+
+  const applyInvoiceTemplateState = (config) => {
+    setInvoiceTemplate(config);
+    setInvoiceCompanyName(config?.company_name || 'Autodestroy PDF Platform');
+    setInvoiceCompanyAddress(config?.company_address || 'Business Address, City, Country');
+    setInvoiceCompanyEmail(config?.company_email || 'billing@autodestroy.app');
+    setInvoiceCompanyPhone(config?.company_phone || '');
+    setInvoiceCompanyWebsite(config?.company_website || '');
+    setInvoiceTaxLabel(config?.tax_label || 'Tax ID');
+    setInvoiceTaxId(config?.tax_id || '');
+    setInvoicePrefix(config?.invoice_prefix || 'INV');
+    setInvoiceNotes(config?.notes || 'Thank you for your business.');
+    setInvoiceTerms(config?.terms || 'Payments are processed securely by Stripe.');
+    setInvoiceFooterText(config?.footer_text || 'This invoice is system generated and valid without signature.');
+    setInvoicePrimaryColor(config?.primary_color || '#064e3b');
+    setInvoiceAccentColor(config?.accent_color || '#10b981');
+    setInvoiceLogoUrl(config?.logo_url || '');
+    setInvoiceShowLogo(config?.show_logo !== false);
+  };
+
+  const fetchInvoiceTemplateConfig = async () => {
+    setInvoiceLoading(true);
+    try {
+      const res = await api.get('/admin/settings/invoice-template');
+      applyInvoiceTemplateState(res.data);
+    } catch (err) {
+      setInvoiceTemplate(null);
+      if (err.response?.status !== 403) {
+        toast.error(err.response?.data?.detail || 'Failed to load invoice template settings');
+      }
+    } finally {
+      setInvoiceLoading(false);
     }
   };
 
@@ -381,6 +435,51 @@ const AdminSettings = () => {
       toast.error(err.response?.data?.detail || 'Failed to save SEO settings');
     } finally {
       setSeoSaving(false);
+    }
+  };
+
+  const handleSaveInvoiceTemplate = async () => {
+    if (!isSuperAdmin) {
+      toast.error('Only super admin can update invoice template');
+      return;
+    }
+
+    if (!HEX_COLOR_RE.test(invoicePrimaryColor.trim())) {
+      toast.error('Invoice primary color must be a hex value like #064e3b');
+      return;
+    }
+    if (!HEX_COLOR_RE.test(invoiceAccentColor.trim())) {
+      toast.error('Invoice accent color must be a hex value like #10b981');
+      return;
+    }
+
+    const payload = {
+      company_name: invoiceCompanyName.trim(),
+      company_address: invoiceCompanyAddress.trim(),
+      company_email: invoiceCompanyEmail.trim(),
+      company_phone: invoiceCompanyPhone.trim(),
+      company_website: invoiceCompanyWebsite.trim(),
+      tax_label: invoiceTaxLabel.trim(),
+      tax_id: invoiceTaxId.trim(),
+      invoice_prefix: invoicePrefix.trim().toUpperCase(),
+      notes: invoiceNotes.trim(),
+      terms: invoiceTerms.trim(),
+      footer_text: invoiceFooterText.trim(),
+      primary_color: invoicePrimaryColor.trim(),
+      accent_color: invoiceAccentColor.trim(),
+      logo_url: invoiceLogoUrl.trim(),
+      show_logo: invoiceShowLogo,
+    };
+
+    setInvoiceSaving(true);
+    try {
+      const res = await api.put('/admin/settings/invoice-template', payload);
+      applyInvoiceTemplateState(res.data);
+      toast.success('Invoice template settings saved');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to save invoice template settings');
+    } finally {
+      setInvoiceSaving(false);
     }
   };
 
@@ -1005,6 +1104,142 @@ const AdminSettings = () => {
                   className="bg-emerald-900 hover:bg-emerald-800"
                 >
                   {seoSaving ? 'Saving...' : 'Save SEO Settings'}
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Invoice Template (Super Admin only) */}
+        <Card className="border-stone-200" data-testid="invoice-template-settings-card">
+          <CardHeader>
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-emerald-100">
+                <FileText className="w-5 h-5 text-emerald-700" />
+              </div>
+              <div>
+                <CardTitle>Invoice Template Settings</CardTitle>
+                <CardDescription>
+                  Customize invoice branding, legal text, and company details shown in downloadable invoices.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!isSuperAdmin ? (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                Only super admin can update invoice template settings. Current role: {user?.role || 'unknown'}.
+              </div>
+            ) : invoiceLoading ? (
+              <div className="text-sm text-stone-500">Loading invoice template settings...</div>
+            ) : (
+              <>
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-stone-700">Company name</p>
+                    <Input value={invoiceCompanyName} onChange={(e) => setInvoiceCompanyName(e.target.value)} maxLength={100} />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-stone-700">Company email</p>
+                    <Input value={invoiceCompanyEmail} onChange={(e) => setInvoiceCompanyEmail(e.target.value)} maxLength={120} />
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-stone-700">Company phone</p>
+                    <Input value={invoiceCompanyPhone} onChange={(e) => setInvoiceCompanyPhone(e.target.value)} maxLength={64} />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-stone-700">Company website</p>
+                    <Input value={invoiceCompanyWebsite} onChange={(e) => setInvoiceCompanyWebsite(e.target.value)} maxLength={220} />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-stone-700">Company address</p>
+                  <Textarea value={invoiceCompanyAddress} onChange={(e) => setInvoiceCompanyAddress(e.target.value)} rows={2} maxLength={200} />
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-3">
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-stone-700">Tax label</p>
+                    <Input value={invoiceTaxLabel} onChange={(e) => setInvoiceTaxLabel(e.target.value)} maxLength={40} />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-stone-700">Tax ID</p>
+                    <Input value={invoiceTaxId} onChange={(e) => setInvoiceTaxId(e.target.value)} maxLength={80} />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-stone-700">Invoice prefix</p>
+                    <Input value={invoicePrefix} onChange={(e) => setInvoicePrefix(e.target.value.toUpperCase())} maxLength={12} />
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-stone-700">Primary color</p>
+                    <div className="flex items-center gap-2">
+                      <Input value={invoicePrimaryColor} onChange={(e) => setInvoicePrimaryColor(e.target.value)} className="font-mono" />
+                      <div className="w-10 h-10 rounded border border-stone-200" style={{ backgroundColor: HEX_COLOR_RE.test(invoicePrimaryColor) ? invoicePrimaryColor : '#fff' }} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-stone-700">Accent color</p>
+                    <div className="flex items-center gap-2">
+                      <Input value={invoiceAccentColor} onChange={(e) => setInvoiceAccentColor(e.target.value)} className="font-mono" />
+                      <div className="w-10 h-10 rounded border border-stone-200" style={{ backgroundColor: HEX_COLOR_RE.test(invoiceAccentColor) ? invoiceAccentColor : '#fff' }} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-stone-700">Logo URL (optional)</p>
+                  <Input value={invoiceLogoUrl} onChange={(e) => setInvoiceLogoUrl(e.target.value)} maxLength={400} />
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border border-stone-200 p-3">
+                  <div>
+                    <p className="text-sm font-medium text-stone-900">Show logo on invoices</p>
+                    <p className="text-xs text-stone-500">Disable if you only want text header branding</p>
+                  </div>
+                  <Switch checked={invoiceShowLogo} onCheckedChange={setInvoiceShowLogo} />
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-stone-700">Invoice notes</p>
+                  <Textarea value={invoiceNotes} onChange={(e) => setInvoiceNotes(e.target.value)} rows={3} maxLength={500} />
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-stone-700">Invoice terms</p>
+                  <Textarea value={invoiceTerms} onChange={(e) => setInvoiceTerms(e.target.value)} rows={3} maxLength={500} />
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-stone-700">Footer text</p>
+                  <Input value={invoiceFooterText} onChange={(e) => setInvoiceFooterText(e.target.value)} maxLength={240} />
+                </div>
+
+                <div className="rounded-lg border border-stone-200 p-4 bg-stone-50">
+                  <p className="text-xs uppercase tracking-wider text-stone-500 mb-2">Invoice Preview</p>
+                  <p className="font-semibold text-stone-900">{invoiceCompanyName || 'Company Name'}</p>
+                  <p className="text-sm text-stone-600">{invoiceCompanyAddress || 'Address'}</p>
+                  <p className="text-sm text-stone-600">{invoiceCompanyEmail || 'billing@example.com'}</p>
+                  <p className="text-sm text-stone-600">
+                    Prefix: {(invoicePrefix || 'INV').toUpperCase()}-000001
+                  </p>
+                  {invoiceTemplate?.updated_at && (
+                    <p className="text-[11px] text-stone-400 mt-2">Last updated: {new Date(invoiceTemplate.updated_at).toLocaleString()}</p>
+                  )}
+                </div>
+
+                <Button
+                  onClick={handleSaveInvoiceTemplate}
+                  disabled={invoiceSaving}
+                  className="bg-emerald-900 hover:bg-emerald-800"
+                >
+                  {invoiceSaving ? 'Saving...' : 'Save Invoice Template'}
                 </Button>
               </>
             )}

@@ -95,6 +95,8 @@ const AdminLinks = () => {
   const filteredLinks = links.filter(link => {
     const matchesSearch = 
       link.token?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      link.internal_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      link.internal_note?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       link.user_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       link.pdf_name?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter = filter === 'all' || link.status === filter;
@@ -182,6 +184,9 @@ const AdminLinks = () => {
                         </TableCell>
                         <TableCell>
                           <p className="text-stone-900 truncate max-w-[200px]">{link.pdf_name}</p>
+                          {link.internal_title && (
+                            <p className="text-xs text-stone-500 truncate max-w-[200px]">{link.internal_title}</p>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
