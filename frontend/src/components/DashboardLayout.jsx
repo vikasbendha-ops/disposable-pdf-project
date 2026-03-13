@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, FileText, Link2, Settings, LogOut, Shield, 
+import {
+  LayoutDashboard, FileText, Link2, Settings, LogOut, Shield,
   ChevronRight, Users, BarChart3, Menu, X, ClipboardList
 } from 'lucide-react';
 import { useAuth, useBranding } from '../App';
@@ -23,7 +23,6 @@ const DashboardLayout = ({ children, title, subtitle }) => {
   const mainNavItems = [
     { icon: LayoutDashboard, label: t('dashboard.title'), path: '/dashboard' },
     { icon: FileText, label: t('common.myPdfs'), path: '/pdfs' },
-    { icon: Link2, label: t('common.myLinks'), path: '/links' },
     { icon: Settings, label: t('settings.title'), path: '/settings' },
   ];
 

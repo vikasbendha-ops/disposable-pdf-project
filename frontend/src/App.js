@@ -16,7 +16,6 @@ import VerifyEmail from './pages/VerifyEmail';
 import Dashboard from './pages/Dashboard';
 import PDFManagement from './pages/PDFManagement';
 import LinkGenerator from './pages/LinkGenerator';
-import MyLinks from './pages/MyLinks';
 import SecureViewer from './pages/SecureViewer';
 import ExpiredPage from './pages/ExpiredPage';
 import Pricing from './pages/Pricing';
@@ -473,7 +472,7 @@ function AppRouter() {
       {/* Protected User Routes */}
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/pdfs" element={<ProtectedRoute><PDFManagement /></ProtectedRoute>} />
-      <Route path="/links" element={<ProtectedRoute><MyLinks /></ProtectedRoute>} />
+      <Route path="/links" element={<ProtectedRoute><Navigate to="/pdfs" replace /></ProtectedRoute>} />
       <Route path="/links/create" element={<ProtectedRoute><LinkGenerator /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       

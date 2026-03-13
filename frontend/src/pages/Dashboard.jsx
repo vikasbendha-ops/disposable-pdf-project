@@ -214,7 +214,7 @@ const Dashboard = () => {
       <Card className="border-stone-200">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{t('dashboard.recentLinks')}</CardTitle>
-          <Link to="/links">
+          <Link to="/pdfs">
             <Button variant="ghost" size="sm">
               {t('dashboard.viewAll')}
               <ChevronRight className="w-4 h-4 ml-1" />
