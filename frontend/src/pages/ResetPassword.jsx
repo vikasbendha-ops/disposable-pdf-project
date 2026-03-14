@@ -6,11 +6,13 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { useAuth, useBranding } from '../App';
+import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 
 const ResetPassword = () => {
   const { validatePasswordResetToken, confirmPasswordReset, user } = useAuth();
   const { branding } = useBranding();
+  const { t } = useLanguage();
   const brandName = branding?.app_name || 'Autodestroy';
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -35,7 +37,7 @@ const ResetPassword = () => {
 
     const validate = async () => {
       if (!token && !hashAccessToken) {
-        setError('Missing reset token');
+        setError(t('resetPassword.missingToken'));
         setTokenValid(false);
         setValidating(false);
         return;
@@ -46,11 +48,11 @@ const ResetPassword = () => {
           : await validatePasswordResetToken(token);
         setTokenValid(Boolean(result?.valid));
         if (!result?.valid) {
-          setError(result?.detail || 'Invalid or expired reset token');
+          setError(result?.detail || t('resetPassword.invalidToken'));
         }
       } catch (err) {
         setTokenValid(false);
-        setError(err.response?.data?.detail || 'Invalid or expired reset token');
+        setError(err.response?.data?.detail || t('resetPassword.invalidToken'));
       } finally {
         setValidating(false);
       }
@@ -64,11 +66,11 @@ const ResetPassword = () => {
     setError('');
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('resetPassword.passwordMismatch'));
       return;
     }
     if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+      setError(t('resetPassword.passwordMin'));
       return;
     }
 
@@ -83,10 +85,10 @@ const ResetPassword = () => {
         await confirmPasswordReset(token, password);
       }
       setSuccess(true);
-      toast.success('Password reset successful');
+      toast.success(t('resetPassword.resetSuccessToast'));
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to reset password');
-      toast.error('Failed to reset password');
+      setError(err.response?.data?.detail || t('resetPassword.resetFailedToast'));
+      toast.error(t('resetPassword.resetFailedToast'));
     } finally {
       setLoading(false);
     }
@@ -106,28 +108,28 @@ const ResetPassword = () => {
           <span className="font-heading font-bold text-xl text-stone-900">{brandName}</span>
         </Link>
 
-        <h1 className="font-heading text-2xl font-bold text-stone-900 mb-2">Create New Password</h1>
+        <h1 className="font-heading text-2xl font-bold text-stone-900 mb-2">{t('resetPassword.title')}</h1>
 
         {validating ? (
-          <p className="text-stone-600">Validating reset link...</p>
+          <p className="text-stone-600">{t('resetPassword.validating')}</p>
         ) : success ? (
           <div className="space-y-4">
             <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-start space-x-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-700 mt-0.5" />
-              <p className="text-sm text-emerald-800">Password updated. You can sign in now.</p>
+              <p className="text-sm text-emerald-800">{t('resetPassword.successMessage')}</p>
             </div>
             <Button className="w-full bg-emerald-900 hover:bg-emerald-800" onClick={() => navigate('/login')}>
-              Go to login
+              {t('resetPassword.goToLogin')}
             </Button>
           </div>
         ) : !tokenValid ? (
           <div className="space-y-4">
             <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-2">
               <AlertCircle className="w-5 h-5 text-red-700 mt-0.5" />
-              <p className="text-sm text-red-700">{error || 'Invalid or expired reset link'}</p>
+              <p className="text-sm text-red-700">{error || t('resetPassword.invalidToken')}</p>
             </div>
             <Link to="/forgot-password">
-              <Button variant="outline" className="w-full">Request a new reset link</Button>
+              <Button variant="outline" className="w-full">{t('resetPassword.requestNewLink')}</Button>
             </Link>
           </div>
         ) : (
@@ -139,7 +141,7 @@ const ResetPassword = () => {
             )}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-semibold text-stone-700">New password</Label>
+                <Label htmlFor="password" className="text-sm font-semibold text-stone-700">{t('resetPassword.newPassword')}</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
                   <Input
@@ -153,7 +155,7 @@ const ResetPassword = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-sm font-semibold text-stone-700">Confirm password</Label>
+                <Label htmlFor="confirmPassword" className="text-sm font-semibold text-stone-700">{t('resetPassword.confirmPassword')}</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
                   <Input
@@ -167,7 +169,7 @@ const ResetPassword = () => {
                 </div>
               </div>
               <Button type="submit" className="w-full h-11 bg-emerald-900 hover:bg-emerald-800" disabled={loading}>
-                {loading ? 'Resetting...' : 'Reset password'}
+                {loading ? t('resetPassword.resetting') : t('resetPassword.resetPassword')}
               </Button>
             </form>
           </>

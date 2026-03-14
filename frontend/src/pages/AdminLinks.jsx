@@ -30,10 +30,12 @@ import {
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
 import { api } from '../App';
+import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
 const AdminLinks = () => {
+  const { t } = useLanguage();
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,7 +48,7 @@ const AdminLinks = () => {
       const response = await api.get('/admin/links');
       setLinks(response.data);
     } catch (error) {
-      toast.error('Failed to load links');
+      toast.error(t('adminLinks.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -60,12 +62,12 @@ const AdminLinks = () => {
     if (!revokeTarget) return;
     try {
       await api.post(`/admin/links/${revokeTarget.link_id}/revoke`);
-      toast.success('Link revoked successfully');
+      toast.success(t('adminLinks.revokeSuccess'));
       setLinks(links.map(l => 
         l.link_id === revokeTarget.link_id ? { ...l, status: 'revoked' } : l
       ));
     } catch (error) {
-      toast.error('Failed to revoke link');
+      toast.error(t('adminLinks.revokeFailed'));
     } finally {
       setRevokeTarget(null);
     }
@@ -75,10 +77,10 @@ const AdminLinks = () => {
     if (!deleteTarget) return;
     try {
       await api.delete(`/admin/links/${deleteTarget.link_id}`);
-      toast.success('Link deleted successfully');
+      toast.success(t('adminLinks.deleteSuccess'));
       setLinks(links.filter(l => l.link_id !== deleteTarget.link_id));
     } catch (error) {
-      toast.error('Failed to delete link');
+      toast.error(t('adminLinks.deleteFailed'));
     } finally {
       setDeleteTarget(null);
     }
@@ -104,13 +106,13 @@ const AdminLinks = () => {
   });
 
   return (
-    <DashboardLayout title="All Links" subtitle="Link Administration">
+    <DashboardLayout title={t('adminLinks.title')} subtitle={t('adminLinks.subtitle')}>
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
           <Input
-            placeholder="Search links, users, or documents..."
+            placeholder={t('admin.searchLinks')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-12 h-12 bg-white border-stone-200"
@@ -121,14 +123,14 @@ const AdminLinks = () => {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="h-12">
-              Filter: {filter.charAt(0).toUpperCase() + filter.slice(1)}
+              {t('adminLinks.filterLabel')}: {filter.charAt(0).toUpperCase() + filter.slice(1)}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuItem onClick={() => setFilter('all')}>All</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilter('active')}>Active</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilter('expired')}>Expired</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setFilter('revoked')}>Revoked</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setFilter('all')}>{t('links.all')}</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setFilter('active')}>{t('links.active')}</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setFilter('expired')}>{t('links.expired')}</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setFilter('revoked')}>{t('links.revoked')}</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -144,21 +146,21 @@ const AdminLinks = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Status</TableHead>
-                  <TableHead>User</TableHead>
-                  <TableHead>Document</TableHead>
-                  <TableHead>Expiry Type</TableHead>
-                  <TableHead>Views</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Expires</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t('common.status')}</TableHead>
+                  <TableHead>{t('admin.user')}</TableHead>
+                  <TableHead>{t('adminLinks.document')}</TableHead>
+                  <TableHead>{t('admin.expiryType')}</TableHead>
+                  <TableHead>{t('links.views')}</TableHead>
+                  <TableHead>{t('links.created')}</TableHead>
+                  <TableHead>{t('admin.expires')}</TableHead>
+                  <TableHead className="text-right">{t('common.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredLinks.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-12 text-stone-500">
-                      No links found
+                      {t('adminLinks.noLinksFound')}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -201,12 +203,12 @@ const AdminLinks = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {link.created_at ? format(new Date(link.created_at), 'MMM d, yyyy') : 'N/A'}
+                          {link.created_at ? format(new Date(link.created_at), 'MMM d, yyyy') : t('common.na')}
                         </TableCell>
                         <TableCell>
                           {link.expires_at 
                             ? format(new Date(link.expires_at), 'MMM d, yyyy HH:mm') 
-                            : link.expiry_mode === 'manual' ? 'Manual' : 'On first view'
+                            : link.expiry_mode === 'manual' ? t('adminLinks.manual') : t('adminLinks.onFirstView')
                           }
                         </TableCell>
                         <TableCell className="text-right">
@@ -223,7 +225,7 @@ const AdminLinks = () => {
                                   className="text-amber-600 focus:text-amber-600"
                                 >
                                   <Ban className="w-4 h-4 mr-2" />
-                                  Revoke Link
+                                  {t('admin.revokeLink')}
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem
@@ -231,7 +233,7 @@ const AdminLinks = () => {
                                 className="text-red-600 focus:text-red-600"
                               >
                                 <Trash2 className="w-4 h-4 mr-2" />
-                                Delete Link
+                                {t('admin.deleteLink')}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -250,18 +252,18 @@ const AdminLinks = () => {
       <AlertDialog open={!!revokeTarget} onOpenChange={() => setRevokeTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Revoke Link?</AlertDialogTitle>
+            <AlertDialogTitle>{t('links.revokeTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will immediately revoke access to this link. The viewer will see an expired message.
+              {t('links.revokeDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleRevoke}
               className="bg-amber-600 hover:bg-amber-700"
             >
-              Revoke Access
+              {t('links.revokeAccess')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -271,18 +273,18 @@ const AdminLinks = () => {
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Link?</AlertDialogTitle>
+            <AlertDialogTitle>{t('links.deleteTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete this secure link. This action cannot be undone.
+              {t('links.deleteDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleDelete}
               className="bg-red-600 hover:bg-red-700"
             >
-              Delete
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

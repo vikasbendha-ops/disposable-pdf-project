@@ -4,11 +4,13 @@ import { motion } from 'framer-motion';
 import { FileText, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useAuth, useBranding } from '../App';
+import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 
 const VerifyEmail = () => {
   const { confirmEmailVerification } = useAuth();
   const { branding } = useBranding();
+  const { t } = useLanguage();
   const brandName = branding?.app_name || 'Autodestroy';
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -25,7 +27,7 @@ const VerifyEmail = () => {
   useEffect(() => {
     const verify = async () => {
       if (!token && !hashAccessToken) {
-        setError('Missing verification token');
+        setError(t('verifyEmail.missingToken'));
         setLoading(false);
         return;
       }
@@ -41,9 +43,9 @@ const VerifyEmail = () => {
           await confirmEmailVerification(token);
         }
         setVerified(true);
-        toast.success('Email verified successfully');
+        toast.success(t('verifyEmail.successToast'));
       } catch (err) {
-        setError(err.response?.data?.detail || 'Verification link is invalid or expired');
+        setError(err.response?.data?.detail || t('verifyEmail.invalidToken'));
       } finally {
         setLoading(false);
       }
@@ -66,20 +68,20 @@ const VerifyEmail = () => {
           <span className="font-heading font-bold text-xl text-stone-900">{brandName}</span>
         </Link>
 
-        <h1 className="font-heading text-2xl font-bold text-stone-900 mb-4">Email Verification</h1>
+        <h1 className="font-heading text-2xl font-bold text-stone-900 mb-4">{t('verifyEmail.title')}</h1>
 
         {loading ? (
-          <p className="text-stone-600">Verifying your email...</p>
+          <p className="text-stone-600">{t('verifyEmail.verifying')}</p>
         ) : verified ? (
           <div className="space-y-4">
             <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-start space-x-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-700 mt-0.5" />
               <p className="text-sm text-emerald-800">
-                Email verified. Your account is active now.
+                {t('verifyEmail.successMessage')}
               </p>
             </div>
             <Button className="w-full bg-emerald-900 hover:bg-emerald-800" onClick={() => navigate('/dashboard')}>
-              Continue to dashboard
+              {t('verifyEmail.continueToDashboard')}
             </Button>
           </div>
         ) : (
@@ -87,12 +89,12 @@ const VerifyEmail = () => {
             <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-2">
               <AlertCircle className="w-5 h-5 text-red-700 mt-0.5" />
               <p className="text-sm text-red-700">
-                {error || 'Verification link is invalid or expired'}
+                {error || t('verifyEmail.invalidToken')}
               </p>
             </div>
             <Link to="/login">
               <Button variant="outline" className="w-full">
-                Go to login
+                {t('verifyEmail.goToLogin')}
               </Button>
             </Link>
           </div>

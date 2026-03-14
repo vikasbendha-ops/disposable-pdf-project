@@ -4,10 +4,12 @@ import { motion } from 'framer-motion';
 import { Clock, Ban, FileText, ArrowRight } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useBranding } from '../App';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const ExpiredPage = () => {
   const location = useLocation();
   const { branding } = useBranding();
+  const { t } = useLanguage();
   const { message, status } = location.state || {};
   const brandName = branding?.app_name || 'Autodestroy';
   const productName = branding?.product_name || 'Autodestroy PDF Platform';
@@ -33,20 +35,20 @@ const ExpiredPage = () => {
         </div>
 
         <h1 className="font-heading text-3xl font-bold text-stone-900 mb-4">
-          {isRevoked ? 'Access Revoked' : 'Link Expired'}
+          {isRevoked ? t('expired.accessRevoked') : t('expired.linkExpired')}
         </h1>
         
         <p className="text-stone-600 text-lg mb-8 leading-relaxed">
           {message || (isRevoked 
-            ? 'The owner has revoked access to this document.'
-            : 'This secure link has expired and the document is no longer available.'
+            ? t('expired.revokedMessage')
+            : t('expired.expiredMessage')
           )}
         </p>
 
         <div className="bg-stone-50 rounded-xl p-6 mb-8">
-          <h3 className="font-semibold text-stone-900 mb-3">Need access to this document?</h3>
+          <h3 className="font-semibold text-stone-900 mb-3">{t('expired.needAccess')}</h3>
           <p className="text-stone-600 text-sm">
-            Contact the document owner to request a new secure link.
+            {t('expired.contactOwner')}
           </p>
         </div>
 
@@ -54,12 +56,12 @@ const ExpiredPage = () => {
           <Link to="/">
             <Button variant="outline" className="w-full sm:w-auto h-12">
               <FileText className="w-4 h-4 mr-2" />
-              Learn About {brandName}
+              {t('expired.learnAbout')} {brandName}
             </Button>
           </Link>
           <Link to="/register">
             <Button className="bg-emerald-900 hover:bg-emerald-800 w-full sm:w-auto h-12">
-              Create Your Own Links
+              {t('expired.createOwn')}
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </Link>

@@ -7,6 +7,7 @@ import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
 import { api } from '../App';
+import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 
 const formatDateTime = (value) => {
@@ -17,6 +18,7 @@ const formatDateTime = (value) => {
 };
 
 const AdminAuditLogs = () => {
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [events, setEvents] = useState([]);
@@ -48,7 +50,7 @@ const AdminAuditLogs = () => {
       setEvents(response.data?.events || []);
       setTotal(Number(response.data?.total || 0));
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to load audit logs');
+      toast.error(err.response?.data?.detail || t('adminAudit.loadFailed'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -60,30 +62,30 @@ const AdminAuditLogs = () => {
   }, []);
 
   return (
-    <DashboardLayout title="Audit Logs" subtitle="Security & Activity Timeline">
+    <DashboardLayout title={t('adminAudit.title')} subtitle={t('adminAudit.subtitle')}>
       <div className="space-y-6">
         <Card className="border-stone-200">
           <CardHeader>
-            <CardTitle>Filters</CardTitle>
+            <CardTitle>{t('adminAudit.filters')}</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <Select value={successFilter} onValueChange={setSuccessFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="Status" />
+                <SelectValue placeholder={t('adminAudit.statusPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All status</SelectItem>
-                <SelectItem value="success">Success</SelectItem>
-                <SelectItem value="failed">Failed</SelectItem>
+                <SelectItem value="all">{t('adminAudit.allStatus')}</SelectItem>
+                <SelectItem value="success">{t('adminAudit.success')}</SelectItem>
+                <SelectItem value="failed">{t('adminAudit.failed')}</SelectItem>
               </SelectContent>
             </Select>
 
             <Select value={eventType || '__all__'} onValueChange={(value) => setEventType(value === '__all__' ? '' : value)}>
               <SelectTrigger>
-                <SelectValue placeholder="Event type" />
+                <SelectValue placeholder={t('adminAudit.eventTypePlaceholder')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all__">All event types</SelectItem>
+                <SelectItem value="__all__">{t('adminAudit.allEventTypes')}</SelectItem>
                 {knownEventTypes.map((item) => (
                   <SelectItem key={item} value={item}>{item}</SelectItem>
                 ))}
@@ -91,14 +93,14 @@ const AdminAuditLogs = () => {
             </Select>
 
             <Input
-              placeholder="Actor user_id"
+              placeholder={t('adminAudit.actorUserId')}
               value={actorUserId}
               onChange={(e) => setActorUserId(e.target.value)}
             />
 
             <div className="flex space-x-2">
               <Button className="flex-1 bg-emerald-900 hover:bg-emerald-800" onClick={() => fetchEvents(true)}>
-                Apply
+                {t('adminAudit.apply')}
               </Button>
               <Button variant="outline" onClick={() => fetchEvents(true)} disabled={refreshing}>
                 <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
@@ -109,25 +111,25 @@ const AdminAuditLogs = () => {
 
         <Card className="border-stone-200">
           <CardHeader>
-            <CardTitle>Events ({total})</CardTitle>
+            <CardTitle>{t('adminAudit.events')} ({total})</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="h-36 flex items-center justify-center text-stone-500">Loading logs...</div>
+              <div className="h-36 flex items-center justify-center text-stone-500">{t('adminAudit.loadingLogs')}</div>
             ) : events.length === 0 ? (
-              <div className="h-24 flex items-center justify-center text-stone-500">No audit events found.</div>
+              <div className="h-24 flex items-center justify-center text-stone-500">{t('adminAudit.noEvents')}</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                   <thead>
                     <tr className="border-b border-stone-200 text-left text-stone-600">
-                      <th className="py-2 pr-4">Time</th>
-                      <th className="py-2 pr-4">Event</th>
-                      <th className="py-2 pr-4">Actor</th>
-                      <th className="py-2 pr-4">Target</th>
-                      <th className="py-2 pr-4">Resource</th>
-                      <th className="py-2 pr-4">Status</th>
-                      <th className="py-2 pr-0">Message</th>
+                      <th className="py-2 pr-4">{t('adminAudit.time')}</th>
+                      <th className="py-2 pr-4">{t('adminAudit.event')}</th>
+                      <th className="py-2 pr-4">{t('adminAudit.actor')}</th>
+                      <th className="py-2 pr-4">{t('adminAudit.target')}</th>
+                      <th className="py-2 pr-4">{t('adminAudit.resource')}</th>
+                      <th className="py-2 pr-4">{t('common.status')}</th>
+                      <th className="py-2 pr-0">{t('adminAudit.message')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -143,7 +145,7 @@ const AdminAuditLogs = () => {
                         </td>
                         <td className="py-3 pr-4">
                           <Badge className={event.success ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}>
-                            {event.success ? 'Success' : 'Failed'}
+                            {event.success ? t('adminAudit.success') : t('adminAudit.failed')}
                           </Badge>
                         </td>
                         <td className="py-3 pr-0 text-stone-600">{event.message || '-'}</td>

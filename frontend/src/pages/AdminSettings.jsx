@@ -9,6 +9,7 @@ import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Switch } from '../components/ui/switch';
 import { api, DEFAULT_BRANDING, useAuth, useBranding, useSeo } from '../App';
+import { useLanguage } from '../contexts/LanguageContext';
 import { DEFAULT_SEO_SETTINGS } from '../../../lib/seo';
 import { toast } from 'sonner';
 
@@ -18,6 +19,7 @@ const AdminSettings = () => {
   const { user } = useAuth();
   const { refreshBranding } = useBranding();
   const { refreshSeo } = useSeo();
+  const { t, languages } = useLanguage();
   const isSuperAdmin = user?.role === 'super_admin';
 
   const [stripeConfig, setStripeConfig] = useState(null);
@@ -89,9 +91,13 @@ const AdminSettings = () => {
   const [invoiceAccentColor, setInvoiceAccentColor] = useState('#10b981');
   const [invoiceLogoUrl, setInvoiceLogoUrl] = useState('');
   const [invoiceShowLogo, setInvoiceShowLogo] = useState(true);
+  const [localizationLoading, setLocalizationLoading] = useState(false);
+  const [localizationSaving, setLocalizationSaving] = useState(false);
+  const [platformLanguage, setPlatformLanguage] = useState('en');
 
   useEffect(() => {
     fetchStripeConfig();
+    fetchLocalizationConfig();
     if (isSuperAdmin) {
       fetchStorageConfig();
       fetchVercelConfig();
@@ -109,6 +115,22 @@ const AdminSettings = () => {
       toast.error('Failed to load Stripe settings');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const applyLocalizationState = (config) => {
+    setPlatformLanguage(config?.default_language || 'en');
+  };
+
+  const fetchLocalizationConfig = async () => {
+    setLocalizationLoading(true);
+    try {
+      const res = await api.get('/admin/settings/localization');
+      applyLocalizationState(res.data);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || t('adminSettingsLocalization.loadFailed'));
+    } finally {
+      setLocalizationLoading(false);
     }
   };
 
@@ -483,9 +505,24 @@ const AdminSettings = () => {
     }
   };
 
+  const handleSaveLocalizationConfig = async () => {
+    setLocalizationSaving(true);
+    try {
+      const res = await api.put('/admin/settings/localization', {
+        default_language: platformLanguage,
+      });
+      applyLocalizationState(res.data);
+      toast.success(t('adminSettingsLocalization.saveSuccess'));
+    } catch (err) {
+      toast.error(err.response?.data?.detail || t('adminSettingsLocalization.saveFailed'));
+    } finally {
+      setLocalizationSaving(false);
+    }
+  };
+
   if (loading) {
     return (
-      <DashboardLayout title="Platform Settings">
+      <DashboardLayout title={t('admin.stripeSettings')}>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-emerald-900" />
         </div>
@@ -496,8 +533,46 @@ const AdminSettings = () => {
   const isLive = stripeConfig?.mode === 'live';
 
   return (
-    <DashboardLayout title="Platform Settings" subtitle="Manage integrations and platform configuration">
+    <DashboardLayout title={t('admin.stripeSettings')} subtitle={t('adminSettingsLocalization.description')}>
       <div className="max-w-3xl space-y-6">
+
+        <Card className="border-stone-200">
+          <CardHeader>
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                <Globe className="w-5 h-5 text-emerald-700" />
+              </div>
+              <div>
+                <CardTitle>{t('adminSettingsLocalization.title')}</CardTitle>
+                <CardDescription>{t('adminSettingsLocalization.description')}</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>{t('adminSettingsLocalization.defaultLanguage')}</Label>
+              <Select value={platformLanguage} onValueChange={setPlatformLanguage}>
+                <SelectTrigger className="h-12">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {languages.map((language) => (
+                    <SelectItem key={language.code} value={language.code}>
+                      {language.nativeName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              className="bg-emerald-900 hover:bg-emerald-800"
+              onClick={handleSaveLocalizationConfig}
+              disabled={localizationSaving || localizationLoading}
+            >
+              {localizationSaving ? t('adminSettingsLocalization.saving') : t('adminSettingsLocalization.save')}
+            </Button>
+          </CardContent>
+        </Card>
 
         {/* Stripe Integration */}
         <Card className="border-stone-200" data-testid="stripe-settings-card">

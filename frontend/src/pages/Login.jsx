@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { useAuth, useBranding } from '../App';
+import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 
 const Login = () => {
@@ -20,6 +21,7 @@ const Login = () => {
   
   const { login, user, resendVerificationEmail } = useAuth();
   const { branding } = useBranding();
+  const { t } = useLanguage();
   const brandName = branding?.app_name || 'Autodestroy';
   const navigate = useNavigate();
   const location = useLocation();
@@ -49,7 +51,7 @@ const Login = () => {
 
     try {
       await login(email, password);
-      toast.success('Welcome back!');
+      toast.success(t('authFlow.welcomeBackToast'));
       navigate(from, { replace: true });
     } catch (err) {
       const detail = err.response?.data?.detail || 'Invalid email or password';
@@ -60,7 +62,7 @@ const Login = () => {
         setShowVerificationHelp(true);
         setUnverifiedEmail(email);
       }
-      toast.error('Login failed');
+      toast.error(t('authFlow.loginFailed'));
     } finally {
       setLoading(false);
     }
@@ -68,15 +70,15 @@ const Login = () => {
 
   const handleResendVerification = async () => {
     if (!unverifiedEmail) {
-      toast.error('Enter your email first');
+      toast.error(t('authFlow.enterEmailFirst'));
       return;
     }
     setResendLoading(true);
     try {
       await resendVerificationEmail(unverifiedEmail);
-      toast.success('Verification email sent if account is pending verification.');
+      toast.success(t('authFlow.resendVerificationSent'));
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to resend verification email');
+      toast.error(err.response?.data?.detail || t('authFlow.resendVerification'));
     } finally {
       setResendLoading(false);
     }
@@ -119,16 +121,15 @@ const Login = () => {
           className="relative z-10"
         >
           <h1 className="font-heading text-4xl font-bold text-white mb-4">
-            Welcome Back to Your Vault
+            {t('auth.welcomeBack')}
           </h1>
           <p className="text-emerald-100 text-lg leading-relaxed">
-            Your secure documents are waiting. Sign in to manage your PDFs, 
-            create new expiring links, and track access in real-time.
+            {t('auth.welcomeDesc')}
           </p>
         </motion.div>
 
         <div className="relative z-10 text-emerald-200 text-sm">
-          Protected by enterprise-grade security
+          {t('auth.protectedBy')}
         </div>
       </div>
 
@@ -149,13 +150,13 @@ const Login = () => {
             </Link>
           </div>
 
-          <h2 className="font-heading text-3xl font-bold text-stone-900 mb-2">Sign In</h2>
-          <p className="text-stone-600 mb-8">Enter your credentials to access your vault</p>
+          <h2 className="font-heading text-3xl font-bold text-stone-900 mb-2">{t('auth.signInTitle')}</h2>
+          <p className="text-stone-600 mb-8">{t('auth.signInDesc')}</p>
 
           {registrationPendingVerification && (
             <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
               <p className="text-emerald-800 text-sm">
-                Account created. Please verify your email before signing in.
+                {t('authFlow.registrationPendingVerification')}
               </p>
             </div>
           )}
@@ -170,7 +171,7 @@ const Login = () => {
           {showVerificationHelp && (
             <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
               <p className="text-amber-900 text-sm mb-3">
-                Your email is not verified yet. Resend the verification link.
+                {t('authFlow.emailNotVerified')}
               </p>
               <Button
                 type="button"
@@ -179,14 +180,14 @@ const Login = () => {
                 onClick={handleResendVerification}
                 disabled={resendLoading}
               >
-                {resendLoading ? 'Sending...' : 'Resend verification email'}
+                {resendLoading ? t('common.loading') : t('authFlow.resendVerification')}
               </Button>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-semibold text-stone-700">Email Address</Label>
+              <Label htmlFor="email" className="text-sm font-semibold text-stone-700">{t('auth.email')}</Label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
                 <Input
@@ -204,9 +205,9 @@ const Login = () => {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-sm font-semibold text-stone-700">Password</Label>
+                <Label htmlFor="password" className="text-sm font-semibold text-stone-700">{t('auth.password')}</Label>
                 <Link to="/forgot-password" className="text-sm text-emerald-700 hover:text-emerald-800">
-                  Forgot password?
+                  {t('auth.forgotPassword')}
                 </Link>
               </div>
               <div className="relative">
@@ -216,7 +217,7 @@ const Login = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  placeholder={t('auth.password')}
                   className="pl-12 pr-12 h-12 bg-white border-stone-200 focus:border-emerald-600 focus:ring-emerald-600"
                   required
                   data-testid="login-password-input"
@@ -237,7 +238,7 @@ const Login = () => {
               disabled={loading}
               data-testid="login-submit-btn"
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? t('auth.signingIn') : t('auth.signInTitle')}
             </Button>
           </form>
 
@@ -246,7 +247,7 @@ const Login = () => {
               <div className="w-full border-t border-stone-200"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-stone-50 text-stone-500">Or continue with</span>
+              <span className="px-4 bg-stone-50 text-stone-500">{t('auth.orContinue')}</span>
             </div>
           </div>
 
@@ -262,13 +263,13 @@ const Login = () => {
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            Sign in with Google
+            {t('auth.googleSignIn')}
           </Button>
 
           <p className="mt-8 text-center text-stone-600">
-            Don't have an account?{' '}
+            {t('auth.noAccount')}{' '}
             <Link to="/register" className="text-emerald-700 hover:text-emerald-800 font-semibold">
-              Create one
+              {t('auth.createOne')}
             </Link>
           </p>
         </motion.div>

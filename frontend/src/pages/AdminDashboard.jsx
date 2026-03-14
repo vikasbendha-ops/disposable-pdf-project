@@ -4,9 +4,11 @@ import { Users, FileText, Link2, HardDrive, TrendingUp, Activity } from 'lucide-
 import DashboardLayout from '../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { api } from '../App';
+import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 
 const AdminDashboard = () => {
+  const { t } = useLanguage();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -19,7 +21,7 @@ const AdminDashboard = () => {
       const response = await api.get('/admin/stats');
       setStats(response.data);
     } catch (error) {
-      toast.error('Failed to load admin stats');
+      toast.error(t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -36,51 +38,51 @@ const AdminDashboard = () => {
   const statCards = [
     { 
       icon: Users, 
-      label: 'Total Users', 
+      label: t('admin.totalUsers'), 
       value: stats?.total_users || 0,
       color: 'bg-blue-100 text-blue-700',
-      description: 'Registered accounts'
+      description: t('admin.registeredAccounts')
     },
     { 
       icon: Activity, 
-      label: 'Active Subscribers', 
+      label: t('admin.activeSubscribers'), 
       value: stats?.active_subscribers || 0,
       color: 'bg-emerald-100 text-emerald-700',
-      description: 'Paying customers'
+      description: t('admin.payingCustomers')
     },
     { 
       icon: FileText, 
-      label: 'Total PDFs', 
+      label: t('admin.totalPdfs'), 
       value: stats?.total_pdfs || 0,
       color: 'bg-purple-100 text-purple-700',
-      description: 'Documents uploaded'
+      description: t('admin.documentsUploaded')
     },
     { 
       icon: Link2, 
-      label: 'Total Links', 
+      label: t('admin.totalLinks'), 
       value: stats?.total_links || 0,
       color: 'bg-orange-100 text-orange-700',
-      description: 'Secure links created'
+      description: t('admin.secureLinksCreated')
     },
     { 
       icon: TrendingUp, 
-      label: 'Active Links', 
+      label: t('admin.activeLinksLabel'), 
       value: stats?.active_links || 0,
       color: 'bg-cyan-100 text-cyan-700',
-      description: 'Currently accessible'
+      description: t('admin.currentlyAccessible')
     },
     { 
       icon: HardDrive, 
-      label: 'Total Storage', 
+      label: t('admin.totalStorage'), 
       value: formatBytes(stats?.total_storage_bytes || 0),
       color: 'bg-rose-100 text-rose-700',
-      description: 'Storage used by users'
+      description: t('admin.storageUsed')
     },
   ];
 
   if (loading) {
     return (
-      <DashboardLayout title="Admin Dashboard" subtitle="Platform Overview">
+      <DashboardLayout title={t('admin.dashboard')} subtitle={t('admin.platformOverview')}>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-900"></div>
         </div>
@@ -89,7 +91,7 @@ const AdminDashboard = () => {
   }
 
   return (
-    <DashboardLayout title="Admin Dashboard" subtitle="Platform Overview">
+    <DashboardLayout title={t('admin.dashboard')} subtitle={t('admin.platformOverview')}>
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         {statCards.map((stat, i) => (
@@ -121,7 +123,7 @@ const AdminDashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="border-stone-200">
           <CardHeader>
-            <CardTitle>Conversion Rate</CardTitle>
+            <CardTitle>{t('admin.conversionRate')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-center py-8">
@@ -130,14 +132,14 @@ const AdminDashboard = () => {
                   ? ((stats.active_subscribers / stats.total_users) * 100).toFixed(1)
                   : 0}%
               </p>
-              <p className="text-stone-500">Users to Subscribers</p>
+              <p className="text-stone-500">{t('admin.usersToSubscribers')}</p>
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-stone-200">
           <CardHeader>
-            <CardTitle>Link Activity</CardTitle>
+            <CardTitle>{t('admin.linkActivity')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-center py-8">
@@ -146,7 +148,7 @@ const AdminDashboard = () => {
                   ? ((stats.active_links / stats.total_links) * 100).toFixed(1)
                   : 0}%
               </p>
-              <p className="text-stone-500">Active vs Total Links</p>
+              <p className="text-stone-500">{t('admin.activeVsTotal')}</p>
             </div>
           </CardContent>
         </Card>

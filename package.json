@@ -9,7 +9,8 @@
     "start": "next start",
     "db:migrate": "node scripts/db/migrate.cjs",
     "db:seed": "node scripts/db/seed.cjs",
-    "db:setup": "npm run db:migrate && npm run db:seed"
+    "db:setup": "npm run db:migrate && npm run db:seed",
+    "i18n:validate": "node scripts/i18n/validate.cjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.918.0",

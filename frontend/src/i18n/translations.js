@@ -1,6 +1,8 @@
 // Translations for Autodestroy PDF Platform
 // Supports 20+ languages
 
+import { SUPPORTED_LANGUAGE_CODES, TRANSLATION_OVERRIDES } from './translation-overrides.js';
+
 const translations = {
   en: {
     code: 'en',
@@ -869,38 +871,66 @@ const translations = {
   he: { code: 'he', name: 'Hebrew', nativeName: 'עברית', nav: { pricing: 'מחירים', features: 'תכונות', howItWorks: 'איך זה עובד', signIn: 'התחבר', getStarted: 'התחל', dashboard: 'לוח בקרה' }, auth: { signInTitle: 'התחבר', createAccount: 'צור חשבון', email: 'אימייל', password: 'סיסמה', selectLanguage: 'בחר שפה' }, common: { signOut: 'התנתק', myPdfs: 'הPDF שלי', myLinks: 'הקישורים שלי' } },
 };
 
-// Get available languages list
-export const getAvailableLanguages = () => {
-  return Object.values(translations).map(lang => ({
-    code: lang.code,
-    name: lang.name,
-    nativeName: lang.nativeName
-  }));
+const isPlainObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
+
+const mergeTranslationObjects = (baseValue, patchValue) => {
+  if (Array.isArray(patchValue)) {
+    return [...patchValue];
+  }
+  if (!isPlainObject(baseValue) || !isPlainObject(patchValue)) {
+    return patchValue !== undefined ? patchValue : baseValue;
+  }
+
+  const merged = { ...baseValue };
+  Object.entries(patchValue).forEach(([key, value]) => {
+    merged[key] = mergeTranslationObjects(baseValue?.[key], value);
+  });
+  return merged;
 };
 
-// Primary languages to show in UI (user-configured subset)
-export const PRIMARY_LANGUAGE_CODES = ['en', 'it', 'sl', 'fr', 'es', 'de', 'hi'];
+const localizedTranslations = Object.fromEntries(
+  Object.entries(translations).map(([code, config]) => [
+    code,
+    mergeTranslationObjects(config, TRANSLATION_OVERRIDES[code] || {}),
+  ]),
+);
+
+// Get available languages list
+export const getAvailableLanguages = () => {
+  return SUPPORTED_LANGUAGE_CODES
+    .filter((code) => localizedTranslations[code])
+    .map((code) => ({
+      code,
+      name: localizedTranslations[code].name,
+      nativeName: localizedTranslations[code].nativeName,
+    }));
+};
+
+// Primary languages to show in UI
+export const PRIMARY_LANGUAGE_CODES = [...SUPPORTED_LANGUAGE_CODES];
+
+export const isSupportedLanguage = (langCode) => PRIMARY_LANGUAGE_CODES.includes(langCode);
 
 export const getPrimaryLanguages = () => {
   return PRIMARY_LANGUAGE_CODES
-    .filter(code => translations[code])
+    .filter(code => localizedTranslations[code])
     .map(code => ({
       code,
-      name: translations[code].name,
-      nativeName: translations[code].nativeName
+      name: localizedTranslations[code].name,
+      nativeName: localizedTranslations[code].nativeName
     }));
 };
 
 // Get translation with fallback to English
 export const getTranslation = (langCode, path) => {
   const keys = path.split('.');
-  let result = translations[langCode] || translations.en;
+  let result = localizedTranslations[langCode] || localizedTranslations.en;
   
   for (const key of keys) {
     result = result?.[key];
     if (result === undefined) {
       // Fallback to English
-      result = translations.en;
+      result = localizedTranslations.en;
       for (const k of keys) {
         result = result?.[k];
         if (result === undefined) break;
@@ -912,4 +942,4 @@ export const getTranslation = (langCode, path) => {
   return result || path;
 };
 
-export default translations;
+export default localizedTranslations;

@@ -40,6 +40,7 @@ import {
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
 import { api, useAuth } from '../App';
+import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
@@ -67,15 +68,9 @@ const EMPTY_CREATE_USER = {
   free_access_days: '30',
 };
 
-const SUBSCRIPTION_OPTIONS = [
-  { value: 'none', label: 'No Subscription' },
-  { value: 'basic', label: 'Basic' },
-  { value: 'pro', label: 'Pro' },
-  { value: 'enterprise', label: 'Enterprise' },
-];
-
 const AdminUsers = () => {
   const { user: currentUser } = useAuth();
+  const { t } = useLanguage();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -102,11 +97,11 @@ const AdminUsers = () => {
       const response = await api.get('/admin/users');
       setUsers(response.data);
     } catch (error) {
-      toast.error('Failed to load users');
+      toast.error(t('common.error'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchUsers();
@@ -140,10 +135,10 @@ const AdminUsers = () => {
   const handleUpdateUser = async (userId, updates) => {
     try {
       await api.put(`/admin/users/${userId}`, updates);
-      toast.success('User updated successfully');
+      toast.success(t('common.success'));
       fetchUsers();
     } catch (error) {
-      toast.error('Failed to update user');
+      toast.error(t('common.error'));
     }
   };
 
@@ -151,10 +146,10 @@ const AdminUsers = () => {
     if (!deleteTarget) return;
     try {
       await api.delete(`/admin/users/${deleteTarget.user_id}`);
-      toast.success('User deleted successfully');
+      toast.success(t('common.success'));
       setUsers(users.filter(u => u.user_id !== deleteTarget.user_id));
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to delete user');
+      toast.error(error.response?.data?.detail || t('common.error'));
     } finally {
       setDeleteTarget(null);
     }
@@ -197,14 +192,14 @@ const AdminUsers = () => {
         free_access_days:
           createForm.plan === 'none'
             ? 0
-            : Number.parseInt(createForm.free_access_days || '0', 10),
+          : Number.parseInt(createForm.free_access_days || '0', 10),
       });
-      toast.success('User created successfully');
+      toast.success(t('common.success'));
       setCreateForm(EMPTY_CREATE_USER);
       setCreateOpen(false);
       fetchUsers();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to create user');
+      toast.error(error.response?.data?.detail || t('common.error'));
     } finally {
       setCreatingUser(false);
     }
@@ -219,13 +214,13 @@ const AdminUsers = () => {
         free_access_days:
           subscriptionForm.plan === 'none'
             ? 0
-            : Number.parseInt(subscriptionForm.free_access_days || '0', 10),
+          : Number.parseInt(subscriptionForm.free_access_days || '0', 10),
       });
-      toast.success('Subscription access updated');
+      toast.success(t('common.success'));
       await handleOpenBilling(billingTarget);
       fetchUsers();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to update subscription access');
+      toast.error(error.response?.data?.detail || t('common.error'));
     } finally {
       setSavingSubscription(false);
     }
@@ -250,7 +245,7 @@ const AdminUsers = () => {
       const response = await api.get(`/admin/billing/customers/${user.user_id}`);
       setBillingDetails(response.data || null);
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to load billing details');
+      toast.error(error.response?.data?.detail || t('common.error'));
     } finally {
       setBillingLoading(false);
     }
@@ -263,11 +258,11 @@ const AdminUsers = () => {
       await api.put(`/admin/users/${billingTarget.user_id}`, {
         billing_profile: billingProfileForm,
       });
-      toast.success('Customer billing profile updated');
+      toast.success(t('common.success'));
       await handleOpenBilling(billingTarget);
       fetchUsers();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to update billing profile');
+      toast.error(error.response?.data?.detail || t('common.error'));
     } finally {
       setSavingBillingProfile(false);
     }
@@ -289,7 +284,7 @@ const AdminUsers = () => {
       anchor.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to download invoice');
+      toast.error(error.response?.data?.detail || t('common.error'));
     }
   };
 
@@ -320,10 +315,10 @@ const AdminUsers = () => {
           };
         });
       }
-      toast.success('Invoice info updated');
+      toast.success(t('common.success'));
       setInvoiceEditTarget(null);
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to update invoice');
+      toast.error(error.response?.data?.detail || t('common.error'));
     } finally {
       setSavingInvoice(false);
     }
@@ -342,15 +337,29 @@ const AdminUsers = () => {
     user.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const getPlanLabel = (plan) => {
+    if (plan === 'basic') return t('pricing.basic');
+    if (plan === 'pro') return t('pricing.pro');
+    if (plan === 'enterprise') return t('pricing.enterprise');
+    return t('adminUsers.noSubscription');
+  };
+
+  const subscriptionOptions = [
+    { value: 'none', label: getPlanLabel('none') },
+    { value: 'basic', label: getPlanLabel('basic') },
+    { value: 'pro', label: getPlanLabel('pro') },
+    { value: 'enterprise', label: getPlanLabel('enterprise') },
+  ];
+
   return (
-    <DashboardLayout title="Manage Users" subtitle="User Administration">
+    <DashboardLayout title={t('adminUsers.title')} subtitle={t('adminUsers.subtitle')}>
       {/* Search */}
       <div className="mb-6">
         <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
           <div className="relative max-w-md flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
             <Input
-              placeholder="Search users..."
+              placeholder={t('admin.searchUsers')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-12 h-12 bg-white border-stone-200"
@@ -362,7 +371,7 @@ const AdminUsers = () => {
             onClick={() => setCreateOpen(true)}
           >
             <Users className="w-4 h-4 mr-2" />
-            New User
+            {t('adminUsers.newUser')}
           </Button>
         </div>
       </div>
@@ -378,25 +387,25 @@ const AdminUsers = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Subscription</TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Storage</TableHead>
+                  <TableHead>{t('admin.user')}</TableHead>
+                  <TableHead>{t('admin.role')}</TableHead>
+                  <TableHead>{t('adminUsers.subscription')}</TableHead>
+                  <TableHead>{t('adminUsers.plan')}</TableHead>
+                  <TableHead>{t('adminUsers.storage')}</TableHead>
                   <TableHead>PDFs</TableHead>
                   <TableHead>Links</TableHead>
-                  <TableHead>Payments</TableHead>
-                  <TableHead>Total Paid</TableHead>
-                  <TableHead>Next Renewal</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t('adminUsers.payments')}</TableHead>
+                  <TableHead>{t('adminUsers.totalPaid')}</TableHead>
+                  <TableHead>{t('adminUsers.nextRenewal')}</TableHead>
+                  <TableHead>{t('admin.joined')}</TableHead>
+                  <TableHead className="text-right">{t('common.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredUsers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={12} className="text-center py-12 text-stone-500">
-                      No users found
+                      {t('adminUsers.noUsersFound')}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -428,24 +437,24 @@ const AdminUsers = () => {
                           {user.subscription_status}
                         </span>
                       </TableCell>
-                      <TableCell className="capitalize">{user.plan || 'none'}</TableCell>
+                      <TableCell className="capitalize">{getPlanLabel(user.plan || 'none')}</TableCell>
                       <TableCell>{formatBytes(user.storage_used || 0)}</TableCell>
                       <TableCell>{user.pdf_count || 0}</TableCell>
                       <TableCell>{user.link_count || 0}</TableCell>
                       <TableCell>
                         <div className="text-sm">
                           <p className="font-medium text-stone-900">{user.successful_payments || 0}</p>
-                          <p className="text-stone-500">{user.failed_payments || 0} failed</p>
+                          <p className="text-stone-500">{t('adminUsers.failedCount', { count: user.failed_payments || 0 })}</p>
                         </div>
                       </TableCell>
                       <TableCell>
                         {formatAmount(user.total_paid || 0, user.payment_currency || 'eur')}
                       </TableCell>
                       <TableCell>
-                        {user.next_renewal_at ? format(new Date(user.next_renewal_at), 'MMM d, yyyy') : 'N/A'}
+                        {user.next_renewal_at ? format(new Date(user.next_renewal_at), 'MMM d, yyyy') : t('common.na')}
                       </TableCell>
                       <TableCell>
-                        {user.created_at ? format(new Date(user.created_at), 'MMM d, yyyy') : 'N/A'}
+                        {user.created_at ? format(new Date(user.created_at), 'MMM d, yyyy') : t('common.na')}
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -460,34 +469,34 @@ const AdminUsers = () => {
                                 onClick={() => handleUpdateUser(user.user_id, { subscription_status: 'active' })}
                               >
                                 <Check className="w-4 h-4 mr-2 text-emerald-600" />
-                                Activate Subscription
+                                {t('admin.activateSubscription')}
                               </DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem
                                 onClick={() => handleUpdateUser(user.user_id, { subscription_status: 'inactive' })}
                               >
                                 <X className="w-4 h-4 mr-2 text-amber-600" />
-                                Deactivate Subscription
+                                {t('admin.deactivateSubscription')}
                               </DropdownMenuItem>
                             )}
                             {user.role === 'super_admin' ? (
                               <DropdownMenuItem disabled>
                                 <Shield className="w-4 h-4 mr-2 text-red-600" />
-                                Super Admin (Protected)
+                                {t('adminUsers.superAdminProtected')}
                               </DropdownMenuItem>
                             ) : user.role !== 'admin' ? (
                                 <DropdownMenuItem
                                   onClick={() => handleUpdateUser(user.user_id, { role: 'admin' })}
                                 >
                                   <Shield className="w-4 h-4 mr-2 text-purple-600" />
-                                  Make Admin
+                                  {t('admin.makeAdmin')}
                                 </DropdownMenuItem>
                               ) : (
                                 <DropdownMenuItem
                                   onClick={() => handleUpdateUser(user.user_id, { role: 'user' })}
                                 >
                                   <Users className="w-4 h-4 mr-2" />
-                                  Remove Admin
+                                  {t('admin.removeAdmin')}
                                 </DropdownMenuItem>
                               )}
                             <DropdownMenuSeparator />
@@ -496,13 +505,13 @@ const AdminUsers = () => {
                               className="text-red-600 focus:text-red-600"
                             >
                               <Trash2 className="w-4 h-4 mr-2" />
-                              Delete User
+                              {t('admin.deleteUser')}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleOpenBilling(user)}
                             >
                               <CreditCard className="w-4 h-4 mr-2" />
-                              Billing Details
+                              {t('adminUsers.billingDetails')}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -520,19 +529,18 @@ const AdminUsers = () => {
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete User?</AlertDialogTitle>
+            <AlertDialogTitle>{t('adminUsers.deleteUserQuestion')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete "{deleteTarget?.name}" and all their PDFs and links. 
-              This action cannot be undone.
+              {t('admin.deleteUserDesc', { name: deleteTarget?.name || '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleDeleteUser}
               className="bg-red-600 hover:bg-red-700"
             >
-              Delete
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -541,16 +549,16 @@ const AdminUsers = () => {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Create User</DialogTitle>
+            <DialogTitle>{t('adminUsers.createUser')}</DialogTitle>
             <DialogDescription>
-              Add an account and optionally grant a subscription plan for a fixed free-access period.
+              {t('adminUsers.createUserDescription')}
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleCreateUser} className="space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="create-name">Full Name</Label>
+                <Label htmlFor="create-name">{t('adminUsers.fullName')}</Label>
                 <Input
                   id="create-name"
                   value={createForm.name}
@@ -560,7 +568,7 @@ const AdminUsers = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="create-email">Email</Label>
+                <Label htmlFor="create-email">{t('settings.email')}</Label>
                 <Input
                   id="create-email"
                   type="email"
@@ -571,7 +579,7 @@ const AdminUsers = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="create-password">Temporary Password</Label>
+                <Label htmlFor="create-password">{t('adminUsers.temporaryPassword')}</Label>
                 <Input
                   id="create-password"
                   type="password"
@@ -583,7 +591,7 @@ const AdminUsers = () => {
                 />
               </div>
               <div>
-                <Label>Role</Label>
+                <Label>{t('admin.role')}</Label>
                 <Select
                   value={createForm.role}
                   onValueChange={(value) => updateCreateField('role', value)}
@@ -592,7 +600,7 @@ const AdminUsers = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="user">User</SelectItem>
+                    <SelectItem value="user">{t('admin.user')}</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                     {currentUser?.role === 'super_admin' && (
                       <SelectItem value="super_admin">Super Admin</SelectItem>
@@ -605,7 +613,7 @@ const AdminUsers = () => {
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4">
               <div className="grid grid-cols-1 md:grid-cols-[1.4fr_0.8fr] gap-4">
                 <div>
-                  <Label>Subscription Type</Label>
+                  <Label>{t('adminUsers.subscriptionType')}</Label>
                   <Select
                     value={createForm.plan}
                     onValueChange={(value) => {
@@ -621,7 +629,7 @@ const AdminUsers = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {SUBSCRIPTION_OPTIONS.map((option) => (
+                      {subscriptionOptions.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {option.label}
                         </SelectItem>
@@ -630,7 +638,7 @@ const AdminUsers = () => {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="create-free-access-days">Free Access (Days)</Label>
+                  <Label htmlFor="create-free-access-days">{t('adminUsers.freeAccessDays')}</Label>
                   <Input
                     id="create-free-access-days"
                     type="number"
@@ -644,7 +652,7 @@ const AdminUsers = () => {
                 </div>
               </div>
               <p className="text-xs text-stone-600 mt-3">
-                If a subscription type is selected, the platform grants access immediately and expires it after the free-access period.
+                {t('adminUsers.subscriptionGrantHelp')}
               </p>
             </div>
 
@@ -654,14 +662,14 @@ const AdminUsers = () => {
                 variant="outline"
                 onClick={() => setCreateOpen(false)}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 type="submit"
                 className="bg-emerald-900 hover:bg-emerald-800"
                 disabled={creatingUser}
               >
-                {creatingUser ? 'Creating...' : 'Create User'}
+                {creatingUser ? t('adminUsers.creating') : t('adminUsers.createUser')}
               </Button>
             </DialogFooter>
           </form>
@@ -676,7 +684,7 @@ const AdminUsers = () => {
       }}>
         <DialogContent className="max-w-4xl max-h-[88vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Billing Details</DialogTitle>
+            <DialogTitle>{t('adminUsers.billingDetails')}</DialogTitle>
             <DialogDescription>
               {billingTarget?.name} ({billingTarget?.email})
             </DialogDescription>
@@ -687,38 +695,40 @@ const AdminUsers = () => {
               <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-emerald-900" />
             </div>
           ) : !billingDetails ? (
-            <p className="text-sm text-stone-500">No billing data found.</p>
+            <p className="text-sm text-stone-500">{t('adminUsers.billingDataMissing')}</p>
           ) : (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <Card className="border-stone-200">
                   <CardContent className="p-4">
-                    <p className="text-xs uppercase text-stone-500">Subscription</p>
+                    <p className="text-xs uppercase text-stone-500">{t('adminUsers.overviewSubscription')}</p>
                     <p className="text-lg font-semibold capitalize">{billingDetails.subscription?.status || 'inactive'}</p>
-                    <p className="text-sm text-stone-500 capitalize">{billingDetails.subscription?.plan || 'none'}</p>
+                    <p className="text-sm text-stone-500 capitalize">{getPlanLabel(billingDetails.subscription?.plan || 'none')}</p>
                   </CardContent>
                 </Card>
                 <Card className="border-stone-200">
                   <CardContent className="p-4">
-                    <p className="text-xs uppercase text-stone-500">Total Paid</p>
+                    <p className="text-xs uppercase text-stone-500">{t('adminUsers.totalPaid')}</p>
                     <p className="text-lg font-semibold">
                       {formatAmount(billingDetails.payment_summary?.total_paid || 0, billingDetails.payment_summary?.currency || 'eur')}
                     </p>
                     <p className="text-sm text-stone-500">
-                      {billingDetails.payment_summary?.successful_payments || 0} successful payments
+                      {t('adminUsers.successfulPayments', {
+                        count: billingDetails.payment_summary?.successful_payments || 0,
+                      })}
                     </p>
                   </CardContent>
                 </Card>
                 <Card className="border-stone-200">
                   <CardContent className="p-4">
-                    <p className="text-xs uppercase text-stone-500">Next Renewal</p>
+                    <p className="text-xs uppercase text-stone-500">{t('adminUsers.nextRenewal')}</p>
                     <p className="text-lg font-semibold">
                       {billingDetails.payment_summary?.next_renewal_at
                         ? format(new Date(billingDetails.payment_summary.next_renewal_at), 'MMM d, yyyy HH:mm')
-                        : 'N/A'}
+                        : t('common.na')}
                     </p>
                     <p className="text-sm text-stone-500">
-                      Stripe: {billingDetails.subscription?.stripe_subscription_status || 'n/a'}
+                      {t('adminUsers.stripeStatus')}: {billingDetails.subscription?.stripe_subscription_status || 'n/a'}
                     </p>
                   </CardContent>
                 </Card>
@@ -726,7 +736,7 @@ const AdminUsers = () => {
 
               <Card className="border-stone-200">
                 <CardContent className="p-4">
-                  <h3 className="font-semibold text-stone-900 mb-3">Payments</h3>
+                  <h3 className="font-semibold text-stone-900 mb-3">{t('adminUsers.payments')}</h3>
                   {Array.isArray(billingDetails.payments) && billingDetails.payments.length > 0 ? (
                     <div className="space-y-2">
                       {billingDetails.payments.slice(0, 30).map((payment) => (
@@ -737,12 +747,12 @@ const AdminUsers = () => {
                                 {payment.invoice_number || payment.transaction_id}
                               </p>
                               <p className="text-xs text-stone-500 capitalize">
-                                {payment.plan || 'plan'} • {payment.payment_status}
+                                {getPlanLabel(payment.plan || 'none')} • {payment.payment_status}
                               </p>
                               <p className="text-xs text-stone-500">
-                                Billing period: {payment.period_start && payment.period_end
+                                {t('adminUsers.paymentPeriod')}: {payment.period_start && payment.period_end
                                   ? `${format(new Date(payment.period_start), 'MMM d, yyyy')} - ${format(new Date(payment.period_end), 'MMM d, yyyy')}`
-                                  : 'Not available'}
+                                  : t('adminUsers.notAvailable')}
                               </p>
                             </div>
                             <div className="flex flex-col items-start md:items-end gap-2">
@@ -755,7 +765,7 @@ const AdminUsers = () => {
                                     ? format(new Date(payment.paid_at), 'MMM d, yyyy HH:mm')
                                     : payment.created_at
                                       ? format(new Date(payment.created_at), 'MMM d, yyyy HH:mm')
-                                      : 'N/A'}
+                                      : t('common.na')}
                                 </p>
                               </div>
                               {payment.payment_status === 'completed' ? (
@@ -765,19 +775,19 @@ const AdminUsers = () => {
                                     variant="outline"
                                     onClick={() => handleAdminInvoiceDownload(payment)}
                                   >
-                                    Download PDF
+                                    {t('adminUsers.downloadPdf')}
                                   </Button>
                                   <Button
                                     size="sm"
                                     className="bg-emerald-900 hover:bg-emerald-800"
                                     onClick={() => openInvoiceEditor(payment)}
                                   >
-                                    Edit Invoice Info
+                                    {t('adminUsers.editInvoiceInfo')}
                                   </Button>
                                 </div>
                               ) : (
                                 <p className="text-xs text-stone-500">
-                                  Invoice PDF becomes available only after successful payment.
+                                  {t('adminUsers.invoiceAvailableAfterPayment')}
                                 </p>
                               )}
                             </div>
@@ -786,7 +796,7 @@ const AdminUsers = () => {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-stone-500">No payment transactions yet.</p>
+                    <p className="text-sm text-stone-500">{t('adminUsers.noPayments')}</p>
                   )}
                 </CardContent>
               </Card>
@@ -795,9 +805,9 @@ const AdminUsers = () => {
                 <CardContent className="p-4 space-y-4">
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                     <div>
-                      <h3 className="font-semibold text-stone-900">Subscription Access</h3>
+                      <h3 className="font-semibold text-stone-900">{t('adminUsers.subscriptionAccess')}</h3>
                       <p className="text-sm text-stone-500">
-                        Grant a plan and free-access period. Saving starts a new manual access window from now.
+                        {t('adminUsers.subscriptionAccessDescription')}
                       </p>
                     </div>
                     <Button
@@ -805,13 +815,13 @@ const AdminUsers = () => {
                       onClick={handleSaveSubscriptionAccess}
                       disabled={savingSubscription}
                     >
-                      {savingSubscription ? 'Saving...' : 'Save Access'}
+                      {savingSubscription ? t('adminUsers.saving') : t('adminUsers.saveAccess')}
                     </Button>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-[1.2fr_0.8fr] gap-4">
                     <div>
-                      <Label>Subscription Type</Label>
+                      <Label>{t('adminUsers.subscriptionType')}</Label>
                       <Select
                         value={subscriptionForm.plan}
                         onValueChange={(value) => {
@@ -827,7 +837,7 @@ const AdminUsers = () => {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {SUBSCRIPTION_OPTIONS.map((option) => (
+                          {subscriptionOptions.map((option) => (
                             <SelectItem key={option.value} value={option.value}>
                               {option.label}
                             </SelectItem>
@@ -836,7 +846,7 @@ const AdminUsers = () => {
                       </Select>
                     </div>
                     <div>
-                      <Label htmlFor="billing-free-access-days">Free Access (Days)</Label>
+                      <Label htmlFor="billing-free-access-days">{t('adminUsers.freeAccessDays')}</Label>
                       <Input
                         id="billing-free-access-days"
                         type="number"
@@ -856,9 +866,9 @@ const AdminUsers = () => {
                 <CardContent className="p-4 space-y-4">
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                     <div>
-                      <h3 className="font-semibold text-stone-900">Customer Billing Profile</h3>
+                      <h3 className="font-semibold text-stone-900">{t('adminUsers.customerBillingProfile')}</h3>
                       <p className="text-sm text-stone-500">
-                        These details are used for future invoices. Paid invoices remain fixed unless you edit the invoice snapshot below.
+                        {t('adminUsers.customerBillingProfileDescription')}
                       </p>
                     </div>
                     <Button
@@ -866,13 +876,13 @@ const AdminUsers = () => {
                       onClick={handleSaveBillingProfile}
                       disabled={savingBillingProfile}
                     >
-                      {savingBillingProfile ? 'Saving...' : 'Save Billing Profile'}
+                      {savingBillingProfile ? t('adminUsers.saving') : t('adminUsers.saveBillingProfile')}
                     </Button>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label>Invoice Full Name</Label>
+                      <Label>{t('billingFields.invoiceFullName')}</Label>
                       <Input
                         value={billingProfileForm.full_name}
                         onChange={(e) => updateBillingProfileField('full_name', e.target.value)}
@@ -880,7 +890,7 @@ const AdminUsers = () => {
                       />
                     </div>
                     <div>
-                      <Label>Company Name</Label>
+                      <Label>{t('billingFields.companyName')}</Label>
                       <Input
                         value={billingProfileForm.company_name}
                         onChange={(e) => updateBillingProfileField('company_name', e.target.value)}
@@ -888,7 +898,7 @@ const AdminUsers = () => {
                       />
                     </div>
                     <div>
-                      <Label>Billing Email</Label>
+                      <Label>{t('billingFields.billingEmail')}</Label>
                       <Input
                         value={billingProfileForm.email}
                         onChange={(e) => updateBillingProfileField('email', e.target.value)}
@@ -896,7 +906,7 @@ const AdminUsers = () => {
                       />
                     </div>
                     <div>
-                      <Label>Phone</Label>
+                      <Label>{t('billingFields.phone')}</Label>
                       <Input
                         value={billingProfileForm.phone}
                         onChange={(e) => updateBillingProfileField('phone', e.target.value)}
@@ -904,7 +914,7 @@ const AdminUsers = () => {
                       />
                     </div>
                     <div>
-                      <Label>Tax Label</Label>
+                      <Label>{t('billingFields.taxLabel')}</Label>
                       <Input
                         value={billingProfileForm.tax_label}
                         onChange={(e) => updateBillingProfileField('tax_label', e.target.value)}
@@ -912,7 +922,7 @@ const AdminUsers = () => {
                       />
                     </div>
                     <div>
-                      <Label>Tax ID / VAT / GST</Label>
+                      <Label>{t('billingFields.taxId')}</Label>
                       <Input
                         value={billingProfileForm.tax_id}
                         onChange={(e) => updateBillingProfileField('tax_id', e.target.value)}
@@ -920,7 +930,7 @@ const AdminUsers = () => {
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <Label>Address Line 1</Label>
+                      <Label>{t('billingFields.addressLine1')}</Label>
                       <Input
                         value={billingProfileForm.address_line_1}
                         onChange={(e) => updateBillingProfileField('address_line_1', e.target.value)}
@@ -928,7 +938,7 @@ const AdminUsers = () => {
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <Label>Address Line 2</Label>
+                      <Label>{t('billingFields.addressLine2')}</Label>
                       <Input
                         value={billingProfileForm.address_line_2}
                         onChange={(e) => updateBillingProfileField('address_line_2', e.target.value)}
@@ -936,7 +946,7 @@ const AdminUsers = () => {
                       />
                     </div>
                     <div>
-                      <Label>City</Label>
+                      <Label>{t('billingFields.city')}</Label>
                       <Input
                         value={billingProfileForm.city}
                         onChange={(e) => updateBillingProfileField('city', e.target.value)}
@@ -944,7 +954,7 @@ const AdminUsers = () => {
                       />
                     </div>
                     <div>
-                      <Label>State</Label>
+                      <Label>{t('billingFields.state')}</Label>
                       <Input
                         value={billingProfileForm.state}
                         onChange={(e) => updateBillingProfileField('state', e.target.value)}
@@ -952,7 +962,7 @@ const AdminUsers = () => {
                       />
                     </div>
                     <div>
-                      <Label>Postal Code</Label>
+                      <Label>{t('billingFields.postalCode')}</Label>
                       <Input
                         value={billingProfileForm.postal_code}
                         onChange={(e) => updateBillingProfileField('postal_code', e.target.value)}
@@ -960,7 +970,7 @@ const AdminUsers = () => {
                       />
                     </div>
                     <div>
-                      <Label>Country</Label>
+                      <Label>{t('billingFields.country')}</Label>
                       <Input
                         value={billingProfileForm.country}
                         onChange={(e) => updateBillingProfileField('country', e.target.value)}
@@ -973,20 +983,20 @@ const AdminUsers = () => {
 
               <Card className="border-stone-200">
                 <CardContent className="p-4">
-                  <h3 className="font-semibold text-stone-900 mb-3">Subscription Logs</h3>
+                  <h3 className="font-semibold text-stone-900 mb-3">{t('adminUsers.subscriptionLogs')}</h3>
                   {Array.isArray(billingDetails.audit_log) && billingDetails.audit_log.length > 0 ? (
                     <div className="space-y-2">
                       {billingDetails.audit_log.slice(0, 30).map((event) => (
                         <div key={event.event_id} className="rounded-lg border border-stone-200 p-3">
                           <p className="font-medium text-stone-900">{event.event_type}</p>
                           <p className="text-xs text-stone-500 mt-1">
-                            {event.message || 'No message'} • {event.created_at ? format(new Date(event.created_at), 'MMM d, yyyy HH:mm') : 'N/A'}
+                            {event.message || t('adminUsers.noMessage')} • {event.created_at ? format(new Date(event.created_at), 'MMM d, yyyy HH:mm') : t('common.na')}
                           </p>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-stone-500">No subscription logs found.</p>
+                    <p className="text-sm text-stone-500">{t('adminUsers.noSubscriptionLogs')}</p>
                   )}
                 </CardContent>
               </Card>
@@ -1002,9 +1012,9 @@ const AdminUsers = () => {
       }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Edit Invoice Customer Details</DialogTitle>
+            <DialogTitle>{t('adminUsers.editInvoiceCustomer')}</DialogTitle>
             <DialogDescription>
-              This updates a locked PDF invoice snapshot for one paid transaction only.
+              {t('adminUsers.editInvoiceCustomerDescription')}
             </DialogDescription>
           </DialogHeader>
 
@@ -1014,14 +1024,14 @@ const AdminUsers = () => {
             </p>
             <p className="text-xs text-stone-500 mt-1">
               {invoiceEditTarget?.paid_at
-                ? `Paid ${format(new Date(invoiceEditTarget.paid_at), 'MMM d, yyyy HH:mm')}`
-                : 'Paid invoice'}
+                ? t('adminUsers.paidOn', { date: format(new Date(invoiceEditTarget.paid_at), 'MMM d, yyyy HH:mm') })
+                : t('adminUsers.paidInvoice')}
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label>Invoice Full Name</Label>
+              <Label>{t('billingFields.invoiceFullName')}</Label>
               <Input
                 value={invoiceCustomerForm.full_name}
                 onChange={(e) => updateInvoiceCustomerField('full_name', e.target.value)}
@@ -1029,7 +1039,7 @@ const AdminUsers = () => {
               />
             </div>
             <div>
-              <Label>Company Name</Label>
+              <Label>{t('billingFields.companyName')}</Label>
               <Input
                 value={invoiceCustomerForm.company_name}
                 onChange={(e) => updateInvoiceCustomerField('company_name', e.target.value)}
@@ -1037,7 +1047,7 @@ const AdminUsers = () => {
               />
             </div>
             <div>
-              <Label>Billing Email</Label>
+              <Label>{t('billingFields.billingEmail')}</Label>
               <Input
                 value={invoiceCustomerForm.email}
                 onChange={(e) => updateInvoiceCustomerField('email', e.target.value)}
@@ -1045,7 +1055,7 @@ const AdminUsers = () => {
               />
             </div>
             <div>
-              <Label>Phone</Label>
+              <Label>{t('billingFields.phone')}</Label>
               <Input
                 value={invoiceCustomerForm.phone}
                 onChange={(e) => updateInvoiceCustomerField('phone', e.target.value)}
@@ -1053,7 +1063,7 @@ const AdminUsers = () => {
               />
             </div>
             <div>
-              <Label>Tax Label</Label>
+              <Label>{t('billingFields.taxLabel')}</Label>
               <Input
                 value={invoiceCustomerForm.tax_label}
                 onChange={(e) => updateInvoiceCustomerField('tax_label', e.target.value)}
@@ -1061,7 +1071,7 @@ const AdminUsers = () => {
               />
             </div>
             <div>
-              <Label>Tax ID / VAT / GST</Label>
+              <Label>{t('billingFields.taxId')}</Label>
               <Input
                 value={invoiceCustomerForm.tax_id}
                 onChange={(e) => updateInvoiceCustomerField('tax_id', e.target.value)}
@@ -1069,7 +1079,7 @@ const AdminUsers = () => {
               />
             </div>
             <div className="md:col-span-2">
-              <Label>Address Line 1</Label>
+              <Label>{t('billingFields.addressLine1')}</Label>
               <Input
                 value={invoiceCustomerForm.address_line_1}
                 onChange={(e) => updateInvoiceCustomerField('address_line_1', e.target.value)}
@@ -1077,7 +1087,7 @@ const AdminUsers = () => {
               />
             </div>
             <div className="md:col-span-2">
-              <Label>Address Line 2</Label>
+              <Label>{t('billingFields.addressLine2')}</Label>
               <Input
                 value={invoiceCustomerForm.address_line_2}
                 onChange={(e) => updateInvoiceCustomerField('address_line_2', e.target.value)}
@@ -1085,7 +1095,7 @@ const AdminUsers = () => {
               />
             </div>
             <div>
-              <Label>City</Label>
+              <Label>{t('billingFields.city')}</Label>
               <Input
                 value={invoiceCustomerForm.city}
                 onChange={(e) => updateInvoiceCustomerField('city', e.target.value)}
@@ -1093,7 +1103,7 @@ const AdminUsers = () => {
               />
             </div>
             <div>
-              <Label>State</Label>
+              <Label>{t('billingFields.state')}</Label>
               <Input
                 value={invoiceCustomerForm.state}
                 onChange={(e) => updateInvoiceCustomerField('state', e.target.value)}
@@ -1101,7 +1111,7 @@ const AdminUsers = () => {
               />
             </div>
             <div>
-              <Label>Postal Code</Label>
+              <Label>{t('billingFields.postalCode')}</Label>
               <Input
                 value={invoiceCustomerForm.postal_code}
                 onChange={(e) => updateInvoiceCustomerField('postal_code', e.target.value)}
@@ -1109,7 +1119,7 @@ const AdminUsers = () => {
               />
             </div>
             <div>
-              <Label>Country</Label>
+              <Label>{t('billingFields.country')}</Label>
               <Input
                 value={invoiceCustomerForm.country}
                 onChange={(e) => updateInvoiceCustomerField('country', e.target.value)}
@@ -1124,7 +1134,7 @@ const AdminUsers = () => {
               variant="outline"
               onClick={() => setInvoiceEditTarget(null)}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               type="button"
@@ -1132,7 +1142,7 @@ const AdminUsers = () => {
               onClick={handleSaveInvoice}
               disabled={savingInvoice}
             >
-              {savingInvoice ? 'Saving...' : 'Update Invoice PDF'}
+              {savingInvoice ? t('adminUsers.saving') : t('adminUsers.updateInvoicePdf')}
             </Button>
           </DialogFooter>
         </DialogContent>

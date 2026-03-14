@@ -6,11 +6,13 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { useAuth, useBranding } from '../App';
+import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 
 const ForgotPassword = () => {
   const { requestPasswordReset, user } = useAuth();
   const { branding } = useBranding();
+  const { t } = useLanguage();
   const brandName = branding?.app_name || 'Autodestroy';
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -31,10 +33,10 @@ const ForgotPassword = () => {
     try {
       await requestPasswordReset(email);
       setSent(true);
-      toast.success('If the email exists, a reset link was sent.');
+      toast.success(t('forgotPassword.requestSentToast'));
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to send reset link');
-      toast.error('Failed to send reset link');
+      setError(err.response?.data?.detail || t('common.error'));
+      toast.error(t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -54,16 +56,16 @@ const ForgotPassword = () => {
           <span className="font-heading font-bold text-xl text-stone-900">{brandName}</span>
         </Link>
 
-        <h1 className="font-heading text-2xl font-bold text-stone-900 mb-2">Reset Password</h1>
+        <h1 className="font-heading text-2xl font-bold text-stone-900 mb-2">{t('forgotPassword.title')}</h1>
         <p className="text-stone-600 mb-6">
-          Enter your account email and we will send a reset link.
+          {t('forgotPassword.description')}
         </p>
 
         {sent && (
           <div className="mb-5 p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-start space-x-2">
             <CheckCircle2 className="w-5 h-5 text-emerald-700 mt-0.5" />
             <p className="text-sm text-emerald-800">
-              Request received. Check your inbox for the password reset link.
+              {t('forgotPassword.requestReceived')}
             </p>
           </div>
         )}
@@ -76,7 +78,7 @@ const ForgotPassword = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-sm font-semibold text-stone-700">Email Address</Label>
+            <Label htmlFor="email" className="text-sm font-semibold text-stone-700">{t('auth.email')}</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
               <Input
@@ -95,13 +97,13 @@ const ForgotPassword = () => {
             className="w-full h-11 bg-emerald-900 hover:bg-emerald-800"
             disabled={loading}
           >
-            {loading ? 'Sending link...' : 'Send reset link'}
+            {loading ? t('forgotPassword.sendingLink') : t('forgotPassword.sendLink')}
           </Button>
         </form>
 
         <Link to="/login" className="mt-6 inline-flex items-center text-sm text-emerald-700 hover:text-emerald-800">
           <ArrowLeft className="w-4 h-4 mr-1" />
-          Back to login
+          {t('forgotPassword.backToLogin')}
         </Link>
       </motion.div>
     </div>

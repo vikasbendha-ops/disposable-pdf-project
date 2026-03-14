@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import axios from 'axios';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
-import { LanguageProvider } from './contexts/LanguageContext';
+import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { buildSeoMetadata, DEFAULT_SEO_SETTINGS, normalizeSeoConfig } from '../../lib/seo';
 
 const Landing = lazy(() => import('./pages/Landing'));
@@ -261,6 +261,7 @@ const SeoProvider = ({ children }) => {
 
 // Auth Provider
 const AuthProvider = ({ children }) => {
+  const { setLanguage } = useLanguage();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -276,9 +277,9 @@ const AuthProvider = ({ children }) => {
     try {
       const response = await api.get('/auth/me');
       setUser(response.data);
-      // Set language from user preference
       if (response.data?.language) {
         localStorage.setItem('preferredLanguage', response.data.language);
+        setLanguage(response.data.language);
       }
     } catch (error) {
       setUser(null);
@@ -298,6 +299,7 @@ const AuthProvider = ({ children }) => {
     localStorage.setItem('token', access_token);
     if (userData?.language) {
       localStorage.setItem('preferredLanguage', userData.language);
+      setLanguage(userData.language);
     }
     setUser(userData);
     return userData;
@@ -308,12 +310,18 @@ const AuthProvider = ({ children }) => {
     const payload = response.data || {};
     const { access_token, user: userData } = payload;
 
-    localStorage.setItem('preferredLanguage', language);
-
     if (access_token && userData) {
       localStorage.setItem('token', access_token);
+      if (userData.language) {
+        localStorage.setItem('preferredLanguage', userData.language);
+        setLanguage(userData.language);
+      }
       setUser(userData);
     } else {
+      if (language) {
+        localStorage.setItem('preferredLanguage', language);
+        setLanguage(language);
+      }
       localStorage.removeItem('token');
       setUser(null);
     }
@@ -335,6 +343,10 @@ const AuthProvider = ({ children }) => {
     try {
       const response = await api.get('/auth/me');
       setUser(response.data);
+      if (response.data?.language) {
+        localStorage.setItem('preferredLanguage', response.data.language);
+        setLanguage(response.data.language);
+      }
     } catch (error) {
       console.error('Refresh user error:', error);
     }
@@ -345,6 +357,7 @@ const AuthProvider = ({ children }) => {
       await api.put('/auth/language', { language });
       setUser(prev => ({ ...prev, language }));
       localStorage.setItem('preferredLanguage', language);
+      setLanguage(language);
     } catch (error) {
       console.error('Update language error:', error);
       throw error;
@@ -390,6 +403,7 @@ const AuthProvider = ({ children }) => {
       localStorage.setItem('token', access_token);
       if (userData.language) {
         localStorage.setItem('preferredLanguage', userData.language);
+        setLanguage(userData.language);
       }
       setUser(userData);
     }

@@ -2,29 +2,30 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Marquee from 'react-fast-marquee';
-import { Shield, Clock, Eye, Lock, FileText, Zap, ChevronRight, Check } from 'lucide-react';
+import { Shield, Clock, Eye, Lock, FileText, ChevronRight } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useAuth, useBranding } from '../App';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const Landing = () => {
   const { user } = useAuth();
   const { branding } = useBranding();
+  const { t } = useLanguage();
   const brandName = branding?.app_name || 'Autodestroy';
   const productName = branding?.product_name || 'Autodestroy PDF Platform';
   const tagline = branding?.tagline || 'Secure document sharing with complete control.';
   const footerText = branding?.footer_text || 'All rights reserved.';
 
   const features = [
-    { icon: Shield, title: 'Military-Grade Security', desc: 'Your PDFs are encrypted and stored in secure vaults, never accessible directly.' },
-    { icon: Clock, title: 'Self-Destructing Links', desc: 'Set countdown timers, fixed expiry dates, or revoke access manually at any time.' },
-    { icon: Eye, title: 'View Tracking', desc: 'Know exactly when, where, and how many times your document was accessed.' },
-    { icon: Lock, title: 'Copy Protection', desc: 'Prevent downloads, copying, and printing with our secure viewer technology.' },
+    { icon: Shield, title: t('landing.feature1Title'), desc: t('landing.feature1Desc') },
+    { icon: Clock, title: t('landing.feature2Title'), desc: t('landing.feature2Desc') },
+    { icon: Eye, title: t('landing.feature3Title'), desc: t('landing.feature3Desc') },
+    { icon: Lock, title: t('landing.feature4Title'), desc: t('landing.feature4Desc') },
   ];
 
-  const securityProtocols = [
-    'AES-256 ENCRYPTION', 'ZERO KNOWLEDGE', 'GDPR COMPLIANT', 'SOC2 READY',
-    'IP TRACKING', 'WATERMARKING', 'ACCESS CONTROL', 'AUDIT LOGS'
-  ];
+  const securityProtocols = Array.isArray(t('landing.securityProtocols'))
+    ? t('landing.securityProtocols')
+    : [];
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -39,26 +40,26 @@ const Landing = () => {
           </Link>
           
           <div className="hidden md:flex items-center space-x-8">
-            <Link to="/pricing" className="text-stone-600 hover:text-stone-900 transition-colors" data-testid="nav-pricing">Pricing</Link>
-            <a href="#features" className="text-stone-600 hover:text-stone-900 transition-colors">Features</a>
-            <a href="#how-it-works" className="text-stone-600 hover:text-stone-900 transition-colors">How It Works</a>
+            <Link to="/pricing" className="text-stone-600 hover:text-stone-900 transition-colors" data-testid="nav-pricing">{t('nav.pricing')}</Link>
+            <a href="#features" className="text-stone-600 hover:text-stone-900 transition-colors">{t('nav.features')}</a>
+            <a href="#how-it-works" className="text-stone-600 hover:text-stone-900 transition-colors">{t('nav.howItWorks')}</a>
           </div>
 
           <div className="flex items-center space-x-4">
             {user ? (
               <Link to="/dashboard">
                 <Button className="bg-emerald-900 hover:bg-emerald-800" data-testid="nav-dashboard-btn">
-                  Dashboard
+                  {t('nav.dashboard')}
                 </Button>
               </Link>
             ) : (
               <>
                 <Link to="/login">
-                  <Button variant="ghost" data-testid="nav-login-btn">Sign In</Button>
+                  <Button variant="ghost" data-testid="nav-login-btn">{t('nav.signIn')}</Button>
                 </Link>
                 <Link to="/register">
                   <Button className="bg-emerald-900 hover:bg-emerald-800" data-testid="nav-register-btn">
-                    Get Started
+                    {t('nav.getStarted')}
                   </Button>
                 </Link>
               </>
@@ -76,27 +77,26 @@ const Landing = () => {
             transition={{ duration: 0.6 }}
           >
             <span className="inline-block px-4 py-2 bg-emerald-100 text-emerald-900 rounded-full text-sm font-semibold mb-6">
-              SECURE DOCUMENT SHARING
+              {t('landing.badge')}
             </span>
             <h1 className="font-heading text-5xl md:text-7xl font-bold text-stone-900 tracking-tight leading-[0.95] mb-6">
-              Your PDFs<br />
-              <span className="text-emerald-900">Self-Destruct</span><br />
-              On Schedule
+              {t('landing.heroTitle1')}<br />
+              <span className="text-emerald-900">{t('landing.heroTitle2')}</span><br />
+              {t('landing.heroTitle3')}
             </h1>
             <p className="text-lg text-stone-600 leading-relaxed mb-8 max-w-lg">
-              Share sensitive documents with complete control. Set expiration timers, 
-              track views, and revoke access instantly. Your vault, your rules.
+              {t('landing.heroDesc')}
             </p>
             <div className="flex flex-wrap gap-4">
               <Link to="/register">
                 <Button size="lg" className="bg-emerald-900 hover:bg-emerald-800 h-14 px-8 text-lg" data-testid="hero-cta-btn">
-                  Start Free Trial
+                  {t('landing.startTrial')}
                   <ChevronRight className="ml-2 w-5 h-5" />
                 </Button>
               </Link>
               <a href="#how-it-works">
                 <Button size="lg" variant="outline" className="h-14 px-8 text-lg border-2 border-stone-300">
-                  See How It Works
+                  {t('landing.seeHow')}
                 </Button>
               </a>
             </div>
@@ -110,33 +110,33 @@ const Landing = () => {
           >
             <div className="bg-white rounded-2xl shadow-2xl p-8 border border-stone-200">
               <div className="flex items-center justify-between mb-6">
-                <span className="text-sm font-semibold text-stone-500 uppercase tracking-wider">Self-Destruct Timer</span>
-                <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold uppercase">Active</span>
+                <span className="text-sm font-semibold text-stone-500 uppercase tracking-wider">{t('landing.timerLabel')}</span>
+                <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold uppercase">{t('common.active')}</span>
               </div>
               <div className="flex items-baseline justify-center space-x-2 mb-8">
                 <div className="bg-red-50 px-4 py-3 rounded-xl">
                   <span className="font-heading text-6xl font-bold text-red-700 tabular-nums">02</span>
-                  <span className="block text-xs text-red-600 text-center mt-1">HOURS</span>
+                  <span className="block text-xs text-red-600 text-center mt-1">{String(t('linkGen.hours')).toUpperCase()}</span>
                 </div>
                 <span className="text-4xl text-red-400 font-bold">:</span>
                 <div className="bg-red-50 px-4 py-3 rounded-xl">
                   <span className="font-heading text-6xl font-bold text-red-700 tabular-nums">45</span>
-                  <span className="block text-xs text-red-600 text-center mt-1">MINS</span>
+                  <span className="block text-xs text-red-600 text-center mt-1">{String(t('linkGen.minutes')).toUpperCase()}</span>
                 </div>
                 <span className="text-4xl text-red-400 font-bold">:</span>
                 <div className="bg-red-50 px-4 py-3 rounded-xl">
                   <span className="font-heading text-6xl font-bold text-red-700 tabular-nums">30</span>
-                  <span className="block text-xs text-red-600 text-center mt-1">SECS</span>
+                  <span className="block text-xs text-red-600 text-center mt-1">{String(t('linkGen.seconds')).toUpperCase()}</span>
                 </div>
               </div>
               <div className="space-y-3">
                 <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
-                  <span className="text-sm text-stone-600">Document</span>
+                  <span className="text-sm text-stone-600">{t('landing.document')}</span>
                   <span className="text-sm font-medium text-stone-900">contract_v2.pdf</span>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
-                  <span className="text-sm text-stone-600">Views</span>
-                  <span className="text-sm font-medium text-stone-900">3 unique viewers</span>
+                  <span className="text-sm text-stone-600">{t('landing.views')}</span>
+                  <span className="text-sm font-medium text-stone-900">3 {t('landing.uniqueViewers')}</span>
                 </div>
               </div>
             </div>
@@ -162,9 +162,9 @@ const Landing = () => {
       <section id="features" className="py-24 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <span className="text-sm font-semibold text-emerald-900 uppercase tracking-wider">Features</span>
+            <span className="text-sm font-semibold text-emerald-900 uppercase tracking-wider">{t('nav.features')}</span>
             <h2 className="font-heading text-4xl md:text-5xl font-semibold text-stone-900 mt-4">
-              Complete Control Over Your Documents
+              {t('landing.featuresTitle')}
             </h2>
           </div>
 
@@ -193,17 +193,17 @@ const Landing = () => {
       <section id="how-it-works" className="py-24 px-6 bg-stone-100">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <span className="text-sm font-semibold text-emerald-900 uppercase tracking-wider">How It Works</span>
+            <span className="text-sm font-semibold text-emerald-900 uppercase tracking-wider">{t('nav.howItWorks')}</span>
             <h2 className="font-heading text-4xl md:text-5xl font-semibold text-stone-900 mt-4">
-              Three Steps to Secure Sharing
+              {t('landing.howTitle')}
             </h2>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              { step: '01', title: 'Upload Your PDF', desc: 'Securely upload your document to our encrypted vault.' },
-              { step: '02', title: 'Set Expiration', desc: 'Choose countdown timer, fixed date, or manual control.' },
-              { step: '03', title: 'Share & Track', desc: 'Send the secure link and monitor every access.' },
+              { step: '01', title: t('landing.step1Title'), desc: t('landing.step1Desc') },
+              { step: '02', title: t('landing.step2Title'), desc: t('landing.step2Desc') },
+              { step: '03', title: t('landing.step3Title'), desc: t('landing.step3Desc') },
             ].map((item, i) => (
               <motion.div
                 key={i}
@@ -228,14 +228,14 @@ const Landing = () => {
       <section className="py-24 px-6">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="font-heading text-4xl md:text-6xl font-bold text-stone-900 mb-6">
-            Ready to Secure Your Documents?
+            {t('landing.ctaTitle')}
           </h2>
           <p className="text-xl text-stone-600 mb-8">
-            Start with a free trial. No credit card required.
+            {t('landing.ctaDesc')}
           </p>
           <Link to="/register">
             <Button size="lg" className="bg-emerald-900 hover:bg-emerald-800 h-16 px-12 text-lg" data-testid="cta-register-btn">
-              Get Started Free
+              {t('landing.getStartedFree')}
               <ChevronRight className="ml-2 w-5 h-5" />
             </Button>
           </Link>
@@ -256,26 +256,26 @@ const Landing = () => {
               <p className="text-stone-400">{tagline}</p>
             </div>
             <div>
-              <h4 className="font-semibold mb-4">Product</h4>
+              <h4 className="font-semibold mb-4">{t('landing.footerProduct')}</h4>
               <ul className="space-y-2 text-stone-400">
-                <li><Link to="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
-                <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
-                <li><a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a></li>
+                <li><Link to="/pricing" className="hover:text-white transition-colors">{t('nav.pricing')}</Link></li>
+                <li><a href="#features" className="hover:text-white transition-colors">{t('nav.features')}</a></li>
+                <li><a href="#how-it-works" className="hover:text-white transition-colors">{t('nav.howItWorks')}</a></li>
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold mb-4">Company</h4>
+              <h4 className="font-semibold mb-4">{t('landing.footerCompany')}</h4>
               <ul className="space-y-2 text-stone-400">
-                <li><a href="#" className="hover:text-white transition-colors">About</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Contact</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('common.about')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('common.contact')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('common.blog')}</a></li>
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold mb-4">Legal</h4>
+              <h4 className="font-semibold mb-4">{t('landing.footerLegal')}</h4>
               <ul className="space-y-2 text-stone-400">
-                <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('common.privacyPolicy')}</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">{t('common.termsOfService')}</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">GDPR</a></li>
               </ul>
             </div>
