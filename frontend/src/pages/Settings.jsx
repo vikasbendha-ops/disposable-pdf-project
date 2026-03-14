@@ -13,7 +13,7 @@ import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 
 const Settings = () => {
-  const { user, updateUserLanguage } = useAuth();
+  const { user, updateUserLanguage, refreshUser } = useAuth();
   const { language, setLanguage, languages, t } = useLanguage();
   const [domains, setDomains] = useState([]);
   const [defaultDomainId, setDefaultDomainId] = useState('platform');
@@ -32,11 +32,42 @@ const Settings = () => {
   const [billingLoading, setBillingLoading] = useState(false);
   const [openingBillingPortal, setOpeningBillingPortal] = useState(false);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState(null);
+  const [profileName, setProfileName] = useState('');
+  const [billingProfile, setBillingProfile] = useState({
+    full_name: '',
+    company_name: '',
+    email: '',
+    phone: '',
+    tax_label: 'Tax ID',
+    tax_id: '',
+    address_line_1: '',
+    address_line_2: '',
+    city: '',
+    state: '',
+    postal_code: '',
+    country: '',
+  });
+  const [savingProfile, setSavingProfile] = useState(false);
 
   useEffect(() => {
     if (user) {
       fetchDomains();
       fetchBillingOverview();
+      setProfileName(user.name || '');
+      setBillingProfile({
+        full_name: user?.billing_profile?.full_name || user?.name || '',
+        company_name: user?.billing_profile?.company_name || '',
+        email: user?.billing_profile?.email || user?.email || '',
+        phone: user?.billing_profile?.phone || '',
+        tax_label: user?.billing_profile?.tax_label || 'Tax ID',
+        tax_id: user?.billing_profile?.tax_id || '',
+        address_line_1: user?.billing_profile?.address_line_1 || '',
+        address_line_2: user?.billing_profile?.address_line_2 || '',
+        city: user?.billing_profile?.city || '',
+        state: user?.billing_profile?.state || '',
+        postal_code: user?.billing_profile?.postal_code || '',
+        country: user?.billing_profile?.country || '',
+      });
     }
   }, [user]);
 
@@ -159,6 +190,30 @@ const Settings = () => {
     }, 1000);
   };
 
+  const updateBillingField = (field, value) => {
+    setBillingProfile((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleProfileSave = async (e) => {
+    e.preventDefault();
+    setSavingProfile(true);
+    try {
+      await api.put('/auth/profile', {
+        name: profileName,
+        billing_profile: billingProfile,
+      });
+      await refreshUser();
+      toast.success('Profile updated successfully');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update profile');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
   const formatAmount = (amount, currency = 'eur') => {
     try {
       return new Intl.NumberFormat('en-US', {
@@ -209,11 +264,11 @@ const Settings = () => {
       const response = await api.get(`/subscription/invoices/${transactionId}/download`, {
         responseType: 'blob',
       });
-      const blob = new Blob([response.data], { type: 'text/html' });
+      const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `${invoiceNumber || `invoice-${transactionId}`}.html`;
+      anchor.download = `${invoiceNumber || `invoice-${transactionId}`}.pdf`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
@@ -274,26 +329,110 @@ const Settings = () => {
             <CardDescription>{t('settings.profileDesc')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm text-stone-500">{t('settings.name')}</Label>
-                <p className="font-medium text-stone-900">{user?.name}</p>
+            <form onSubmit={handleProfileSave} className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm text-stone-500">{t('settings.name')}</Label>
+                  <Input
+                    value={profileName}
+                    onChange={(e) => setProfileName(e.target.value)}
+                    className="h-12 mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm text-stone-500">{t('settings.email')}</Label>
+                  <Input
+                    value={user?.email || ''}
+                    readOnly
+                    className="h-12 mt-1 bg-stone-50"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm text-stone-500">{t('settings.memberSince')}</Label>
+                  <p className="font-medium text-stone-900 mt-2">
+                    {user?.created_at ? format(new Date(user.created_at), 'MMMM d, yyyy') : 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm text-stone-500">{t('settings.accountRole')}</Label>
+                  <p className="font-medium text-stone-900 capitalize mt-2">{user?.role}</p>
+                </div>
               </div>
-              <div>
-                <Label className="text-sm text-stone-500">{t('settings.email')}</Label>
-                <p className="font-medium text-stone-900">{user?.email}</p>
+
+              <div className="rounded-xl border border-stone-200 bg-stone-50/70 p-4 space-y-4">
+                <div>
+                  <p className="font-semibold text-stone-900">Billing Profile</p>
+                  <p className="text-sm text-stone-500">
+                    This information is copied into future paid invoices. Existing invoices remain locked after payment.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Invoice Full Name</Label>
+                    <Input value={billingProfile.full_name} onChange={(e) => updateBillingField('full_name', e.target.value)} className="h-12 mt-1" />
+                  </div>
+                  <div>
+                    <Label>Company Name</Label>
+                    <Input value={billingProfile.company_name} onChange={(e) => updateBillingField('company_name', e.target.value)} className="h-12 mt-1" />
+                  </div>
+                  <div>
+                    <Label>Billing Email</Label>
+                    <Input value={billingProfile.email} onChange={(e) => updateBillingField('email', e.target.value)} className="h-12 mt-1" />
+                  </div>
+                  <div>
+                    <Label>Phone</Label>
+                    <Input value={billingProfile.phone} onChange={(e) => updateBillingField('phone', e.target.value)} className="h-12 mt-1" />
+                  </div>
+                  <div>
+                    <Label>Tax Label</Label>
+                    <Input value={billingProfile.tax_label} onChange={(e) => updateBillingField('tax_label', e.target.value)} className="h-12 mt-1" />
+                  </div>
+                  <div>
+                    <Label>Tax ID / VAT / GST</Label>
+                    <Input value={billingProfile.tax_id} onChange={(e) => updateBillingField('tax_id', e.target.value)} className="h-12 mt-1" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <Label>Address Line 1</Label>
+                    <Input value={billingProfile.address_line_1} onChange={(e) => updateBillingField('address_line_1', e.target.value)} className="h-12 mt-1" />
+                  </div>
+                  <div>
+                    <Label>Address Line 2</Label>
+                    <Input value={billingProfile.address_line_2} onChange={(e) => updateBillingField('address_line_2', e.target.value)} className="h-12 mt-1" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <Label>City</Label>
+                    <Input value={billingProfile.city} onChange={(e) => updateBillingField('city', e.target.value)} className="h-12 mt-1" />
+                  </div>
+                  <div>
+                    <Label>State</Label>
+                    <Input value={billingProfile.state} onChange={(e) => updateBillingField('state', e.target.value)} className="h-12 mt-1" />
+                  </div>
+                  <div>
+                    <Label>Postal Code</Label>
+                    <Input value={billingProfile.postal_code} onChange={(e) => updateBillingField('postal_code', e.target.value)} className="h-12 mt-1" />
+                  </div>
+                  <div>
+                    <Label>Country</Label>
+                    <Input value={billingProfile.country} onChange={(e) => updateBillingField('country', e.target.value)} className="h-12 mt-1" />
+                  </div>
+                </div>
               </div>
-              <div>
-                <Label className="text-sm text-stone-500">{t('settings.memberSince')}</Label>
-                <p className="font-medium text-stone-900">
-                  {user?.created_at ? format(new Date(user.created_at), 'MMMM d, yyyy') : 'N/A'}
-                </p>
-              </div>
-              <div>
-                <Label className="text-sm text-stone-500">{t('settings.accountRole')}</Label>
-                <p className="font-medium text-stone-900 capitalize">{user?.role}</p>
-              </div>
-            </div>
+
+              <Button
+                type="submit"
+                className="bg-emerald-900 hover:bg-emerald-800"
+                disabled={savingProfile}
+              >
+                {savingProfile ? 'Saving...' : 'Save Profile'}
+              </Button>
+            </form>
           </CardContent>
         </Card>
 
@@ -404,6 +543,9 @@ const Settings = () => {
 
             <div className="rounded-lg border border-stone-200 p-3">
               <p className="text-sm font-semibold text-stone-900 mb-3">Invoices</p>
+              <p className="text-xs text-stone-500 mb-3">
+                Invoice PDFs are generated only after a successful payment. Future billing profile changes do not modify past invoices.
+              </p>
               {Array.isArray(billingOverview?.payments) && billingOverview.payments.length > 0 ? (
                 <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                   {billingOverview.payments.slice(0, 25).map((payment) => (
@@ -430,21 +572,27 @@ const Settings = () => {
                         <span className="text-sm font-semibold text-stone-900">
                           {formatAmount(payment.amount || 0, payment.currency || 'eur')}
                         </span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDownloadInvoice(payment.transaction_id, payment.invoice_number)}
-                          disabled={downloadingInvoiceId === payment.transaction_id}
-                        >
-                          {downloadingInvoiceId === payment.transaction_id ? (
-                            <RefreshCw className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <>
-                              <Download className="w-4 h-4 mr-1" />
-                              Invoice
-                            </>
-                          )}
-                        </Button>
+                        {payment.payment_status === 'completed' ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDownloadInvoice(payment.transaction_id, payment.invoice_number)}
+                            disabled={downloadingInvoiceId === payment.transaction_id}
+                          >
+                            {downloadingInvoiceId === payment.transaction_id ? (
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <>
+                                <Download className="w-4 h-4 mr-1" />
+                                Invoice PDF
+                              </>
+                            )}
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-stone-500">
+                            Available after payment
+                          </span>
+                        )}
                       </div>
                     </div>
                   ))}
