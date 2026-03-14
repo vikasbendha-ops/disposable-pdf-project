@@ -6,11 +6,34 @@ import { getStore } from "../lib/store";
 const LegacyApp = dynamic(() => import("../frontend/src/App"), {
   ssr: false,
 });
+const SEO_CONFIG_CACHE_TTL_MS = Number(process.env.SEO_CONFIG_CACHE_TTL_MS || "60000");
+let cachedSeoConfig = {
+  expiresAt: 0,
+  value: null,
+};
 
 function getPathFromParams(params) {
   const slug = Array.isArray(params?.slug) ? params.slug : [];
   if (slug.length === 0) return "/";
   return `/${slug.join("/")}`;
+}
+
+async function getCachedSeoConfig() {
+  if (cachedSeoConfig.value && cachedSeoConfig.expiresAt > Date.now()) {
+    return cachedSeoConfig.value;
+  }
+
+  const db = getStore();
+  const [seoDoc, brandingDoc] = await Promise.all([
+    db.platform_settings.findOne({ key: "seo" }, { _id: 0 }),
+    db.platform_settings.findOne({ key: "branding" }, { _id: 0 }),
+  ]);
+  const next = normalizeSeoConfig(seoDoc || {}, brandingDoc || {});
+  cachedSeoConfig = {
+    value: next,
+    expiresAt: Date.now() + Math.max(1000, SEO_CONFIG_CACHE_TTL_MS),
+  };
+  return next;
 }
 
 export default function CatchAllPage({ initialSeo }) {
@@ -48,13 +71,7 @@ export async function getServerSideProps(context) {
   const pathname = getPathFromParams(context.params);
 
   try {
-    const db = getStore();
-    const [seoDoc, brandingDoc] = await Promise.all([
-      db.platform_settings.findOne({ key: "seo" }, { _id: 0 }),
-      db.platform_settings.findOne({ key: "branding" }, { _id: 0 }),
-    ]);
-
-    const seoConfig = normalizeSeoConfig(seoDoc || {}, brandingDoc || {});
+    const seoConfig = await getCachedSeoConfig();
     const initialSeo = buildSeoMetadata(pathname, seoConfig);
     return {
       props: {

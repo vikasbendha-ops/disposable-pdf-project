@@ -1,31 +1,30 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import React, { Suspense, createContext, useContext, useState, useCallback, useEffect, lazy } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { buildSeoMetadata, DEFAULT_SEO_SETTINGS, normalizeSeoConfig } from '../../lib/seo';
 
-// Pages
-import Landing from './pages/Landing';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-import VerifyEmail from './pages/VerifyEmail';
-import Dashboard from './pages/Dashboard';
-import PDFManagement from './pages/PDFManagement';
-import LinkGenerator from './pages/LinkGenerator';
-import SecureViewer from './pages/SecureViewer';
-import ExpiredPage from './pages/ExpiredPage';
-import Pricing from './pages/Pricing';
-import Settings from './pages/Settings';
-import AdminDashboard from './pages/AdminDashboard';
-import AdminSettings from './pages/AdminSettings';
-import AdminUsers from './pages/AdminUsers';
-import AdminLinks from './pages/AdminLinks';
-import AdminAuditLogs from './pages/AdminAuditLogs';
-import AuthCallback from './pages/AuthCallback';
+const Landing = lazy(() => import('./pages/Landing'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const PDFManagement = lazy(() => import('./pages/PDFManagement'));
+const LinkGenerator = lazy(() => import('./pages/LinkGenerator'));
+const SecureViewer = lazy(() => import('./pages/SecureViewer'));
+const ExpiredPage = lazy(() => import('./pages/ExpiredPage'));
+const Pricing = lazy(() => import('./pages/Pricing'));
+const Settings = lazy(() => import('./pages/Settings'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const AdminSettings = lazy(() => import('./pages/AdminSettings'));
+const AdminUsers = lazy(() => import('./pages/AdminUsers'));
+const AdminLinks = lazy(() => import('./pages/AdminLinks'));
+const AdminAuditLogs = lazy(() => import('./pages/AdminAuditLogs'));
+const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 
 const DEFAULT_BACKEND_URL =
   typeof window !== 'undefined'
@@ -447,6 +446,12 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
   return children;
 };
 
+const RouteLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-stone-50">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-900"></div>
+  </div>
+);
+
 // App Router
 function AppRouter() {
   const location = useLocation();
@@ -498,7 +503,9 @@ function App() {
             <SeoProvider>
               <div className="App">
                 <div className="noise-overlay" />
-                <AppRouter />
+                <Suspense fallback={<RouteLoader />}>
+                  <AppRouter />
+                </Suspense>
                 <Toaster position="top-right" richColors />
               </div>
             </SeoProvider>

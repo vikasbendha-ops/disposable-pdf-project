@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import {
   AlertCircle,
   Ban,
@@ -60,7 +59,21 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
+const PDF_WORKER_SRC = 'https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
+const MAX_INITIAL_THUMBNAILS = 8;
+const MAX_IDLE_THUMBNAILS = 8;
+const MAX_THUMBNAIL_CONCURRENCY = 2;
+let pdfJsLibPromise = null;
+
+async function loadPdfJsLib() {
+  if (!pdfJsLibPromise) {
+    pdfJsLibPromise = import('pdfjs-dist/legacy/build/pdf.mjs').then((mod) => {
+      mod.GlobalWorkerOptions.workerSrc = PDF_WORKER_SRC;
+      return mod;
+    });
+  }
+  return pdfJsLibPromise;
+}
 
 const PDFManagement = () => {
   const [pdfs, setPdfs] = useState([]);
@@ -87,7 +100,10 @@ const PDFManagement = () => {
   const [updatingDirect, setUpdatingDirect] = useState(null);
   const [thumbnails, setThumbnails] = useState({});
   const [thumbnailLoading, setThumbnailLoading] = useState({});
+  const thumbnailsRef = useRef({});
   const thumbnailLoadingRef = useRef(new Set());
+  const thumbnailQueueRef = useRef([]);
+  const thumbnailQueuedRef = useRef(new Set());
 
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -112,6 +128,10 @@ const PDFManagement = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    thumbnailsRef.current = thumbnails;
+  }, [thumbnails]);
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -412,12 +432,13 @@ const PDFManagement = () => {
 
   const generateThumbnail = useCallback(async (pdfId) => {
     if (!pdfId) return;
-    if (Object.prototype.hasOwnProperty.call(thumbnails, pdfId)) return;
+    if (Object.prototype.hasOwnProperty.call(thumbnailsRef.current, pdfId)) return;
     if (thumbnailLoadingRef.current.has(pdfId)) return;
 
     thumbnailLoadingRef.current.add(pdfId);
     setThumbnailLoading((prev) => ({ ...prev, [pdfId]: true }));
     try {
+      const pdfjsLib = await loadPdfJsLib();
       const response = await api.get(`/pdfs/${pdfId}/file`, { responseType: 'arraybuffer' });
       const task = pdfjsLib.getDocument({ data: response.data });
       const doc = await task.promise;
@@ -442,16 +463,58 @@ const PDFManagement = () => {
       thumbnailLoadingRef.current.delete(pdfId);
       setThumbnailLoading((prev) => ({ ...prev, [pdfId]: false }));
     }
-  }, [thumbnails]);
+  }, []);
+
+  const pumpThumbnailQueue = useCallback(() => {
+    while (
+      thumbnailLoadingRef.current.size < MAX_THUMBNAIL_CONCURRENCY &&
+      thumbnailQueueRef.current.length > 0
+    ) {
+      const nextPdfId = thumbnailQueueRef.current.shift();
+      thumbnailQueuedRef.current.delete(nextPdfId);
+      void generateThumbnail(nextPdfId).finally(() => {
+        pumpThumbnailQueue();
+      });
+    }
+  }, [generateThumbnail]);
+
+  const enqueueThumbnail = useCallback((pdfId) => {
+    if (!pdfId) return;
+    if (Object.prototype.hasOwnProperty.call(thumbnailsRef.current, pdfId)) return;
+    if (thumbnailLoadingRef.current.has(pdfId) || thumbnailQueuedRef.current.has(pdfId)) return;
+    thumbnailQueuedRef.current.add(pdfId);
+    thumbnailQueueRef.current.push(pdfId);
+    pumpThumbnailQueue();
+  }, [pumpThumbnailQueue]);
 
   useEffect(() => {
-    const previewTargets = filteredPdfs.slice(0, 24).map((pdf) => pdf.pdf_id);
-    for (const pdfId of previewTargets) {
-      if (!Object.prototype.hasOwnProperty.call(thumbnails, pdfId)) {
-        generateThumbnail(pdfId);
-      }
+    const immediateTargets = filteredPdfs
+      .slice(0, MAX_INITIAL_THUMBNAILS)
+      .map((pdf) => pdf.pdf_id);
+    for (const pdfId of immediateTargets) {
+      enqueueThumbnail(pdfId);
     }
-  }, [filteredPdfs, generateThumbnail, thumbnails]);
+
+    const idleTargets = filteredPdfs
+      .slice(MAX_INITIAL_THUMBNAILS, MAX_INITIAL_THUMBNAILS + MAX_IDLE_THUMBNAILS)
+      .map((pdf) => pdf.pdf_id);
+
+    if (idleTargets.length === 0) {
+      return undefined;
+    }
+
+    if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+      const handle = window.requestIdleCallback(() => {
+        idleTargets.forEach((pdfId) => enqueueThumbnail(pdfId));
+      }, { timeout: 1200 });
+      return () => window.cancelIdleCallback(handle);
+    }
+
+    const timer = setTimeout(() => {
+      idleTargets.forEach((pdfId) => enqueueThumbnail(pdfId));
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [enqueueThumbnail, filteredPdfs]);
 
   const renderPdfPreview = (pdf, compact = false) => {
     const thumb = thumbnails[pdf.pdf_id];

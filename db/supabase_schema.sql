@@ -171,3 +171,18 @@ create table if not exists public.app_files (
 );
 
 create index if not exists idx_app_files_user_id on public.app_files (user_id);
+
+insert into public.app_documents (collection, doc)
+select
+  'platform_settings',
+  jsonb_build_object(
+    'key', '__schema_meta',
+    'version', 1,
+    'updated_at', now() at time zone 'utc'
+  )
+where not exists (
+  select 1
+  from public.app_documents
+  where collection = 'platform_settings'
+    and doc @> '{"key":"__schema_meta","version":1}'::jsonb
+);
