@@ -1283,3 +1283,210 @@ export const TRANSLATION_OVERRIDES = {
     },
   },
 };
+
+const EMAIL_CHANGE_TRANSLATION_OVERRIDES = {
+  en: {
+    emailChange: {
+      title: 'Confirm New Email',
+      verifying: 'Confirming your new email...',
+      missingToken: 'Missing email change token',
+      invalidToken: 'Email change link is invalid or expired',
+      successMessage: 'Your account email has been updated.',
+      continueToSettings: 'Continue to settings',
+      backToSettings: 'Back to settings',
+      successToast: 'Email updated successfully',
+    },
+    settings: {
+      emailChangeTitle: 'Change Account Email',
+      emailChangeDesc: 'Update your sign-in email. The new address becomes active only after verification.',
+      currentEmailLabel: 'Current Email',
+      emailChangeNotice: 'Your current email stays active until the new address is verified.',
+      pendingEmailLabel: 'Pending Email',
+      pendingEmailNotice: 'Verification is waiting for this address. Open the email link to finish the change.',
+      newEmailLabel: 'New Email',
+      emailChangeButton: 'Send Verification Email',
+      emailChangeSending: 'Sending...',
+      emailChangeRequired: 'Enter a new email address',
+      emailChangeSuccess: 'Verification email sent to the new address',
+      emailChangeFailed: 'Failed to start email change',
+    },
+  },
+  es: {
+    emailChange: {
+      title: 'Confirmar nuevo correo',
+      verifying: 'Confirmando tu nuevo correo...',
+      missingToken: 'Falta el token de cambio de correo',
+      invalidToken: 'El enlace para cambiar el correo no es válido o ha caducado',
+      successMessage: 'El correo de tu cuenta se ha actualizado.',
+      continueToSettings: 'Ir a ajustes',
+      backToSettings: 'Volver a ajustes',
+      successToast: 'Correo actualizado correctamente',
+    },
+    settings: {
+      emailChangeTitle: 'Cambiar correo de la cuenta',
+      emailChangeDesc: 'Actualiza tu correo de acceso. La nueva dirección se activa solo después de la verificación.',
+      currentEmailLabel: 'Correo actual',
+      emailChangeNotice: 'Tu correo actual sigue activo hasta que la nueva dirección se verifique.',
+      pendingEmailLabel: 'Correo pendiente',
+      pendingEmailNotice: 'La verificación está pendiente para esta dirección. Abre el enlace del correo para completar el cambio.',
+      newEmailLabel: 'Nuevo correo',
+      emailChangeButton: 'Enviar correo de verificación',
+      emailChangeSending: 'Enviando...',
+      emailChangeRequired: 'Introduce un nuevo correo',
+      emailChangeSuccess: 'Se envió el correo de verificación a la nueva dirección',
+      emailChangeFailed: 'No se pudo iniciar el cambio de correo',
+    },
+  },
+  fr: {
+    emailChange: {
+      title: 'Confirmer le nouvel e-mail',
+      verifying: 'Confirmation de votre nouvel e-mail...',
+      missingToken: "Jeton de changement d'e-mail manquant",
+      invalidToken: "Le lien de changement d'e-mail est invalide ou expiré",
+      successMessage: "L'e-mail de votre compte a été mis à jour.",
+      continueToSettings: 'Continuer vers les paramètres',
+      backToSettings: 'Retour aux paramètres',
+      successToast: 'E-mail mis à jour avec succès',
+    },
+    settings: {
+      emailChangeTitle: "Changer l'e-mail du compte",
+      emailChangeDesc: "Mettez à jour votre e-mail de connexion. La nouvelle adresse devient active uniquement après vérification.",
+      currentEmailLabel: 'E-mail actuel',
+      emailChangeNotice: "Votre e-mail actuel reste actif jusqu'à la vérification de la nouvelle adresse.",
+      pendingEmailLabel: 'E-mail en attente',
+      pendingEmailNotice: "La vérification est en attente pour cette adresse. Ouvrez le lien reçu par e-mail pour terminer le changement.",
+      newEmailLabel: 'Nouvel e-mail',
+      emailChangeButton: "Envoyer l'e-mail de vérification",
+      emailChangeSending: 'Envoi...',
+      emailChangeRequired: 'Saisissez une nouvelle adresse e-mail',
+      emailChangeSuccess: 'Un e-mail de vérification a été envoyé à la nouvelle adresse',
+      emailChangeFailed: "Impossible de démarrer le changement d'e-mail",
+    },
+  },
+  de: {
+    emailChange: {
+      title: 'Neue E-Mail bestätigen',
+      verifying: 'Ihre neue E-Mail wird bestätigt...',
+      missingToken: 'E-Mail-Änderungs-Token fehlt',
+      invalidToken: 'Der Link zur E-Mail-Änderung ist ungültig oder abgelaufen',
+      successMessage: 'Die E-Mail Ihres Kontos wurde aktualisiert.',
+      continueToSettings: 'Weiter zu den Einstellungen',
+      backToSettings: 'Zurück zu den Einstellungen',
+      successToast: 'E-Mail erfolgreich aktualisiert',
+    },
+    settings: {
+      emailChangeTitle: 'Konto-E-Mail ändern',
+      emailChangeDesc: 'Aktualisieren Sie Ihre Anmelde-E-Mail. Die neue Adresse wird erst nach der Bestätigung aktiv.',
+      currentEmailLabel: 'Aktuelle E-Mail',
+      emailChangeNotice: 'Ihre aktuelle E-Mail bleibt aktiv, bis die neue Adresse bestätigt wurde.',
+      pendingEmailLabel: 'Ausstehende E-Mail',
+      pendingEmailNotice: 'Für diese Adresse steht eine Bestätigung aus. Öffnen Sie den Link in der E-Mail, um die Änderung abzuschließen.',
+      newEmailLabel: 'Neue E-Mail',
+      emailChangeButton: 'Bestätigungs-E-Mail senden',
+      emailChangeSending: 'Wird gesendet...',
+      emailChangeRequired: 'Geben Sie eine neue E-Mail-Adresse ein',
+      emailChangeSuccess: 'Die Bestätigungs-E-Mail wurde an die neue Adresse gesendet',
+      emailChangeFailed: 'Die E-Mail-Änderung konnte nicht gestartet werden',
+    },
+  },
+  it: {
+    emailChange: {
+      title: 'Conferma nuova email',
+      verifying: 'Conferma della nuova email in corso...',
+      missingToken: 'Token per il cambio email mancante',
+      invalidToken: 'Il link per cambiare email non è valido o è scaduto',
+      successMessage: "L'email del tuo account è stata aggiornata.",
+      continueToSettings: 'Continua alle impostazioni',
+      backToSettings: 'Torna alle impostazioni',
+      successToast: 'Email aggiornata con successo',
+    },
+    settings: {
+      emailChangeTitle: "Cambia email dell'account",
+      emailChangeDesc: "Aggiorna l'email di accesso. Il nuovo indirizzo diventa attivo solo dopo la verifica.",
+      currentEmailLabel: 'Email attuale',
+      emailChangeNotice: "La tua email attuale resta attiva finché il nuovo indirizzo non viene verificato.",
+      pendingEmailLabel: 'Email in attesa',
+      pendingEmailNotice: "La verifica è in attesa per questo indirizzo. Apri il link nell'email per completare la modifica.",
+      newEmailLabel: 'Nuova email',
+      emailChangeButton: 'Invia email di verifica',
+      emailChangeSending: 'Invio in corso...',
+      emailChangeRequired: 'Inserisci un nuovo indirizzo email',
+      emailChangeSuccess: 'Email di verifica inviata al nuovo indirizzo',
+      emailChangeFailed: "Impossibile avviare il cambio email",
+    },
+  },
+  hi: {
+    emailChange: {
+      title: 'नया ईमेल पुष्टि करें',
+      verifying: 'आपके नए ईमेल की पुष्टि की जा रही है...',
+      missingToken: 'ईमेल बदलने का टोकन नहीं मिला',
+      invalidToken: 'ईमेल बदलने का लिंक अमान्य है या समाप्त हो चुका है',
+      successMessage: 'आपके खाते का ईमेल अपडेट कर दिया गया है।',
+      continueToSettings: 'सेटिंग्स पर जाएं',
+      backToSettings: 'सेटिंग्स पर वापस जाएं',
+      successToast: 'ईमेल सफलतापूर्वक अपडेट हुआ',
+    },
+    settings: {
+      emailChangeTitle: 'खाता ईमेल बदलें',
+      emailChangeDesc: 'अपना साइन-इन ईमेल अपडेट करें। नया पता केवल सत्यापन के बाद सक्रिय होगा।',
+      currentEmailLabel: 'वर्तमान ईमेल',
+      emailChangeNotice: 'नया पता सत्यापित होने तक आपका वर्तमान ईमेल सक्रिय रहेगा।',
+      pendingEmailLabel: 'लंबित ईमेल',
+      pendingEmailNotice: 'इस पते के लिए सत्यापन लंबित है। बदलाव पूरा करने के लिए ईमेल में दिया गया लिंक खोलें।',
+      newEmailLabel: 'नया ईमेल',
+      emailChangeButton: 'सत्यापन ईमेल भेजें',
+      emailChangeSending: 'भेजा जा रहा है...',
+      emailChangeRequired: 'नया ईमेल पता दर्ज करें',
+      emailChangeSuccess: 'नए पते पर सत्यापन ईमेल भेज दिया गया है',
+      emailChangeFailed: 'ईमेल बदलने की प्रक्रिया शुरू नहीं हो सकी',
+    },
+  },
+  sl: {
+    emailChange: {
+      title: 'Potrdi nov e-mail',
+      verifying: 'Potrjujem vaš nov e-mail...',
+      missingToken: 'Manjka žeton za spremembo e-maila',
+      invalidToken: 'Povezava za spremembo e-maila je neveljavna ali je potekla',
+      successMessage: 'E-mail vašega računa je bil posodobljen.',
+      continueToSettings: 'Nadaljuj na nastavitve',
+      backToSettings: 'Nazaj na nastavitve',
+      successToast: 'E-mail je bil uspešno posodobljen',
+    },
+    settings: {
+      emailChangeTitle: 'Spremeni e-mail računa',
+      emailChangeDesc: 'Posodobite svoj prijavni e-mail. Novi naslov bo aktiven šele po potrditvi.',
+      currentEmailLabel: 'Trenutni e-mail',
+      emailChangeNotice: 'Vaš trenutni e-mail ostane aktiven, dokler novi naslov ni potrjen.',
+      pendingEmailLabel: 'Čakajoči e-mail',
+      pendingEmailNotice: 'Za ta naslov čaka potrditev. Odprite povezavo v e-mailu, da dokončate spremembo.',
+      newEmailLabel: 'Nov e-mail',
+      emailChangeButton: 'Pošlji potrditveni e-mail',
+      emailChangeSending: 'Pošiljam...',
+      emailChangeRequired: 'Vnesite nov e-mail naslov',
+      emailChangeSuccess: 'Potrditveni e-mail je bil poslan na nov naslov',
+      emailChangeFailed: 'Spremembe e-maila ni bilo mogoče začeti',
+    },
+  },
+};
+
+function deepMergeTranslationOverrides(target, source) {
+  for (const [key, value] of Object.entries(source)) {
+    if (
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      target[key] &&
+      typeof target[key] === 'object' &&
+      !Array.isArray(target[key])
+    ) {
+      deepMergeTranslationOverrides(target[key], value);
+      continue;
+    }
+    target[key] = value;
+  }
+}
+
+for (const [languageCode, override] of Object.entries(EMAIL_CHANGE_TRANSLATION_OVERRIDES)) {
+  TRANSLATION_OVERRIDES[languageCode] = TRANSLATION_OVERRIDES[languageCode] || {};
+  deepMergeTranslationOverrides(TRANSLATION_OVERRIDES[languageCode], override);
+}

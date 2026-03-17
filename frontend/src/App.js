@@ -12,6 +12,7 @@ const Register = lazy(() => import('./pages/Register'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
+const VerifyEmailChange = lazy(() => import('./pages/VerifyEmailChange'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const PDFManagement = lazy(() => import('./pages/PDFManagement'));
 const LinkGenerator = lazy(() => import('./pages/LinkGenerator'));
@@ -575,6 +576,18 @@ const AuthProvider = ({ children }) => {
     return response.data;
   };
 
+  const requestEmailChange = async (newEmail) => {
+    const response = await api.post('/auth/email-change/request', {
+      new_email: newEmail,
+      origin_url: typeof window !== 'undefined' ? window.location.origin : '',
+    });
+    const { user: userData } = response.data || {};
+    if (userData) {
+      setUser(userData);
+    }
+    return response.data;
+  };
+
   const validatePasswordResetToken = async (tokenOrPayload) => {
     const params = typeof tokenOrPayload === 'string'
       ? { token: tokenOrPayload }
@@ -616,6 +629,22 @@ const AuthProvider = ({ children }) => {
     return response.data;
   };
 
+  const confirmEmailChange = async (token) => {
+    const response = await api.post('/auth/email-change/confirm', {
+      token,
+    });
+    const { access_token, user: userData } = response.data || {};
+    if (access_token && userData) {
+      localStorage.setItem('token', access_token);
+      if (userData.language) {
+        localStorage.setItem('preferredLanguage', userData.language);
+        setLanguage(userData.language);
+      }
+      setUser(userData);
+    }
+    return response.data;
+  };
+
   const resendVerificationEmail = async (email) => {
     const response = await api.post('/auth/verify-email/resend', {
       email,
@@ -635,9 +664,11 @@ const AuthProvider = ({ children }) => {
       refreshUser,
       updateUserLanguage,
       requestPasswordReset,
+      requestEmailChange,
       validatePasswordResetToken,
       confirmPasswordReset,
       confirmEmailVerification,
+      confirmEmailChange,
       resendVerificationEmail,
     }}>
       {children}
@@ -693,6 +724,7 @@ function AppRouter() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/verify-email-change" element={<VerifyEmailChange />} />
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/view/:token" element={<SecureViewer />} />
       <Route path="/expired" element={<ExpiredPage />} />

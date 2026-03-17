@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Lock, Globe, CreditCard, ChevronRight, RefreshCw, Download, ExternalLink } from 'lucide-react';
+import { User, Lock, Globe, CreditCard, ChevronRight, RefreshCw, Download, ExternalLink, Mail } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -14,7 +14,7 @@ import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 
 const Settings = () => {
-  const { user, updateUserLanguage, refreshUser, requestPasswordReset } = useAuth();
+  const { user, updateUserLanguage, refreshUser, requestPasswordReset, requestEmailChange } = useAuth();
   const { plans } = useSubscriptionPlans();
   const { language, setLanguage, languages, t } = useLanguage();
   const [activeTab, setActiveTab] = useState('account');
@@ -48,10 +48,13 @@ const Settings = () => {
   const [savingAccount, setSavingAccount] = useState(false);
   const [savingBillingProfile, setSavingBillingProfile] = useState(false);
   const [sendingResetEmail, setSendingResetEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [sendingEmailChange, setSendingEmailChange] = useState(false);
 
   useEffect(() => {
     if (user) {
       setProfileName(user.name || '');
+      setNewEmail('');
       setBillingProfile({
         full_name: user?.billing_profile?.full_name || user?.name || '',
         company_name: user?.billing_profile?.company_name || '',
@@ -300,6 +303,26 @@ const Settings = () => {
     }
   };
 
+  const handleRequestEmailChange = async (e) => {
+    e.preventDefault();
+    if (!newEmail.trim()) {
+      toast.error(t('settings.emailChangeRequired'));
+      return;
+    }
+
+    setSendingEmailChange(true);
+    try {
+      const response = await requestEmailChange(newEmail.trim());
+      await refreshUser();
+      setNewEmail('');
+      toast.success(response?.message || t('settings.emailChangeSuccess'));
+    } catch (error) {
+      toast.error(error.response?.data?.detail || t('settings.emailChangeFailed'));
+    } finally {
+      setSendingEmailChange(false);
+    }
+  };
+
   const getPlanLabel = (planId) => {
     if (planId && plans?.[planId]?.name) return plans[planId].name;
     return t('adminUsers.noSubscription');
@@ -378,6 +401,54 @@ const Settings = () => {
                 </div>
                 <Button type="submit" className="bg-emerald-900 hover:bg-emerald-800" disabled={savingAccount}>
                   {savingAccount ? 'Saving...' : 'Save Account'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card className="border-stone-200">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Mail className="w-5 h-5 text-emerald-700" />
+                <span>{t('settings.emailChangeTitle')}</span>
+              </CardTitle>
+              <CardDescription>{t('settings.emailChangeDesc')}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-lg border border-stone-200 bg-stone-50 p-4">
+                <p className="font-medium text-stone-900">{t('settings.currentEmailLabel')}: {user?.email || t('common.na')}</p>
+                <p className="text-sm text-stone-500 mt-1">{t('settings.emailChangeNotice')}</p>
+              </div>
+
+              {user?.pending_email && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <p className="font-medium text-amber-900">
+                    {t('settings.pendingEmailLabel')}: {user.pending_email}
+                  </p>
+                  <p className="text-sm text-amber-800 mt-1">
+                    {t('settings.pendingEmailNotice')}
+                    {user?.pending_email_requested_at ? ` ${format(new Date(user.pending_email_requested_at), 'MMM d, yyyy HH:mm')}` : ''}
+                  </p>
+                </div>
+              )}
+
+              <form onSubmit={handleRequestEmailChange} className="space-y-4">
+                <div>
+                  <Label>{t('settings.newEmailLabel')}</Label>
+                  <Input
+                    type="email"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    className="h-12 mt-1"
+                    placeholder="name@example.com"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="bg-emerald-900 hover:bg-emerald-800"
+                  disabled={sendingEmailChange || !newEmail.trim()}
+                >
+                  {sendingEmailChange ? t('settings.emailChangeSending') : t('settings.emailChangeButton')}
                 </Button>
               </form>
             </CardContent>

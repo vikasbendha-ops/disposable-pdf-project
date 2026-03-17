@@ -54,6 +54,15 @@ create index if not exists idx_app_docs_email_verifications_token_hash
 create index if not exists idx_app_docs_email_verifications_user_id
   on public.app_documents ((doc->>'user_id'))
   where collection = 'email_verifications';
+create index if not exists idx_app_docs_email_change_requests_token_hash
+  on public.app_documents ((doc->>'token_hash'))
+  where collection = 'email_change_requests';
+create index if not exists idx_app_docs_email_change_requests_user_id
+  on public.app_documents ((doc->>'user_id'))
+  where collection = 'email_change_requests';
+create index if not exists idx_app_docs_email_change_requests_new_email
+  on public.app_documents ((lower(doc->>'new_email')))
+  where collection = 'email_change_requests';
 
 -- pdfs
 create index if not exists idx_app_docs_pdfs_pdf_id
