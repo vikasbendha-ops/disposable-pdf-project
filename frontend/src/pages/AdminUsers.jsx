@@ -39,7 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
-import { api, useAuth } from '../App';
+import { api, useAuth, useSubscriptionPlans } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -70,6 +70,7 @@ const EMPTY_CREATE_USER = {
 
 const AdminUsers = () => {
   const { user: currentUser } = useAuth();
+  const { plans } = useSubscriptionPlans();
   const { t } = useLanguage();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -338,17 +339,17 @@ const AdminUsers = () => {
   );
 
   const getPlanLabel = (plan) => {
-    if (plan === 'basic') return t('pricing.basic');
-    if (plan === 'pro') return t('pricing.pro');
-    if (plan === 'enterprise') return t('pricing.enterprise');
+    if (plan && plans?.[plan]?.name) return plans[plan].name;
     return t('adminUsers.noSubscription');
   };
 
+  const managedPlanIds = ['basic', 'pro', 'enterprise'].filter((planId) => plans?.[planId]);
   const subscriptionOptions = [
     { value: 'none', label: getPlanLabel('none') },
-    { value: 'basic', label: getPlanLabel('basic') },
-    { value: 'pro', label: getPlanLabel('pro') },
-    { value: 'enterprise', label: getPlanLabel('enterprise') },
+    ...managedPlanIds.map((planId) => ({
+      value: planId,
+      label: getPlanLabel(planId),
+    })),
   ];
 
   return (

@@ -8,19 +8,53 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Switch } from '../components/ui/switch';
-import { api, DEFAULT_BRANDING, useAuth, useBranding, useSeo } from '../App';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import {
+  api,
+  DEFAULT_BRANDING,
+  DEFAULT_PUBLIC_SITE,
+  DEFAULT_SUBSCRIPTION_PLANS,
+  useAuth,
+  useBranding,
+  usePublicSite,
+  useSeo,
+  useSubscriptionPlans,
+} from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
 import { DEFAULT_SEO_SETTINGS } from '../../../lib/seo';
 import { toast } from 'sonner';
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+const PLAN_EDITOR_ORDER = ['basic', 'pro', 'enterprise'];
+
+const buildPlanEditorState = (planSource = DEFAULT_SUBSCRIPTION_PLANS) => {
+  return PLAN_EDITOR_ORDER.reduce((accumulator, planId) => {
+    const plan = planSource?.[planId] || DEFAULT_SUBSCRIPTION_PLANS[planId];
+    accumulator[planId] = {
+      name: plan?.name || '',
+      description: plan?.description || '',
+      badge: plan?.badge || '',
+      price: String(plan?.price ?? ''),
+      storage_mb: String(plan?.storage_mb ?? ''),
+      links_per_month: String(plan?.links_per_month ?? ''),
+      featured: Boolean(plan?.featured),
+      active: plan?.active !== false,
+      features: Array.isArray(plan?.features) ? plan.features.join('\n') : '',
+    };
+    return accumulator;
+  }, {});
+};
 
 const AdminSettings = () => {
   const { user } = useAuth();
   const { refreshBranding } = useBranding();
+  const { refreshPublicSite } = usePublicSite();
   const { refreshSeo } = useSeo();
+  const { refreshPlans } = useSubscriptionPlans();
   const { t, languages } = useLanguage();
   const isSuperAdmin = user?.role === 'super_admin';
+  const [activeTab, setActiveTab] = useState('payments');
+  const [loadedTabs, setLoadedTabs] = useState({});
 
   const [stripeConfig, setStripeConfig] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -94,18 +128,22 @@ const AdminSettings = () => {
   const [localizationLoading, setLocalizationLoading] = useState(false);
   const [localizationSaving, setLocalizationSaving] = useState(false);
   const [platformLanguage, setPlatformLanguage] = useState('en');
-
-  useEffect(() => {
-    fetchStripeConfig();
-    fetchLocalizationConfig();
-    if (isSuperAdmin) {
-      fetchStorageConfig();
-      fetchVercelConfig();
-      fetchBrandingConfig();
-      fetchSeoConfig();
-      fetchInvoiceTemplateConfig();
-    }
-  }, [isSuperAdmin]);
+  const [publicSiteConfig, setPublicSiteConfig] = useState(null);
+  const [publicSiteLoading, setPublicSiteLoading] = useState(false);
+  const [publicSiteSaving, setPublicSiteSaving] = useState(false);
+  const [publicAboutUrl, setPublicAboutUrl] = useState(DEFAULT_PUBLIC_SITE.about_url);
+  const [publicContactUrl, setPublicContactUrl] = useState(DEFAULT_PUBLIC_SITE.contact_url);
+  const [publicBlogUrl, setPublicBlogUrl] = useState(DEFAULT_PUBLIC_SITE.blog_url);
+  const [publicPrivacyUrl, setPublicPrivacyUrl] = useState(DEFAULT_PUBLIC_SITE.privacy_url);
+  const [publicTermsUrl, setPublicTermsUrl] = useState(DEFAULT_PUBLIC_SITE.terms_url);
+  const [publicGdprUrl, setPublicGdprUrl] = useState(DEFAULT_PUBLIC_SITE.gdpr_url);
+  const [authPortalUrl, setAuthPortalUrl] = useState(DEFAULT_PUBLIC_SITE.auth_portal_url);
+  const [planConfig, setPlanConfig] = useState(null);
+  const [planLoading, setPlanLoading] = useState(false);
+  const [planSaving, setPlanSaving] = useState(false);
+  const [planCurrency, setPlanCurrency] = useState('eur');
+  const [planInterval, setPlanInterval] = useState('month');
+  const [planEditors, setPlanEditors] = useState(() => buildPlanEditorState());
 
   const fetchStripeConfig = async () => {
     try {
@@ -266,6 +304,84 @@ const AdminSettings = () => {
       setInvoiceLoading(false);
     }
   };
+
+  const applyPublicSiteState = (config) => {
+    setPublicSiteConfig(config);
+    setPublicAboutUrl(config?.about_url || DEFAULT_PUBLIC_SITE.about_url);
+    setPublicContactUrl(config?.contact_url || DEFAULT_PUBLIC_SITE.contact_url);
+    setPublicBlogUrl(config?.blog_url || DEFAULT_PUBLIC_SITE.blog_url);
+    setPublicPrivacyUrl(config?.privacy_url || DEFAULT_PUBLIC_SITE.privacy_url);
+    setPublicTermsUrl(config?.terms_url || DEFAULT_PUBLIC_SITE.terms_url);
+    setPublicGdprUrl(config?.gdpr_url || DEFAULT_PUBLIC_SITE.gdpr_url);
+    setAuthPortalUrl(config?.auth_portal_url || DEFAULT_PUBLIC_SITE.auth_portal_url);
+  };
+
+  const fetchPublicSiteConfig = async () => {
+    setPublicSiteLoading(true);
+    try {
+      const res = await api.get('/admin/settings/public-site');
+      applyPublicSiteState(res.data);
+    } catch (err) {
+      setPublicSiteConfig(null);
+      if (err.response?.status !== 403) {
+        toast.error(err.response?.data?.detail || 'Failed to load public site settings');
+      }
+    } finally {
+      setPublicSiteLoading(false);
+    }
+  };
+
+  const applyPlanState = (config) => {
+    setPlanConfig(config);
+    setPlanCurrency(config?.currency || 'eur');
+    setPlanInterval(config?.interval || 'month');
+    setPlanEditors(buildPlanEditorState(config?.plans || DEFAULT_SUBSCRIPTION_PLANS));
+  };
+
+  const fetchSubscriptionPlanConfig = async () => {
+    setPlanLoading(true);
+    try {
+      const res = await api.get('/admin/settings/subscription-plans');
+      applyPlanState(res.data);
+    } catch (err) {
+      setPlanConfig(null);
+      if (err.response?.status !== 403) {
+        toast.error(err.response?.data?.detail || 'Failed to load subscription plan settings');
+      }
+    } finally {
+      setPlanLoading(false);
+    }
+  };
+
+  const ensureTabLoaded = async (tab) => {
+    if (loadedTabs[tab]) return;
+
+    if (tab === 'payments') {
+      await fetchStripeConfig();
+    } else if (tab === 'localization') {
+      await fetchLocalizationConfig();
+    } else if (isSuperAdmin && tab === 'storage') {
+      await fetchStorageConfig();
+    } else if (isSuperAdmin && tab === 'domains') {
+      await fetchVercelConfig();
+    } else if (isSuperAdmin && tab === 'branding') {
+      await fetchBrandingConfig();
+    } else if (isSuperAdmin && tab === 'seo') {
+      await fetchSeoConfig();
+    } else if (isSuperAdmin && tab === 'invoice') {
+      await fetchInvoiceTemplateConfig();
+    } else if (isSuperAdmin && tab === 'public-site') {
+      await fetchPublicSiteConfig();
+    } else if (isSuperAdmin && tab === 'plans') {
+      await fetchSubscriptionPlanConfig();
+    }
+
+    setLoadedTabs((prev) => (prev[tab] ? prev : { ...prev, [tab]: true }));
+  };
+
+  useEffect(() => {
+    ensureTabLoaded(activeTab);
+  }, [activeTab, isSuperAdmin]);
 
   const handleSaveLiveKey = async () => {
     if (!liveKey.trim()) {
@@ -520,6 +636,85 @@ const AdminSettings = () => {
     }
   };
 
+  const handleSavePublicSiteConfig = async () => {
+    if (!isSuperAdmin) {
+      toast.error('Only super admin can update public site settings');
+      return;
+    }
+
+    setPublicSiteSaving(true);
+    try {
+      const res = await api.put('/admin/settings/public-site', {
+        about_url: publicAboutUrl.trim(),
+        contact_url: publicContactUrl.trim(),
+        blog_url: publicBlogUrl.trim(),
+        privacy_url: publicPrivacyUrl.trim(),
+        terms_url: publicTermsUrl.trim(),
+        gdpr_url: publicGdprUrl.trim(),
+        auth_portal_url: authPortalUrl.trim(),
+      });
+      applyPublicSiteState(res.data);
+      await refreshPublicSite();
+      toast.success('Public site settings saved');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to save public site settings');
+    } finally {
+      setPublicSiteSaving(false);
+    }
+  };
+
+  const updatePlanEditorField = (planId, field, value) => {
+    setPlanEditors((prev) => ({
+      ...prev,
+      [planId]: {
+        ...prev[planId],
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleSaveSubscriptionPlans = async () => {
+    if (!isSuperAdmin) {
+      toast.error('Only super admin can update subscription plans');
+      return;
+    }
+
+    const payload = {
+      currency: planCurrency,
+      interval: planInterval,
+      plans: PLAN_EDITOR_ORDER.reduce((accumulator, planId) => {
+        const editor = planEditors[planId];
+        accumulator[planId] = {
+          name: editor.name.trim(),
+          description: editor.description.trim(),
+          badge: editor.badge.trim(),
+          price: Number(editor.price || 0),
+          storage_mb: Number(editor.storage_mb || 0),
+          links_per_month: Number(editor.links_per_month || 0),
+          featured: Boolean(editor.featured),
+          active: Boolean(editor.active),
+          features: editor.features
+            .split('\n')
+            .map((item) => item.trim())
+            .filter(Boolean),
+        };
+        return accumulator;
+      }, {}),
+    };
+
+    setPlanSaving(true);
+    try {
+      const res = await api.put('/admin/settings/subscription-plans', payload);
+      applyPlanState(res.data);
+      await refreshPlans();
+      toast.success('Subscription plan settings saved');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to save subscription plan settings');
+    } finally {
+      setPlanSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout title={t('admin.stripeSettings')}>
@@ -531,173 +726,159 @@ const AdminSettings = () => {
   }
 
   const isLive = stripeConfig?.mode === 'live';
+  const adminTabs = [
+    { value: 'payments', label: 'Payments' },
+    { value: 'localization', label: 'Localization' },
+  ];
+  const superAdminTabs = [
+    { value: 'public-site', label: 'Public Site' },
+    { value: 'plans', label: 'Plans' },
+    { value: 'storage', label: 'Storage' },
+    { value: 'domains', label: 'Domains' },
+    { value: 'branding', label: 'Branding' },
+    { value: 'seo', label: 'SEO' },
+    { value: 'invoice', label: 'Invoice' },
+  ];
+  const displayedTabs = isSuperAdmin ? [...adminTabs, ...superAdminTabs] : adminTabs;
+  const seoPreviewUrl = (seoCanonicalBaseUrl || 'https://your-domain.com').replace(/\/$/, '');
 
   return (
-    <DashboardLayout title={t('admin.stripeSettings')} subtitle={t('adminSettingsLocalization.description')}>
-      <div className="max-w-3xl space-y-6">
+    <DashboardLayout
+      title={isSuperAdmin ? 'Platform Settings' : t('admin.stripeSettings')}
+      subtitle={
+        isSuperAdmin
+          ? 'Payments, plans, branding, public links, storage, SEO, and domain automation.'
+          : t('adminSettingsLocalization.description')
+      }
+    >
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <div className="overflow-x-auto pb-1">
+          <TabsList className="h-auto w-max min-w-full justify-start gap-2 rounded-xl bg-stone-100 p-1">
+            {displayedTabs.map((tab) => (
+              <TabsTrigger key={tab.value} value={tab.value} className="px-4 py-2">
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
 
-        <Card className="border-stone-200">
-          <CardHeader>
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-                <Globe className="w-5 h-5 text-emerald-700" />
-              </div>
-              <div>
-                <CardTitle>{t('adminSettingsLocalization.title')}</CardTitle>
-                <CardDescription>{t('adminSettingsLocalization.description')}</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>{t('adminSettingsLocalization.defaultLanguage')}</Label>
-              <Select value={platformLanguage} onValueChange={setPlatformLanguage}>
-                <SelectTrigger className="h-12">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {languages.map((language) => (
-                    <SelectItem key={language.code} value={language.code}>
-                      {language.nativeName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button
-              className="bg-emerald-900 hover:bg-emerald-800"
-              onClick={handleSaveLocalizationConfig}
-              disabled={localizationSaving || localizationLoading}
-            >
-              {localizationSaving ? t('adminSettingsLocalization.saving') : t('adminSettingsLocalization.save')}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Stripe Integration */}
-        <Card className="border-stone-200" data-testid="stripe-settings-card">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-                  <CreditCard className="w-5 h-5 text-indigo-700" />
-                </div>
-                <div>
-                  <CardTitle>Stripe Payment Integration</CardTitle>
-                  <CardDescription>Manage subscription payments for your users</CardDescription>
-                </div>
-              </div>
-              <Badge
-                data-testid="stripe-mode-badge"
-                className={isLive
-                  ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                  : 'bg-amber-100 text-amber-800 border-amber-200'
-                }
-              >
-                {isLive ? 'Live Mode' : 'Sandbox Mode'}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-
-            {/* Current Status */}
-            <div className="p-4 rounded-xl bg-stone-50 border border-stone-200">
-              <div className="flex items-start space-x-3">
-                {isLive ? (
-                  <CheckCircle className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" />
-                ) : (
-                  <AlertCircle className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
-                )}
-                <div>
-                  <p className="font-semibold text-stone-900">
-                    {isLive ? 'Live Payments Active' : 'Sandbox / Test Mode Active'}
-                  </p>
-                  <p className="text-sm text-stone-600 mt-1">
-                    {isLive
-                      ? 'Real money transactions are being processed. Make sure you have tested thoroughly.'
-                      : 'No real money is being processed. All payments are simulated using Stripe test cards.'}
-                  </p>
-                  <p className="text-xs font-mono text-stone-400 mt-2">
-                    Active key: {stripeConfig?.key_preview}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Live Key Input */}
-            <div className="space-y-3">
-              <div>
-                <h3 className="font-semibold text-stone-900 mb-1">Activate Live Mode</h3>
-                <p className="text-sm text-stone-500">
-                  Enter your Stripe Live Secret Key to start accepting real payments. 
-                  You can find this in your <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener noreferrer" className="text-emerald-700 underline">Stripe Dashboard</a>.
-                </p>
-              </div>
-              <div className="flex space-x-2">
-                <div className="relative flex-1">
-                  <Input
-                    data-testid="stripe-live-key-input"
-                    type={showKey ? 'text' : 'password'}
-                    placeholder="sk_live_..."
-                    value={liveKey}
-                    onChange={(e) => setLiveKey(e.target.value)}
-                    className="pr-10 font-mono text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowKey(!showKey)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700"
-                  >
-                    {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                <Button
-                  data-testid="save-stripe-live-key-btn"
-                  onClick={handleSaveLiveKey}
-                  disabled={saving || !liveKey.trim()}
-                  className="bg-emerald-900 hover:bg-emerald-800 whitespace-nowrap"
-                >
-                  {saving ? 'Saving...' : 'Save & Activate Live'}
-                </Button>
-              </div>
-            </div>
-
-            {/* Sandbox Key Input */}
-            <div className="space-y-3 pt-2 border-t border-stone-200">
-              <div>
-                <h3 className="font-semibold text-stone-900 mb-1">Activate Sandbox Mode</h3>
-                <p className="text-sm text-stone-500">
-                  Enter your Stripe Test Secret Key to run payment flow in sandbox mode.
-                </p>
-              </div>
-              <div className="flex space-x-2">
-                <Input
-                  type={showKey ? 'text' : 'password'}
-                  placeholder="sk_test_..."
-                  value={sandboxKey}
-                  onChange={(e) => setSandboxKey(e.target.value)}
-                  className="font-mono text-sm"
-                  data-testid="stripe-sandbox-key-input"
-                />
-                <Button
-                  onClick={handleSaveSandboxKey}
-                  disabled={saving || !sandboxKey.trim()}
-                  variant="outline"
-                  className="whitespace-nowrap"
-                  data-testid="save-stripe-sandbox-key-btn"
-                >
-                  {saving ? 'Saving...' : 'Save & Activate Sandbox'}
-                </Button>
-              </div>
-            </div>
-
-            {/* Switch back to Sandbox */}
-            {isLive && (
-              <div className="pt-4 border-t border-stone-200">
-                <div className="flex items-center justify-between">
+        <TabsContent value="payments" className="max-w-4xl">
+          <Card className="border-stone-200" data-testid="stripe-settings-card">
+            <CardHeader>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                    <CreditCard className="w-5 h-5 text-indigo-700" />
+                  </div>
                   <div>
-                    <p className="font-medium text-stone-900">Switch to Sandbox</p>
-                    <p className="text-sm text-stone-500">Revert to test mode (no real payments)</p>
+                    <CardTitle>Stripe Payment Integration</CardTitle>
+                    <CardDescription>Manage subscription payments and Stripe mode.</CardDescription>
+                  </div>
+                </div>
+                <Badge
+                  data-testid="stripe-mode-badge"
+                  className={isLive
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                    : 'bg-amber-100 text-amber-800 border-amber-200'
+                  }
+                >
+                  {isLive ? 'Live Mode' : 'Sandbox Mode'}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="rounded-xl bg-stone-50 border border-stone-200 p-4">
+                <div className="flex items-start space-x-3">
+                  {isLive ? (
+                    <CheckCircle className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
+                  )}
+                  <div>
+                    <p className="font-semibold text-stone-900">
+                      {isLive ? 'Live payments active' : 'Sandbox mode active'}
+                    </p>
+                    <p className="text-sm text-stone-600 mt-1">
+                      {isLive
+                        ? 'Real payments are enabled.'
+                        : 'Stripe test cards are active. No real charges are processed.'}
+                    </p>
+                    <p className="text-xs font-mono text-stone-400 mt-2">
+                      Active key: {stripeConfig?.key_preview}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <h3 className="font-semibold text-stone-900 mb-1">Activate Live Mode</h3>
+                  <p className="text-sm text-stone-500">
+                    Save a live secret key to process real payments.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      data-testid="stripe-live-key-input"
+                      type={showKey ? 'text' : 'password'}
+                      placeholder="sk_live_..."
+                      value={liveKey}
+                      onChange={(e) => setLiveKey(e.target.value)}
+                      className="pr-10 font-mono text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowKey(!showKey)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700"
+                    >
+                      {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <Button
+                    data-testid="save-stripe-live-key-btn"
+                    onClick={handleSaveLiveKey}
+                    disabled={saving || !liveKey.trim()}
+                    className="bg-emerald-900 hover:bg-emerald-800 whitespace-nowrap"
+                  >
+                    {saving ? 'Saving...' : 'Save & Activate Live'}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-2 border-t border-stone-200">
+                <div>
+                  <h3 className="font-semibold text-stone-900 mb-1">Activate Sandbox Mode</h3>
+                  <p className="text-sm text-stone-500">
+                    Save a sandbox key or switch the existing configuration back to test mode.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    type={showKey ? 'text' : 'password'}
+                    placeholder="sk_test_..."
+                    value={sandboxKey}
+                    onChange={(e) => setSandboxKey(e.target.value)}
+                    className="font-mono text-sm"
+                    data-testid="stripe-sandbox-key-input"
+                  />
+                  <Button
+                    onClick={handleSaveSandboxKey}
+                    disabled={saving || !sandboxKey.trim()}
+                    variant="outline"
+                    className="whitespace-nowrap"
+                    data-testid="save-stripe-sandbox-key-btn"
+                  >
+                    {saving ? 'Saving...' : 'Save & Activate Sandbox'}
+                  </Button>
+                </div>
+              </div>
+
+              {isLive && (
+                <div className="pt-4 border-t border-stone-200 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-stone-900">Switch back to sandbox</p>
+                    <p className="text-sm text-stone-500">Useful before testing deployment changes.</p>
                   </div>
                   <Button
                     data-testid="activate-sandbox-btn"
@@ -709,619 +890,482 @@ const AdminSettings = () => {
                     Activate Sandbox
                   </Button>
                 </div>
-              </div>
-            )}
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-            {/* Security Notice */}
-            <div className="flex items-start space-x-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-              <Shield className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="font-semibold text-blue-900 text-sm">Security Notice</p>
-                <p className="text-xs text-blue-700 mt-1">
-                  Your Stripe keys are stored securely and never exposed to end users. 
-                  Rotate your keys immediately if you suspect they've been compromised.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Storage Provider (Super Admin only) */}
-        <Card className="border-stone-200" data-testid="storage-settings-card">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>PDF Storage Provider</CardTitle>
-                <CardDescription>
-                  Select where PDFs are stored for new uploads. Existing links remain unaffected.
-                </CardDescription>
-              </div>
-              <Badge
-                className={
-                  storageProvider === 'wasabi_s3'
-                    ? 'bg-blue-100 text-blue-800 border-blue-200'
-                    : 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                }
-              >
-                {storageProvider === 'wasabi_s3' ? 'Wasabi Active' : 'Supabase Active'}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!isSuperAdmin ? (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-                Only super admin can change storage provider. Current role: {user?.role || 'unknown'}.
-              </div>
-            ) : storageLoading ? (
-              <div className="text-sm text-stone-500">Loading storage settings...</div>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-stone-700">Active provider</p>
-                  <Select value={storageProvider} onValueChange={setStorageProvider}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select storage provider" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="supabase_db">Supabase (Database Storage)</SelectItem>
-                      <SelectItem value="wasabi_s3">Wasabi (S3 Compatible)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-3 pt-3 border-t border-stone-200">
-                  <p className="text-sm font-semibold text-stone-700">Wasabi Configuration</p>
-                  <Input
-                    placeholder="Endpoint (e.g. https://s3.ap-south-1.wasabisys.com)"
-                    value={wasabiEndpoint}
-                    onChange={(e) => setWasabiEndpoint(e.target.value)}
-                  />
-                  <Input
-                    placeholder="Region (e.g. ap-south-1)"
-                    value={wasabiRegion}
-                    onChange={(e) => setWasabiRegion(e.target.value)}
-                  />
-                  <Input
-                    placeholder="Bucket name"
-                    value={wasabiBucket}
-                    onChange={(e) => setWasabiBucket(e.target.value)}
-                  />
-                  <Input
-                    placeholder="Access key ID (leave blank to keep current)"
-                    value={wasabiAccessKey}
-                    onChange={(e) => setWasabiAccessKey(e.target.value)}
-                  />
-                  <Input
-                    type="password"
-                    placeholder="Secret access key (leave blank to keep current)"
-                    value={wasabiSecretKey}
-                    onChange={(e) => setWasabiSecretKey(e.target.value)}
-                  />
-                  <div className="flex items-center justify-between rounded-lg border border-stone-200 p-3">
-                    <div>
-                      <p className="text-sm font-medium text-stone-900">Force path style</p>
-                      <p className="text-xs text-stone-500">Recommended for S3-compatible providers</p>
-                    </div>
-                    <Switch checked={wasabiForcePathStyle} onCheckedChange={setWasabiForcePathStyle} />
-                  </div>
-                  <div className="text-xs text-stone-500">
-                    Current key status: {storageConfig?.wasabi?.access_key_set ? 'access key set' : 'access key missing'} /{' '}
-                    {storageConfig?.wasabi?.secret_key_set ? 'secret key set' : 'secret key missing'}
-                  </div>
-                </div>
-
-                <Button
-                  onClick={handleSaveStorageConfig}
-                  disabled={storageSaving}
-                  className="bg-emerald-900 hover:bg-emerald-800"
-                >
-                  {storageSaving ? 'Saving...' : 'Save Storage Settings'}
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Vercel Domain Automation (Super Admin only) */}
-        <Card className="border-stone-200" data-testid="vercel-settings-card">
-          <CardHeader>
-            <div className="flex items-center justify-between">
+        <TabsContent value="localization" className="max-w-3xl">
+          <Card className="border-stone-200">
+            <CardHeader>
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-cyan-100">
-                  <Globe className="w-5 h-5 text-cyan-700" />
+                <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                  <Globe className="w-5 h-5 text-emerald-700" />
                 </div>
                 <div>
-                  <CardTitle>Vercel Domain Automation</CardTitle>
+                  <CardTitle>{t('adminSettingsLocalization.title')}</CardTitle>
+                  <CardDescription>{t('adminSettingsLocalization.description')}</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {localizationLoading ? (
+                <p className="text-sm text-stone-500">Loading localization settings...</p>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label>{t('adminSettingsLocalization.defaultLanguage')}</Label>
+                    <Select value={platformLanguage} onValueChange={setPlatformLanguage}>
+                      <SelectTrigger className="h-12">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {languages.map((language) => (
+                          <SelectItem key={language.code} value={language.code}>
+                            {language.nativeName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    className="bg-emerald-900 hover:bg-emerald-800"
+                    onClick={handleSaveLocalizationConfig}
+                    disabled={localizationSaving}
+                  >
+                    {localizationSaving ? t('adminSettingsLocalization.saving') : t('adminSettingsLocalization.save')}
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {isSuperAdmin && (
+          <>
+            <TabsContent value="public-site" className="max-w-4xl">
+              <Card className="border-stone-200">
+                <CardHeader>
+                  <CardTitle>Public Site Settings</CardTitle>
                   <CardDescription>
-                    Auto-attach customer domains to this Vercel project for DNS verification and SSL issuance.
+                    Footer links and authentication portal URL used by public pages.
                   </CardDescription>
-                </div>
-              </div>
-              <Badge
-                className={
-                  vercelConfig?.configured
-                    ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                    : 'bg-amber-100 text-amber-800 border-amber-200'
-                }
-              >
-                {vercelConfig?.configured ? 'Configured' : 'Needs Setup'}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!isSuperAdmin ? (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-                Only super admin can update Vercel settings. Current role: {user?.role || 'unknown'}.
-              </div>
-            ) : vercelLoading ? (
-              <div className="text-sm text-stone-500">Loading Vercel settings...</div>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-stone-700">Vercel Project ID</p>
-                  <Input
-                    value={vercelProjectId}
-                    onChange={(e) => setVercelProjectId(e.target.value)}
-                    placeholder="prj_xxxxxxxxxxxxx"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-stone-700">Vercel Team ID (optional)</p>
-                  <Input
-                    value={vercelTeamId}
-                    onChange={(e) => setVercelTeamId(e.target.value)}
-                    placeholder="team_xxxxxxxxxxxxx"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-stone-700">Vercel API Token</p>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Input
-                        type={showVercelToken ? 'text' : 'password'}
-                        value={vercelApiToken}
-                        onChange={(e) => setVercelApiToken(e.target.value)}
-                        placeholder="Leave blank to keep existing token"
-                        className="pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowVercelToken(!showVercelToken)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700"
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {publicSiteLoading ? (
+                    <p className="text-sm text-stone-500">Loading public site settings...</p>
+                  ) : (
+                    <>
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>About URL</Label>
+                          <Input value={publicAboutUrl} onChange={(e) => setPublicAboutUrl(e.target.value)} placeholder="https://example.com/about" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Contact URL</Label>
+                          <Input value={publicContactUrl} onChange={(e) => setPublicContactUrl(e.target.value)} placeholder="https://example.com/contact" />
+                        </div>
+                      </div>
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>Blog URL</Label>
+                          <Input value={publicBlogUrl} onChange={(e) => setPublicBlogUrl(e.target.value)} placeholder="https://example.com/blog" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>GDPR URL</Label>
+                          <Input value={publicGdprUrl} onChange={(e) => setPublicGdprUrl(e.target.value)} placeholder="https://example.com/gdpr" />
+                        </div>
+                      </div>
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>Privacy URL</Label>
+                          <Input value={publicPrivacyUrl} onChange={(e) => setPublicPrivacyUrl(e.target.value)} placeholder="/privacy" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Terms URL</Label>
+                          <Input value={publicTermsUrl} onChange={(e) => setPublicTermsUrl(e.target.value)} placeholder="/terms" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Auth Portal URL</Label>
+                        <Input value={authPortalUrl} onChange={(e) => setAuthPortalUrl(e.target.value)} placeholder="https://auth.example.com" />
+                        <p className="text-xs text-stone-500">
+                          Used by login/register social auth redirects. Must be an absolute URL.
+                        </p>
+                      </div>
+                      <Button
+                        onClick={handleSavePublicSiteConfig}
+                        disabled={publicSiteSaving}
+                        className="bg-emerald-900 hover:bg-emerald-800"
                       >
-                        {showVercelToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-                  <p className="text-xs text-stone-500">
-                    Current token: {vercelConfig?.token_set ? vercelConfig?.token_preview : 'not set'}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border border-stone-200 p-3">
-                  <div>
-                    <p className="text-sm font-medium text-stone-900">Auto-attach domains in Vercel</p>
-                    <p className="text-xs text-stone-500">
-                      When enabled, user-added domains are automatically added to your Vercel project.
-                    </p>
-                  </div>
-                  <Switch checked={vercelAutoAttach} onCheckedChange={setVercelAutoAttach} />
-                </div>
-
-                <Button
-                  onClick={handleSaveVercelConfig}
-                  disabled={vercelSaving}
-                  className="bg-emerald-900 hover:bg-emerald-800"
-                >
-                  {vercelSaving ? 'Saving...' : 'Save Vercel Settings'}
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Branding (Super Admin only) */}
-        <Card className="border-stone-200" data-testid="branding-settings-card">
-          <CardHeader>
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-violet-100">
-                <Palette className="w-5 h-5 text-violet-700" />
-              </div>
-              <div>
-                <CardTitle>Branding Settings</CardTitle>
-                <CardDescription>
-                  Update brand name, tagline and colors shown across the app.
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!isSuperAdmin ? (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-                Only super admin can update branding settings. Current role: {user?.role || 'unknown'}.
-              </div>
-            ) : brandingLoading ? (
-              <div className="text-sm text-stone-500">Loading branding settings...</div>
-            ) : (
-              <>
-                <div className="grid md:grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-stone-700">App name</p>
-                    <Input
-                      value={brandName}
-                      onChange={(e) => setBrandName(e.target.value)}
-                      placeholder="Autodestroy"
-                      maxLength={48}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-stone-700">Product name</p>
-                    <Input
-                      value={brandProductName}
-                      onChange={(e) => setBrandProductName(e.target.value)}
-                      placeholder="Autodestroy PDF Platform"
-                      maxLength={72}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-stone-700">Tagline</p>
-                  <Input
-                    value={brandTagline}
-                    onChange={(e) => setBrandTagline(e.target.value)}
-                    placeholder="Secure Document Sharing"
-                    maxLength={120}
-                  />
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-stone-700">Primary color</p>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        value={brandPrimaryColor}
-                        onChange={(e) => setBrandPrimaryColor(e.target.value)}
-                        placeholder="#064e3b"
-                        className="font-mono"
-                      />
-                      <div
-                        className="w-10 h-10 rounded border border-stone-200"
-                        style={{ backgroundColor: HEX_COLOR_RE.test(brandPrimaryColor) ? brandPrimaryColor : '#ffffff' }}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-stone-700">Accent color</p>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        value={brandAccentColor}
-                        onChange={(e) => setBrandAccentColor(e.target.value)}
-                        placeholder="#10b981"
-                        className="font-mono"
-                      />
-                      <div
-                        className="w-10 h-10 rounded border border-stone-200"
-                        style={{ backgroundColor: HEX_COLOR_RE.test(brandAccentColor) ? brandAccentColor : '#ffffff' }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-stone-700">Footer text</p>
-                  <Input
-                    value={brandFooterText}
-                    onChange={(e) => setBrandFooterText(e.target.value)}
-                    placeholder="All rights reserved."
-                    maxLength={160}
-                  />
-                </div>
-
-                <div className="rounded-lg border border-stone-200 p-4 bg-stone-50">
-                  <p className="text-xs uppercase tracking-wider text-stone-500 mb-2">Preview</p>
-                  <p className="font-heading text-lg text-stone-900">{brandName || DEFAULT_BRANDING.app_name}</p>
-                  <p className="text-sm text-stone-600">{brandTagline || DEFAULT_BRANDING.tagline}</p>
-                  <p className="text-xs text-stone-500 mt-2">
-                    {new Date().getFullYear()} {brandProductName || DEFAULT_BRANDING.product_name}. {brandFooterText || DEFAULT_BRANDING.footer_text}
-                  </p>
-                  {brandingConfig?.updated_at && (
-                    <p className="text-[11px] text-stone-400 mt-2">Last updated: {new Date(brandingConfig.updated_at).toLocaleString()}</p>
+                        {publicSiteSaving ? 'Saving...' : 'Save Public Site Settings'}
+                      </Button>
+                    </>
                   )}
-                </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-                <Button
-                  onClick={handleSaveBrandingConfig}
-                  disabled={brandingSaving}
-                  className="bg-emerald-900 hover:bg-emerald-800"
-                >
-                  {brandingSaving ? 'Saving...' : 'Save Branding Settings'}
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
+            <TabsContent value="plans" className="max-w-5xl">
+              <Card className="border-stone-200">
+                <CardHeader>
+                  <CardTitle>Subscription Plans</CardTitle>
+                  <CardDescription>
+                    Centralized plan pricing, limits, and marketing copy used in checkout and pricing views.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {planLoading ? (
+                    <p className="text-sm text-stone-500">Loading subscription plan settings...</p>
+                  ) : (
+                    <>
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>Currency</Label>
+                          <Input value={planCurrency} onChange={(e) => setPlanCurrency(e.target.value.toLowerCase())} placeholder="eur" maxLength={3} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Billing Interval</Label>
+                          <Select value={planInterval} onValueChange={setPlanInterval}>
+                            <SelectTrigger className="h-12">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="month">month</SelectItem>
+                              <SelectItem value="year">year</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
 
-        {/* SEO (Super Admin only) */}
-        <Card className="border-stone-200" data-testid="seo-settings-card">
-          <CardHeader>
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-amber-100">
-                <Search className="w-5 h-5 text-amber-700" />
-              </div>
-              <div>
-                <CardTitle>SEO Settings</CardTitle>
-                <CardDescription>
-                  Control default page title, meta description, social image, and favicon.
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!isSuperAdmin ? (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-                Only super admin can update SEO settings. Current role: {user?.role || 'unknown'}.
-              </div>
-            ) : seoLoading ? (
-              <div className="text-sm text-stone-500">Loading SEO settings...</div>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-stone-700">Site name</p>
-                  <Input
-                    value={seoSiteName}
-                    onChange={(e) => setSeoSiteName(e.target.value)}
-                    placeholder="Autodestroy PDF Platform"
-                    maxLength={80}
-                  />
-                </div>
+                      <div className="grid gap-4">
+                        {PLAN_EDITOR_ORDER.map((planId) => {
+                          const editor = planEditors[planId];
+                          return (
+                            <Card key={planId} className="border-stone-200 bg-stone-50/50">
+                              <CardContent className="p-4 space-y-4">
+                                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                                  <div>
+                                    <p className="font-semibold text-stone-900 capitalize">{planId}</p>
+                                    <p className="text-sm text-stone-500">Checkout, storage limit, and pricing card configuration.</p>
+                                  </div>
+                                  <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm text-stone-600">Featured</span>
+                                      <Switch checked={editor.featured} onCheckedChange={(value) => updatePlanEditorField(planId, 'featured', value)} />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm text-stone-600">Active</span>
+                                      <Switch checked={editor.active} onCheckedChange={(value) => updatePlanEditorField(planId, 'active', value)} />
+                                    </div>
+                                  </div>
+                                </div>
 
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-stone-700">Default page title</p>
-                  <Input
-                    value={seoDefaultTitle}
-                    onChange={(e) => setSeoDefaultTitle(e.target.value)}
-                    placeholder="Secure PDF Sharing with Expiring Access Links"
-                    maxLength={120}
-                  />
-                </div>
+                                <div className="grid md:grid-cols-2 gap-3">
+                                  <div className="space-y-2">
+                                    <Label>Name</Label>
+                                    <Input value={editor.name} onChange={(e) => updatePlanEditorField(planId, 'name', e.target.value)} />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label>Badge</Label>
+                                    <Input value={editor.badge} onChange={(e) => updatePlanEditorField(planId, 'badge', e.target.value)} placeholder="Most Popular" />
+                                  </div>
+                                </div>
 
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-stone-700">Default meta description</p>
-                  <Textarea
-                    value={seoDefaultDescription}
-                    onChange={(e) => setSeoDefaultDescription(e.target.value)}
-                    placeholder="Share sensitive PDFs with expiring links, view tracking, watermarking, and full access control."
-                    rows={3}
-                    maxLength={320}
-                  />
-                </div>
+                                <div className="space-y-2">
+                                  <Label>Description</Label>
+                                  <Input value={editor.description} onChange={(e) => updatePlanEditorField(planId, 'description', e.target.value)} />
+                                </div>
 
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-stone-700">Meta keywords</p>
-                  <Input
-                    value={seoKeywords}
-                    onChange={(e) => setSeoKeywords(e.target.value)}
-                    placeholder="secure pdf sharing, expiring links, document protection"
-                    maxLength={320}
-                  />
-                </div>
+                                <div className="grid md:grid-cols-3 gap-3">
+                                  <div className="space-y-2">
+                                    <Label>Price</Label>
+                                    <Input type="number" min="0" step="0.01" value={editor.price} onChange={(e) => updatePlanEditorField(planId, 'price', e.target.value)} />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label>Storage (MB)</Label>
+                                    <Input type="number" min="0" step="1" value={editor.storage_mb} onChange={(e) => updatePlanEditorField(planId, 'storage_mb', e.target.value)} />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label>Links / month</Label>
+                                    <Input type="number" min="0" step="1" value={editor.links_per_month} onChange={(e) => updatePlanEditorField(planId, 'links_per_month', e.target.value)} />
+                                  </div>
+                                </div>
 
-                <div className="grid md:grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-stone-700">Open Graph image URL</p>
-                    <Input
-                      value={seoOgImageUrl}
-                      onChange={(e) => setSeoOgImageUrl(e.target.value)}
-                      placeholder="/og-image.svg"
-                      maxLength={400}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-stone-700">Favicon URL</p>
-                    <Input
-                      value={seoFaviconUrl}
-                      onChange={(e) => setSeoFaviconUrl(e.target.value)}
-                      placeholder="/favicon.svg"
-                      maxLength={400}
-                    />
-                  </div>
-                </div>
+                                <div className="space-y-2">
+                                  <Label>Features (one per line)</Label>
+                                  <Textarea value={editor.features} onChange={(e) => updatePlanEditorField(planId, 'features', e.target.value)} rows={6} />
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
 
-                <div className="grid md:grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-stone-700">Canonical base URL</p>
-                    <Input
-                      value={seoCanonicalBaseUrl}
-                      onChange={(e) => setSeoCanonicalBaseUrl(e.target.value)}
-                      placeholder="https://your-domain.com"
-                      maxLength={240}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-stone-700">Twitter handle (optional)</p>
-                    <Input
-                      value={seoTwitterHandle}
-                      onChange={(e) => setSeoTwitterHandle(e.target.value)}
-                      placeholder="@yourbrand"
-                      maxLength={64}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border border-stone-200 p-3">
-                  <div>
-                    <p className="text-sm font-medium text-stone-900">Disable indexing globally</p>
-                    <p className="text-xs text-stone-500">Sets all pages to `noindex, nofollow`</p>
-                  </div>
-                  <Switch checked={seoNoindex} onCheckedChange={setSeoNoindex} />
-                </div>
-
-                <div className="rounded-lg border border-stone-200 p-4 bg-stone-50">
-                  <p className="text-xs uppercase tracking-wider text-stone-500 mb-2">SEO Preview</p>
-                  <p className="text-sm font-semibold text-blue-700 truncate">{seoDefaultTitle || DEFAULT_SEO_SETTINGS.default_title}</p>
-                  <p className="text-xs text-emerald-700 truncate mt-1">
-                    {(seoCanonicalBaseUrl || 'https://your-domain.com').replace(/\/$/, '')}/
-                  </p>
-                  <p className="text-xs text-stone-600 mt-1 line-clamp-2">
-                    {seoDefaultDescription || DEFAULT_SEO_SETTINGS.default_description}
-                  </p>
-                  {seoConfig?.updated_at && (
-                    <p className="text-[11px] text-stone-400 mt-2">Last updated: {new Date(seoConfig.updated_at).toLocaleString()}</p>
+                      <Button
+                        onClick={handleSaveSubscriptionPlans}
+                        disabled={planSaving}
+                        className="bg-emerald-900 hover:bg-emerald-800"
+                      >
+                        {planSaving ? 'Saving...' : 'Save Subscription Plans'}
+                      </Button>
+                    </>
                   )}
-                </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-                <Button
-                  onClick={handleSaveSeoConfig}
-                  disabled={seoSaving}
-                  className="bg-emerald-900 hover:bg-emerald-800"
-                >
-                  {seoSaving ? 'Saving...' : 'Save SEO Settings'}
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Invoice Template (Super Admin only) */}
-        <Card className="border-stone-200" data-testid="invoice-template-settings-card">
-          <CardHeader>
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-emerald-100">
-                <FileText className="w-5 h-5 text-emerald-700" />
-              </div>
-              <div>
-                <CardTitle>Invoice Template Settings</CardTitle>
-                <CardDescription>
-                  Customize invoice branding, legal text, and company details shown in downloadable invoices.
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!isSuperAdmin ? (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-                Only super admin can update invoice template settings. Current role: {user?.role || 'unknown'}.
-              </div>
-            ) : invoiceLoading ? (
-              <div className="text-sm text-stone-500">Loading invoice template settings...</div>
-            ) : (
-              <>
-                <div className="grid md:grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-stone-700">Company name</p>
-                    <Input value={invoiceCompanyName} onChange={(e) => setInvoiceCompanyName(e.target.value)} maxLength={100} />
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-stone-700">Company email</p>
-                    <Input value={invoiceCompanyEmail} onChange={(e) => setInvoiceCompanyEmail(e.target.value)} maxLength={120} />
-                  </div>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-stone-700">Company phone</p>
-                    <Input value={invoiceCompanyPhone} onChange={(e) => setInvoiceCompanyPhone(e.target.value)} maxLength={64} />
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-stone-700">Company website</p>
-                    <Input value={invoiceCompanyWebsite} onChange={(e) => setInvoiceCompanyWebsite(e.target.value)} maxLength={220} />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-stone-700">Company address</p>
-                  <Textarea value={invoiceCompanyAddress} onChange={(e) => setInvoiceCompanyAddress(e.target.value)} rows={2} maxLength={200} />
-                </div>
-
-                <div className="grid md:grid-cols-3 gap-3">
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-stone-700">Tax label</p>
-                    <Input value={invoiceTaxLabel} onChange={(e) => setInvoiceTaxLabel(e.target.value)} maxLength={40} />
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-stone-700">Tax ID</p>
-                    <Input value={invoiceTaxId} onChange={(e) => setInvoiceTaxId(e.target.value)} maxLength={80} />
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-stone-700">Invoice prefix</p>
-                    <Input value={invoicePrefix} onChange={(e) => setInvoicePrefix(e.target.value.toUpperCase())} maxLength={12} />
-                  </div>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-stone-700">Primary color</p>
-                    <div className="flex items-center gap-2">
-                      <Input value={invoicePrimaryColor} onChange={(e) => setInvoicePrimaryColor(e.target.value)} className="font-mono" />
-                      <div className="w-10 h-10 rounded border border-stone-200" style={{ backgroundColor: HEX_COLOR_RE.test(invoicePrimaryColor) ? invoicePrimaryColor : '#fff' }} />
+            <TabsContent value="storage" className="max-w-4xl">
+              <Card className="border-stone-200" data-testid="storage-settings-card">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>PDF Storage Provider</CardTitle>
+                      <CardDescription>Select where new PDFs are stored.</CardDescription>
                     </div>
+                    <Badge className={storageProvider === 'wasabi_s3'
+                      ? 'bg-blue-100 text-blue-800 border-blue-200'
+                      : 'bg-emerald-100 text-emerald-800 border-emerald-200'}
+                    >
+                      {storageProvider === 'wasabi_s3' ? 'Wasabi Active' : 'Supabase Active'}
+                    </Badge>
                   </div>
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold text-stone-700">Accent color</p>
-                    <div className="flex items-center gap-2">
-                      <Input value={invoiceAccentColor} onChange={(e) => setInvoiceAccentColor(e.target.value)} className="font-mono" />
-                      <div className="w-10 h-10 rounded border border-stone-200" style={{ backgroundColor: HEX_COLOR_RE.test(invoiceAccentColor) ? invoiceAccentColor : '#fff' }} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-stone-700">Logo URL (optional)</p>
-                  <Input value={invoiceLogoUrl} onChange={(e) => setInvoiceLogoUrl(e.target.value)} maxLength={400} />
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border border-stone-200 p-3">
-                  <div>
-                    <p className="text-sm font-medium text-stone-900">Show logo on invoices</p>
-                    <p className="text-xs text-stone-500">Disable if you only want text header branding</p>
-                  </div>
-                  <Switch checked={invoiceShowLogo} onCheckedChange={setInvoiceShowLogo} />
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-stone-700">Invoice notes</p>
-                  <Textarea value={invoiceNotes} onChange={(e) => setInvoiceNotes(e.target.value)} rows={3} maxLength={500} />
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-stone-700">Invoice terms</p>
-                  <Textarea value={invoiceTerms} onChange={(e) => setInvoiceTerms(e.target.value)} rows={3} maxLength={500} />
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-stone-700">Footer text</p>
-                  <Input value={invoiceFooterText} onChange={(e) => setInvoiceFooterText(e.target.value)} maxLength={240} />
-                </div>
-
-                <div className="rounded-lg border border-stone-200 p-4 bg-stone-50">
-                  <p className="text-xs uppercase tracking-wider text-stone-500 mb-2">Invoice Preview</p>
-                  <p className="font-semibold text-stone-900">{invoiceCompanyName || 'Company Name'}</p>
-                  <p className="text-sm text-stone-600">{invoiceCompanyAddress || 'Address'}</p>
-                  <p className="text-sm text-stone-600">{invoiceCompanyEmail || 'billing@example.com'}</p>
-                  <p className="text-sm text-stone-600">
-                    Prefix: {(invoicePrefix || 'INV').toUpperCase()}-000001
-                  </p>
-                  {invoiceTemplate?.updated_at && (
-                    <p className="text-[11px] text-stone-400 mt-2">Last updated: {new Date(invoiceTemplate.updated_at).toLocaleString()}</p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {storageLoading ? (
+                    <p className="text-sm text-stone-500">Loading storage settings...</p>
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Active provider</Label>
+                        <Select value={storageProvider} onValueChange={setStorageProvider}>
+                          <SelectTrigger className="h-12">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="supabase_db">Supabase (database)</SelectItem>
+                            <SelectItem value="wasabi_s3">Wasabi (S3 compatible)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <Input placeholder="Wasabi endpoint" value={wasabiEndpoint} onChange={(e) => setWasabiEndpoint(e.target.value)} />
+                        <Input placeholder="Region" value={wasabiRegion} onChange={(e) => setWasabiRegion(e.target.value)} />
+                        <Input placeholder="Bucket" value={wasabiBucket} onChange={(e) => setWasabiBucket(e.target.value)} />
+                        <Input placeholder="Access key ID" value={wasabiAccessKey} onChange={(e) => setWasabiAccessKey(e.target.value)} />
+                      </div>
+                      <Input type="password" placeholder="Secret access key" value={wasabiSecretKey} onChange={(e) => setWasabiSecretKey(e.target.value)} />
+                      <div className="flex items-center justify-between rounded-lg border border-stone-200 p-3">
+                        <div>
+                          <p className="text-sm font-medium text-stone-900">Force path style</p>
+                          <p className="text-xs text-stone-500">Recommended for S3-compatible providers.</p>
+                        </div>
+                        <Switch checked={wasabiForcePathStyle} onCheckedChange={setWasabiForcePathStyle} />
+                      </div>
+                      <p className="text-xs text-stone-500">
+                        Current key status: {storageConfig?.wasabi?.access_key_set ? 'access key set' : 'access key missing'} / {storageConfig?.wasabi?.secret_key_set ? 'secret key set' : 'secret key missing'}
+                      </p>
+                      <Button onClick={handleSaveStorageConfig} disabled={storageSaving} className="bg-emerald-900 hover:bg-emerald-800">
+                        {storageSaving ? 'Saving...' : 'Save Storage Settings'}
+                      </Button>
+                    </>
                   )}
-                </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-                <Button
-                  onClick={handleSaveInvoiceTemplate}
-                  disabled={invoiceSaving}
-                  className="bg-emerald-900 hover:bg-emerald-800"
-                >
-                  {invoiceSaving ? 'Saving...' : 'Save Invoice Template'}
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
+            <TabsContent value="domains" className="max-w-4xl">
+              <Card className="border-stone-200" data-testid="vercel-settings-card">
+                <CardHeader>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <CardTitle>Vercel Domain Automation</CardTitle>
+                      <CardDescription>Configure automatic domain attach and SSL preparation.</CardDescription>
+                    </div>
+                    <Badge className={vercelConfig?.configured
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                      : 'bg-amber-100 text-amber-800 border-amber-200'}
+                    >
+                      {vercelConfig?.configured ? 'Configured' : 'Needs Setup'}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {vercelLoading ? (
+                    <p className="text-sm text-stone-500">Loading Vercel settings...</p>
+                  ) : (
+                    <>
+                      <Input value={vercelProjectId} onChange={(e) => setVercelProjectId(e.target.value)} placeholder="Vercel project ID" />
+                      <Input value={vercelTeamId} onChange={(e) => setVercelTeamId(e.target.value)} placeholder="Vercel team ID (optional)" />
+                      <div className="relative">
+                        <Input
+                          type={showVercelToken ? 'text' : 'password'}
+                          value={vercelApiToken}
+                          onChange={(e) => setVercelApiToken(e.target.value)}
+                          placeholder="API token"
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowVercelToken(!showVercelToken)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700"
+                        >
+                          {showVercelToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      <p className="text-xs text-stone-500">
+                        Current token: {vercelConfig?.token_set ? vercelConfig?.token_preview : 'not set'}
+                      </p>
+                      <div className="flex items-center justify-between rounded-lg border border-stone-200 p-3">
+                        <div>
+                          <p className="text-sm font-medium text-stone-900">Auto-attach domains</p>
+                          <p className="text-xs text-stone-500">Automatically add user domains to the linked Vercel project.</p>
+                        </div>
+                        <Switch checked={vercelAutoAttach} onCheckedChange={setVercelAutoAttach} />
+                      </div>
+                      <Button onClick={handleSaveVercelConfig} disabled={vercelSaving} className="bg-emerald-900 hover:bg-emerald-800">
+                        {vercelSaving ? 'Saving...' : 'Save Vercel Settings'}
+                      </Button>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-      </div>
+            <TabsContent value="branding" className="max-w-4xl">
+              <Card className="border-stone-200" data-testid="branding-settings-card">
+                <CardHeader>
+                  <CardTitle>Branding Settings</CardTitle>
+                  <CardDescription>Update brand names, tagline, and colors used across the platform.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {brandingLoading ? (
+                    <p className="text-sm text-stone-500">Loading branding settings...</p>
+                  ) : (
+                    <>
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <Input value={brandName} onChange={(e) => setBrandName(e.target.value)} placeholder="App name" maxLength={48} />
+                        <Input value={brandProductName} onChange={(e) => setBrandProductName(e.target.value)} placeholder="Product name" maxLength={72} />
+                      </div>
+                      <Input value={brandTagline} onChange={(e) => setBrandTagline(e.target.value)} placeholder="Tagline" maxLength={120} />
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <Input value={brandPrimaryColor} onChange={(e) => setBrandPrimaryColor(e.target.value)} placeholder="#064e3b" className="font-mono" />
+                        <Input value={brandAccentColor} onChange={(e) => setBrandAccentColor(e.target.value)} placeholder="#10b981" className="font-mono" />
+                      </div>
+                      <Input value={brandFooterText} onChange={(e) => setBrandFooterText(e.target.value)} placeholder="Footer text" maxLength={160} />
+                      <div className="rounded-lg border border-stone-200 p-4 bg-stone-50">
+                        <p className="font-heading text-lg text-stone-900">{brandName || DEFAULT_BRANDING.app_name}</p>
+                        <p className="text-sm text-stone-600">{brandTagline || DEFAULT_BRANDING.tagline}</p>
+                        <p className="text-xs text-stone-500 mt-2">
+                          {new Date().getFullYear()} {brandProductName || DEFAULT_BRANDING.product_name}. {brandFooterText || DEFAULT_BRANDING.footer_text}
+                        </p>
+                      </div>
+                      <Button onClick={handleSaveBrandingConfig} disabled={brandingSaving} className="bg-emerald-900 hover:bg-emerald-800">
+                        {brandingSaving ? 'Saving...' : 'Save Branding Settings'}
+                      </Button>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="seo" className="max-w-4xl">
+              <Card className="border-stone-200" data-testid="seo-settings-card">
+                <CardHeader>
+                  <CardTitle>SEO Settings</CardTitle>
+                  <CardDescription>Default metadata, social image, favicon, and canonical configuration.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {seoLoading ? (
+                    <p className="text-sm text-stone-500">Loading SEO settings...</p>
+                  ) : (
+                    <>
+                      <Input value={seoSiteName} onChange={(e) => setSeoSiteName(e.target.value)} placeholder="Site name" maxLength={80} />
+                      <Input value={seoDefaultTitle} onChange={(e) => setSeoDefaultTitle(e.target.value)} placeholder="Default page title" maxLength={120} />
+                      <Textarea value={seoDefaultDescription} onChange={(e) => setSeoDefaultDescription(e.target.value)} rows={3} maxLength={320} placeholder="Default description" />
+                      <Input value={seoKeywords} onChange={(e) => setSeoKeywords(e.target.value)} placeholder="Keywords" maxLength={320} />
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <Input value={seoOgImageUrl} onChange={(e) => setSeoOgImageUrl(e.target.value)} placeholder="Open Graph image URL" maxLength={400} />
+                        <Input value={seoFaviconUrl} onChange={(e) => setSeoFaviconUrl(e.target.value)} placeholder="Favicon URL" maxLength={400} />
+                      </div>
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <Input value={seoCanonicalBaseUrl} onChange={(e) => setSeoCanonicalBaseUrl(e.target.value)} placeholder="Canonical base URL" maxLength={240} />
+                        <Input value={seoTwitterHandle} onChange={(e) => setSeoTwitterHandle(e.target.value)} placeholder="Twitter handle" maxLength={64} />
+                      </div>
+                      <div className="flex items-center justify-between rounded-lg border border-stone-200 p-3">
+                        <div>
+                          <p className="text-sm font-medium text-stone-900">Disable indexing globally</p>
+                          <p className="text-xs text-stone-500">Sets all pages to noindex, nofollow.</p>
+                        </div>
+                        <Switch checked={seoNoindex} onCheckedChange={setSeoNoindex} />
+                      </div>
+                      <div className="rounded-lg border border-stone-200 p-4 bg-stone-50">
+                        <p className="text-sm font-semibold text-blue-700 truncate">{seoDefaultTitle || DEFAULT_SEO_SETTINGS.default_title}</p>
+                        <p className="text-xs text-emerald-700 truncate mt-1">{seoPreviewUrl}/</p>
+                        <p className="text-xs text-stone-600 mt-1 line-clamp-2">
+                          {seoDefaultDescription || DEFAULT_SEO_SETTINGS.default_description}
+                        </p>
+                      </div>
+                      <Button onClick={handleSaveSeoConfig} disabled={seoSaving} className="bg-emerald-900 hover:bg-emerald-800">
+                        {seoSaving ? 'Saving...' : 'Save SEO Settings'}
+                      </Button>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="invoice" className="max-w-4xl">
+              <Card className="border-stone-200" data-testid="invoice-template-settings-card">
+                <CardHeader>
+                  <CardTitle>Invoice Template Settings</CardTitle>
+                  <CardDescription>Company details and branding used for generated invoice PDFs.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {invoiceLoading ? (
+                    <p className="text-sm text-stone-500">Loading invoice template settings...</p>
+                  ) : (
+                    <>
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <Input value={invoiceCompanyName} onChange={(e) => setInvoiceCompanyName(e.target.value)} placeholder="Company name" maxLength={100} />
+                        <Input value={invoiceCompanyEmail} onChange={(e) => setInvoiceCompanyEmail(e.target.value)} placeholder="Company email" maxLength={120} />
+                      </div>
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <Input value={invoiceCompanyPhone} onChange={(e) => setInvoiceCompanyPhone(e.target.value)} placeholder="Company phone" maxLength={64} />
+                        <Input value={invoiceCompanyWebsite} onChange={(e) => setInvoiceCompanyWebsite(e.target.value)} placeholder="Company website" maxLength={220} />
+                      </div>
+                      <Textarea value={invoiceCompanyAddress} onChange={(e) => setInvoiceCompanyAddress(e.target.value)} rows={2} maxLength={200} placeholder="Company address" />
+                      <div className="grid md:grid-cols-3 gap-3">
+                        <Input value={invoiceTaxLabel} onChange={(e) => setInvoiceTaxLabel(e.target.value)} placeholder="Tax label" maxLength={40} />
+                        <Input value={invoiceTaxId} onChange={(e) => setInvoiceTaxId(e.target.value)} placeholder="Tax ID" maxLength={80} />
+                        <Input value={invoicePrefix} onChange={(e) => setInvoicePrefix(e.target.value.toUpperCase())} placeholder="Invoice prefix" maxLength={12} />
+                      </div>
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <Input value={invoicePrimaryColor} onChange={(e) => setInvoicePrimaryColor(e.target.value)} placeholder="#064e3b" className="font-mono" />
+                        <Input value={invoiceAccentColor} onChange={(e) => setInvoiceAccentColor(e.target.value)} placeholder="#10b981" className="font-mono" />
+                      </div>
+                      <Input value={invoiceLogoUrl} onChange={(e) => setInvoiceLogoUrl(e.target.value)} placeholder="Logo URL" maxLength={400} />
+                      <div className="flex items-center justify-between rounded-lg border border-stone-200 p-3">
+                        <div>
+                          <p className="text-sm font-medium text-stone-900">Show logo on invoices</p>
+                          <p className="text-xs text-stone-500">Disable to keep a text-only invoice header.</p>
+                        </div>
+                        <Switch checked={invoiceShowLogo} onCheckedChange={setInvoiceShowLogo} />
+                      </div>
+                      <Textarea value={invoiceNotes} onChange={(e) => setInvoiceNotes(e.target.value)} rows={3} maxLength={500} placeholder="Invoice notes" />
+                      <Textarea value={invoiceTerms} onChange={(e) => setInvoiceTerms(e.target.value)} rows={3} maxLength={500} placeholder="Invoice terms" />
+                      <Input value={invoiceFooterText} onChange={(e) => setInvoiceFooterText(e.target.value)} placeholder="Footer text" maxLength={240} />
+                      <Button onClick={handleSaveInvoiceTemplate} disabled={invoiceSaving} className="bg-emerald-900 hover:bg-emerald-800">
+                        {invoiceSaving ? 'Saving...' : 'Save Invoice Template'}
+                      </Button>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </>
+        )}
+      </Tabs>
     </DashboardLayout>
   );
 };

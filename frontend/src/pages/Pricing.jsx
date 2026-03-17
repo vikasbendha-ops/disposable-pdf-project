@@ -4,16 +4,15 @@ import { motion } from 'framer-motion';
 import { Check, FileText, ChevronRight, Zap, Shield, Clock, Users } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
-import { api, useAuth, useBranding } from '../App';
+import { api, useAuth, useBranding, useSubscriptionPlans } from '../App';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 
 const Pricing = () => {
-  const [plans, setPlans] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [processingPlan, setProcessingPlan] = useState(null);
   const { user } = useAuth();
   const { branding } = useBranding();
+  const { plans, loading } = useSubscriptionPlans();
   const brandName = branding?.app_name || 'Autodestroy';
   const productName = branding?.product_name || 'Autodestroy PDF Platform';
   const footerText = branding?.footer_text || 'All rights reserved.';
@@ -21,24 +20,11 @@ const Pricing = () => {
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    fetchPlans();
-    
     // Check for cancelled payment
     if (searchParams.get('payment') === 'cancelled') {
       toast.info('Payment cancelled');
     }
   }, [searchParams]);
-
-  const fetchPlans = async () => {
-    try {
-      const response = await api.get('/subscription/plans');
-      setPlans(response.data);
-    } catch (error) {
-      toast.error('Failed to load plans');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSubscribe = async (planId) => {
     if (!user) {
@@ -64,38 +50,27 @@ const Pricing = () => {
     }
   };
 
-  const planFeatures = {
-    basic: [
-      '500 MB storage',
-      '50 links per month',
-      'All expiry modes',
-      'View tracking',
-      'Watermarking',
-      'Email support'
-    ],
-    pro: [
-      '2 GB storage',
-      '200 links per month',
-      'All expiry modes',
-      'Advanced analytics',
-      'Priority support',
-      'Custom branding'
-    ],
-    enterprise: [
-      '10 GB storage',
-      '1000 links per month',
-      'All expiry modes',
-      'Custom domains',
-      'API access',
-      'Dedicated support',
-      'SLA guarantee'
-    ]
-  };
-
   const planIcons = {
     basic: Zap,
     pro: Shield,
     enterprise: Users
+  };
+  const planOrder = ['basic', 'pro', 'enterprise'];
+  const visiblePlans = planOrder
+    .map((planId) => [planId, plans?.[planId]])
+    .filter(([, plan]) => plan && plan.active !== false);
+
+  const formatPrice = (amount, currency) => {
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: String(currency || 'eur').toUpperCase(),
+        minimumFractionDigits: Number.isInteger(Number(amount || 0)) ? 0 : 2,
+        maximumFractionDigits: 2,
+      }).format(Number(amount || 0));
+    } catch {
+      return `${Number(amount || 0).toFixed(2)} ${String(currency || 'eur').toUpperCase()}`;
+    }
   };
 
   return (
@@ -154,10 +129,10 @@ const Pricing = () => {
             </div>
           ) : (
             <div className="grid md:grid-cols-3 gap-8">
-              {plans && Object.entries(plans).map(([planId, plan], i) => {
+              {visiblePlans.map(([planId, plan], i) => {
                 const Icon = planIcons[planId];
-                const features = planFeatures[planId] || [];
-                const isPopular = planId === 'pro';
+                const features = Array.isArray(plan?.features) ? plan.features : [];
+                const isPopular = Boolean(plan?.featured);
                 const isCurrentPlan = user?.plan === planId && user?.subscription_status === 'active';
 
                 return (
@@ -171,10 +146,10 @@ const Pricing = () => {
                       "relative h-full border-2 transition-all",
                       isPopular ? "border-emerald-600 shadow-xl scale-105" : "border-stone-200"
                     )}>
-                      {isPopular && (
+                      {isPopular && plan?.badge && (
                         <div className="absolute -top-4 left-1/2 -translate-x-1/2">
                           <span className="bg-emerald-900 text-white px-4 py-1 rounded-full text-sm font-semibold">
-                            Most Popular
+                            {plan.badge}
                           </span>
                         </div>
                       )}
@@ -190,19 +165,15 @@ const Pricing = () => {
                           )} />
                         </div>
                         <CardTitle className="font-heading text-2xl">{plan.name}</CardTitle>
-                        <CardDescription>
-                          {planId === 'basic' && 'Perfect for individuals'}
-                          {planId === 'pro' && 'For growing teams'}
-                          {planId === 'enterprise' && 'For large organizations'}
-                        </CardDescription>
+                        <CardDescription>{plan.description}</CardDescription>
                       </CardHeader>
                       
                       <CardContent className="pt-4">
                         <div className="text-center mb-6">
                           <span className="font-heading text-5xl font-bold text-stone-900">
-                            €{plan.price}
+                            {formatPrice(plan.price, plan.currency)}
                           </span>
-                          <span className="text-stone-500">/month</span>
+                          <span className="text-stone-500">/{plan.interval || 'month'}</span>
                         </div>
 
                         <ul className="space-y-3 mb-8">

@@ -5,7 +5,7 @@ import { FileText, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { useAuth, useBranding } from '../App';
+import { useAuth, useBranding, usePublicSite } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 
@@ -21,6 +21,7 @@ const Login = () => {
   
   const { login, user, resendVerificationEmail } = useAuth();
   const { branding } = useBranding();
+  const { publicSite } = usePublicSite();
   const { t } = useLanguage();
   const brandName = branding?.app_name || 'Autodestroy';
   const navigate = useNavigate();
@@ -85,9 +86,12 @@ const Login = () => {
   };
 
   const handleGoogleLogin = () => {
-    // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+    if (!publicSite?.auth_portal_url) {
+      toast.error('Authentication portal URL is not configured');
+      return;
+    }
     const redirectUrl = window.location.origin + '/dashboard';
-    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+    window.location.href = `${publicSite.auth_portal_url}?redirect=${encodeURIComponent(redirectUrl)}`;
   };
 
   return (

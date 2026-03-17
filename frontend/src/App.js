@@ -41,11 +41,66 @@ const DEFAULT_BRANDING = Object.freeze({
   accent_color: '#10b981',
   footer_text: 'All rights reserved.',
 });
+const DEFAULT_PUBLIC_SITE = Object.freeze({
+  about_url: '',
+  contact_url: '',
+  blog_url: '',
+  privacy_url: '',
+  terms_url: '',
+  gdpr_url: '',
+  auth_portal_url: (process.env.NEXT_PUBLIC_AUTH_PORTAL_URL || '').replace(/\/$/, ''),
+});
+const DEFAULT_SUBSCRIPTION_PLANS = Object.freeze({
+  basic: {
+    plan_id: 'basic',
+    name: 'Basic',
+    description: 'Perfect for individuals',
+    badge: '',
+    price: 5,
+    currency: 'eur',
+    interval: 'month',
+    storage_mb: 500,
+    links_per_month: 50,
+    featured: false,
+    active: true,
+    features: ['500 MB storage', '50 links per month'],
+  },
+  pro: {
+    plan_id: 'pro',
+    name: 'Pro',
+    description: 'For growing teams',
+    badge: 'Most Popular',
+    price: 15,
+    currency: 'eur',
+    interval: 'month',
+    storage_mb: 2000,
+    links_per_month: 200,
+    featured: true,
+    active: true,
+    features: ['2 GB storage', '200 links per month'],
+  },
+  enterprise: {
+    plan_id: 'enterprise',
+    name: 'Enterprise',
+    description: 'For large organizations',
+    badge: '',
+    price: 49,
+    currency: 'eur',
+    interval: 'month',
+    storage_mb: 10000,
+    links_per_month: 1000,
+    featured: false,
+    active: true,
+    features: ['10 GB storage', '1000 links per month'],
+  },
+});
 
 // Auth Context
 const AuthContext = createContext(null);
 const BrandingContext = createContext(null);
 const SeoContext = createContext(null);
+const PublicSiteContext = createContext(null);
+const SubscriptionPlansContext = createContext(null);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -67,6 +122,22 @@ export const useSeo = () => {
   const context = useContext(SeoContext);
   if (!context) {
     throw new Error('useSeo must be used within SeoProvider');
+  }
+  return context;
+};
+
+export const usePublicSite = () => {
+  const context = useContext(PublicSiteContext);
+  if (!context) {
+    throw new Error('usePublicSite must be used within PublicSiteProvider');
+  }
+  return context;
+};
+
+export const useSubscriptionPlans = () => {
+  const context = useContext(SubscriptionPlansContext);
+  if (!context) {
+    throw new Error('useSubscriptionPlans must be used within SubscriptionPlansProvider');
   }
   return context;
 };
@@ -96,6 +167,68 @@ const normalizeBranding = (payload) => {
     accent_color: String(source.accent_color || DEFAULT_BRANDING.accent_color),
     footer_text: String(source.footer_text || DEFAULT_BRANDING.footer_text),
   };
+};
+
+const normalizePublicSite = (payload) => {
+  const source = payload && typeof payload === 'object' ? payload : {};
+  return {
+    about_url: String(source.about_url || DEFAULT_PUBLIC_SITE.about_url),
+    contact_url: String(source.contact_url || DEFAULT_PUBLIC_SITE.contact_url),
+    blog_url: String(source.blog_url || DEFAULT_PUBLIC_SITE.blog_url),
+    privacy_url: String(source.privacy_url || DEFAULT_PUBLIC_SITE.privacy_url),
+    terms_url: String(source.terms_url || DEFAULT_PUBLIC_SITE.terms_url),
+    gdpr_url: String(source.gdpr_url || DEFAULT_PUBLIC_SITE.gdpr_url),
+    auth_portal_url: String(source.auth_portal_url || DEFAULT_PUBLIC_SITE.auth_portal_url).replace(/\/$/, ''),
+  };
+};
+
+const normalizeSubscriptionPlans = (payload) => {
+  const source = payload && typeof payload === 'object' ? payload : {};
+  const planIds = Array.from(new Set([
+    ...Object.keys(DEFAULT_SUBSCRIPTION_PLANS),
+    ...Object.keys(source),
+  ]));
+  const normalized = {};
+
+  for (const planId of planIds) {
+    const defaults = DEFAULT_SUBSCRIPTION_PLANS[planId] || {
+      plan_id: planId,
+      name: planId,
+      description: '',
+      badge: '',
+      price: 0,
+      currency: 'eur',
+      interval: 'month',
+      storage_mb: 0,
+      links_per_month: 0,
+      featured: false,
+      active: true,
+      features: [],
+    };
+    const candidate = source[planId] && typeof source[planId] === 'object' ? source[planId] : {};
+    normalized[planId] = {
+      plan_id: String(candidate.plan_id || defaults.plan_id || planId),
+      name: String(candidate.name || defaults.name || planId),
+      description: String(candidate.description || defaults.description || ''),
+      badge: String(candidate.badge || defaults.badge || ''),
+      price: Number.isFinite(Number(candidate.price)) ? Number(candidate.price) : Number(defaults.price || 0),
+      currency: String(candidate.currency || defaults.currency || 'eur').toLowerCase(),
+      interval: String(candidate.interval || defaults.interval || 'month').toLowerCase(),
+      storage_mb: Number.isFinite(Number(candidate.storage_mb))
+        ? Number(candidate.storage_mb)
+        : Number(defaults.storage_mb || 0),
+      links_per_month: Number.isFinite(Number(candidate.links_per_month))
+        ? Number(candidate.links_per_month)
+        : Number(defaults.links_per_month || 0),
+      featured: candidate.featured !== undefined ? Boolean(candidate.featured) : Boolean(defaults.featured),
+      active: candidate.active !== undefined ? Boolean(candidate.active) : Boolean(defaults.active),
+      features: Array.isArray(candidate.features) && candidate.features.length > 0
+        ? candidate.features.map((item) => String(item || '').trim()).filter(Boolean)
+        : defaults.features,
+    };
+  }
+
+  return normalized;
 };
 
 const applyBrandingCssVars = (branding) => {
@@ -136,6 +269,70 @@ const BrandingProvider = ({ children }) => {
     <BrandingContext.Provider value={{ branding, loading, refreshBranding }}>
       {children}
     </BrandingContext.Provider>
+  );
+};
+
+const PublicSiteProvider = ({ children }) => {
+  const [publicSite, setPublicSite] = useState(DEFAULT_PUBLIC_SITE);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPublicSite = useCallback(async () => {
+    try {
+      const response = await api.get('/public-site');
+      const next = normalizePublicSite(response.data);
+      setPublicSite(next);
+      return next;
+    } catch {
+      const fallback = normalizePublicSite(null);
+      setPublicSite(fallback);
+      return fallback;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPublicSite();
+  }, [fetchPublicSite]);
+
+  const refreshPublicSite = useCallback(async () => fetchPublicSite(), [fetchPublicSite]);
+
+  return (
+    <PublicSiteContext.Provider value={{ publicSite, loading, refreshPublicSite }}>
+      {children}
+    </PublicSiteContext.Provider>
+  );
+};
+
+const SubscriptionPlansProvider = ({ children }) => {
+  const [plans, setPlans] = useState(DEFAULT_SUBSCRIPTION_PLANS);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPlans = useCallback(async () => {
+    try {
+      const response = await api.get('/subscription/plans');
+      const next = normalizeSubscriptionPlans(response.data);
+      setPlans(next);
+      return next;
+    } catch {
+      const fallback = normalizeSubscriptionPlans(null);
+      setPlans(fallback);
+      return fallback;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPlans();
+  }, [fetchPlans]);
+
+  const refreshPlans = useCallback(async () => fetchPlans(), [fetchPlans]);
+
+  return (
+    <SubscriptionPlansContext.Provider value={{ plans, loading, refreshPlans }}>
+      {children}
+    </SubscriptionPlansContext.Provider>
   );
 };
 
@@ -514,15 +711,19 @@ function App() {
       <LanguageProvider>
         <AuthProvider>
           <BrandingProvider>
-            <SeoProvider>
-              <div className="App">
-                <div className="noise-overlay" />
-                <Suspense fallback={<RouteLoader />}>
-                  <AppRouter />
-                </Suspense>
-                <Toaster position="top-right" richColors />
-              </div>
-            </SeoProvider>
+            <PublicSiteProvider>
+              <SubscriptionPlansProvider>
+                <SeoProvider>
+                  <div className="App">
+                    <div className="noise-overlay" />
+                    <Suspense fallback={<RouteLoader />}>
+                      <AppRouter />
+                    </Suspense>
+                    <Toaster position="top-right" richColors />
+                  </div>
+                </SeoProvider>
+              </SubscriptionPlansProvider>
+            </PublicSiteProvider>
           </BrandingProvider>
         </AuthProvider>
       </LanguageProvider>
@@ -531,4 +732,4 @@ function App() {
 }
 
 export default App;
-export { API, BACKEND_URL, DEFAULT_BRANDING };
+export { API, BACKEND_URL, DEFAULT_BRANDING, DEFAULT_PUBLIC_SITE, DEFAULT_SUBSCRIPTION_PLANS };

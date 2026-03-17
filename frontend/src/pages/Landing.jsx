@@ -4,12 +4,13 @@ import { motion } from 'framer-motion';
 import Marquee from 'react-fast-marquee';
 import { Shield, Clock, Eye, Lock, FileText, ChevronRight } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { useAuth, useBranding } from '../App';
+import { useAuth, useBranding, usePublicSite } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const Landing = () => {
   const { user } = useAuth();
   const { branding } = useBranding();
+  const { publicSite } = usePublicSite();
   const { t } = useLanguage();
   const brandName = branding?.app_name || 'Autodestroy';
   const productName = branding?.product_name || 'Autodestroy PDF Platform';
@@ -26,6 +27,16 @@ const Landing = () => {
   const securityProtocols = Array.isArray(t('landing.securityProtocols'))
     ? t('landing.securityProtocols')
     : [];
+  const companyLinks = [
+    { href: publicSite?.about_url, label: t('common.about') },
+    { href: publicSite?.contact_url, label: t('common.contact') },
+    { href: publicSite?.blog_url, label: t('common.blog') },
+  ].filter((item) => item.href);
+  const legalLinks = [
+    { href: publicSite?.privacy_url, label: t('common.privacyPolicy') },
+    { href: publicSite?.terms_url, label: t('common.termsOfService') },
+    { href: publicSite?.gdpr_url, label: 'GDPR' },
+  ].filter((item) => item.href);
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -266,17 +277,25 @@ const Landing = () => {
             <div>
               <h4 className="font-semibold mb-4">{t('landing.footerCompany')}</h4>
               <ul className="space-y-2 text-stone-400">
-                <li><a href="#" className="hover:text-white transition-colors">{t('common.about')}</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">{t('common.contact')}</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">{t('common.blog')}</a></li>
+                {companyLinks.map((item) => (
+                  <li key={item.label}>
+                    <a href={item.href} className="hover:text-white transition-colors" target="_blank" rel="noreferrer">
+                      {item.label}
+                    </a>
+                  </li>
+                ))}
               </ul>
             </div>
             <div>
               <h4 className="font-semibold mb-4">{t('landing.footerLegal')}</h4>
               <ul className="space-y-2 text-stone-400">
-                <li><a href="#" className="hover:text-white transition-colors">{t('common.privacyPolicy')}</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">{t('common.termsOfService')}</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">GDPR</a></li>
+                {legalLinks.map((item) => (
+                  <li key={item.label}>
+                    <a href={item.href} className="hover:text-white transition-colors" target="_blank" rel="noreferrer">
+                      {item.label}
+                    </a>
+                  </li>
+                ))}
               </ul>
             </div>
           </div>

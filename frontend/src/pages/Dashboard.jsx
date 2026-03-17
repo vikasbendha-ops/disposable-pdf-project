@@ -6,7 +6,7 @@ import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Progress } from '../components/ui/progress';
-import { api, useAuth } from '../App';
+import { api, useAuth, useSubscriptionPlans } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 
@@ -15,6 +15,7 @@ const Dashboard = () => {
   const [recentLinks, setRecentLinks] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user, refreshUser } = useAuth();
+  const { plans } = useSubscriptionPlans();
   const { t } = useLanguage();
   const [searchParams] = useSearchParams();
 
@@ -70,6 +71,10 @@ const Dashboard = () => {
     if (!stats) return 0;
     return Math.min((stats.storage_used / stats.storage_limit) * 100, 100);
   };
+
+  const currentPlanLabel = stats?.plan && plans?.[stats.plan]?.name
+    ? plans[stats.plan].name
+    : stats?.plan;
 
   const statCards = [
     { 
@@ -182,7 +187,7 @@ const Dashboard = () => {
               </div>
               <Progress value={getStoragePercentage()} className="h-3 bg-stone-100" />
               <p className="text-sm text-stone-500">
-                {stats?.plan === 'none' ? t('dashboard.subscribeToUpload') : `${stats?.plan?.charAt(0).toUpperCase() + stats?.plan?.slice(1)} plan storage`}
+                {stats?.plan === 'none' ? t('dashboard.subscribeToUpload') : `${currentPlanLabel} plan storage`}
               </p>
             </div>
           </CardContent>
