@@ -503,7 +503,13 @@ const AuthProvider = ({ children }) => {
   };
 
   const register = async (name, email, password, language = 'en') => {
-    const response = await api.post('/auth/register', { name, email, password, language });
+    const response = await api.post('/auth/register', {
+      name,
+      email,
+      password,
+      language,
+      origin_url: typeof window !== 'undefined' ? window.location.origin : '',
+    });
     const payload = response.data || {};
     const { access_token, user: userData } = payload;
 
@@ -562,7 +568,10 @@ const AuthProvider = ({ children }) => {
   };
 
   const requestPasswordReset = async (email) => {
-    const response = await api.post('/auth/password-reset', { email });
+    const response = await api.post('/auth/password-reset', {
+      email,
+      origin_url: typeof window !== 'undefined' ? window.location.origin : '',
+    });
     return response.data;
   };
 
@@ -608,7 +617,10 @@ const AuthProvider = ({ children }) => {
   };
 
   const resendVerificationEmail = async (email) => {
-    const response = await api.post('/auth/verify-email/resend', { email });
+    const response = await api.post('/auth/verify-email/resend', {
+      email,
+      origin_url: typeof window !== 'undefined' ? window.location.origin : '',
+    });
     return response.data;
   };
 
