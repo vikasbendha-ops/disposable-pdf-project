@@ -448,9 +448,9 @@ const AdminSettings = () => {
       const res = await api.get('/admin/settings/auth-email-template');
       applyAuthEmailTemplateState(res.data);
     } catch (err) {
-      setAuthEmailTemplate(null);
-      if (err.response?.status !== 403) {
-        toast.error(err.response?.data?.detail || 'Failed to load auth email template settings');
+      applyAuthEmailTemplateState(null);
+      if (err.response?.status && err.response.status !== 403) {
+        console.error('Failed to load auth email template settings', err.response?.data || err.message);
       }
     } finally {
       setAuthEmailLoading(false);
