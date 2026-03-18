@@ -403,6 +403,8 @@ const AdminSettings = () => {
 
     if (tab === 'payments') {
       await fetchStripeConfig();
+    } else if (isSuperAdmin && tab === 'email') {
+      await fetchEmailDeliveryConfig();
     } else if (tab === 'localization') {
       await fetchLocalizationConfig();
     } else if (isSuperAdmin && tab === 'storage') {
@@ -516,6 +518,60 @@ const AdminSettings = () => {
       toast.error(err.response?.data?.detail || 'Failed to save storage settings');
     } finally {
       setStorageSaving(false);
+    }
+  };
+
+  const handleSaveEmailDeliveryConfig = async () => {
+    if (!isSuperAdmin) {
+      toast.error('Only super admin can update email delivery settings');
+      return;
+    }
+
+    const payload = {
+      active_provider: emailProvider,
+      smtp_host: smtpHost.trim(),
+      smtp_port: Number.parseInt(smtpPort || '587', 10),
+      smtp_secure: smtpSecure,
+      smtp_from_email: smtpFromEmail.trim(),
+      smtp_from_name: smtpFromName.trim(),
+      smtp_reply_to: smtpReplyTo.trim(),
+    };
+    if (smtpUsername.trim()) {
+      payload.smtp_username = smtpUsername.trim();
+    }
+    if (smtpPassword.trim()) {
+      payload.smtp_password = smtpPassword.trim();
+    }
+
+    setEmailSaving(true);
+    try {
+      const res = await api.put('/admin/settings/email-delivery', payload);
+      applyEmailDeliveryState(res.data);
+      toast.success('Email delivery settings saved');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to save email delivery settings');
+    } finally {
+      setEmailSaving(false);
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!emailTestRecipient.trim()) {
+      toast.error('Enter a recipient email for the test');
+      return;
+    }
+
+    setEmailTesting(true);
+    try {
+      const res = await api.post('/admin/settings/email-delivery/test', {
+        recipient: emailTestRecipient.trim(),
+      });
+      toast.success(res.data?.message || 'Test email sent');
+      await fetchEmailDeliveryConfig();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to send test email');
+    } finally {
+      setEmailTesting(false);
     }
   };
 
@@ -776,6 +832,7 @@ const AdminSettings = () => {
     { value: 'localization', label: 'Localization' },
   ];
   const superAdminTabs = [
+    { value: 'email', label: 'Email' },
     { value: 'public-site', label: 'Public Site' },
     { value: 'plans', label: 'Plans' },
     { value: 'storage', label: 'Storage' },
@@ -935,6 +992,145 @@ const AdminSettings = () => {
                     Activate Sandbox
                   </Button>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="email" className="max-w-4xl">
+          <Card className="border-stone-200">
+            <CardHeader>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-sky-100 rounded-xl flex items-center justify-center">
+                    <Mail className="w-5 h-5 text-sky-700" />
+                  </div>
+                  <div>
+                    <CardTitle>Email Delivery</CardTitle>
+                    <CardDescription>
+                      Configure SMTP directly here. Google Workspace relay, Gmail SMTP, and standard SMTP providers are supported.
+                    </CardDescription>
+                  </div>
+                </div>
+                <Badge className={emailDeliveryConfig?.custom_delivery_enabled
+                  ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                  : 'bg-amber-100 text-amber-800 border-amber-200'
+                }>
+                  {emailDeliveryConfig?.active_provider || 'supabase'}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {emailLoading ? (
+                <p className="text-sm text-stone-500">Loading email delivery settings...</p>
+              ) : (
+                <>
+                  <div className="rounded-xl bg-stone-50 border border-stone-200 p-4 space-y-2">
+                    <p className="font-semibold text-stone-900">Delivery health</p>
+                    <p className="text-sm text-stone-600">
+                      Active provider: <span className="font-medium text-stone-900">{emailDeliveryConfig?.active_provider || 'supabase'}</span>
+                    </p>
+                    <p className="text-sm text-stone-600">
+                      Requested provider: <span className="font-medium text-stone-900">{emailDeliveryConfig?.requested_provider || 'supabase'}</span>
+                    </p>
+                    <p className="text-sm text-stone-600">
+                      Supabase publishable key: <span className={emailDeliveryConfig?.supabase?.publishable_key_set ? 'text-emerald-700 font-medium' : 'text-red-700 font-medium'}>
+                        {emailDeliveryConfig?.supabase?.publishable_key_set ? 'set' : 'missing'}
+                      </span>
+                    </p>
+                    <p className="text-sm text-stone-600">
+                      Resend env: <span className={emailDeliveryConfig?.resend?.configured ? 'text-emerald-700 font-medium' : 'text-stone-500'}>
+                        {emailDeliveryConfig?.resend?.configured ? `ready (${emailDeliveryConfig?.resend?.from_email || 'from email set'})` : 'not configured'}
+                      </span>
+                    </p>
+                    <p className="text-xs text-stone-500 pt-1">
+                      Google Workspace relay usually uses `smtp-relay.gmail.com`. Gmail mailbox SMTP usually uses `smtp.gmail.com`.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label>Active Provider</Label>
+                    <Select value={emailProvider} onValueChange={setEmailProvider}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="supabase">Supabase Auth Emails</SelectItem>
+                        <SelectItem value="smtp">Custom SMTP</SelectItem>
+                        <SelectItem value="resend">Resend Environment</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-stone-500">
+                      Use `Custom SMTP` if you want emails fully controlled from this platform. Use `Supabase` only if SMTP is configured in the Supabase dashboard.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>SMTP Host</Label>
+                      <Input value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} placeholder="smtp-relay.gmail.com" className="mt-1" />
+                    </div>
+                    <div>
+                      <Label>SMTP Port</Label>
+                      <Input value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} placeholder="587" className="mt-1" />
+                    </div>
+                    <div>
+                      <Label>SMTP Username</Label>
+                      <Input value={smtpUsername} onChange={(e) => setSmtpUsername(e.target.value)} placeholder={emailDeliveryConfig?.smtp?.username_set ? `Saved: ${emailDeliveryConfig?.smtp?.username_preview || 'set'}` : 'Optional for relay'} className="mt-1" />
+                    </div>
+                    <div>
+                      <Label>SMTP Password</Label>
+                      <div className="relative mt-1">
+                        <Input
+                          type={showSmtpPassword ? 'text' : 'password'}
+                          value={smtpPassword}
+                          onChange={(e) => setSmtpPassword(e.target.value)}
+                          placeholder={emailDeliveryConfig?.smtp?.password_set ? 'Saved password is masked. Enter a new one to replace it.' : 'Optional for relay'}
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowSmtpPassword((prev) => !prev)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700"
+                        >
+                          {showSmtpPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <Label>From Email</Label>
+                      <Input value={smtpFromEmail} onChange={(e) => setSmtpFromEmail(e.target.value)} placeholder="no-reply@yourdomain.com" className="mt-1" />
+                    </div>
+                    <div>
+                      <Label>From Name</Label>
+                      <Input value={smtpFromName} onChange={(e) => setSmtpFromName(e.target.value)} placeholder="Secure PDF Platform" className="mt-1" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label>Reply-To</Label>
+                      <Input value={smtpReplyTo} onChange={(e) => setSmtpReplyTo(e.target.value)} placeholder="support@yourdomain.com" className="mt-1" />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-xl border border-stone-200 p-4">
+                    <div>
+                      <p className="font-medium text-stone-900">Use TLS / SSL</p>
+                      <p className="text-sm text-stone-500">Enable for SMTPS on port 465. Keep off for STARTTLS on port 587.</p>
+                    </div>
+                    <Switch checked={smtpSecure} onCheckedChange={setSmtpSecure} />
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button onClick={handleSaveEmailDeliveryConfig} disabled={emailSaving} className="bg-emerald-900 hover:bg-emerald-800">
+                      {emailSaving ? 'Saving...' : 'Save Email Delivery Settings'}
+                    </Button>
+                    <div className="flex-1 flex flex-col sm:flex-row gap-2">
+                      <Input value={emailTestRecipient} onChange={(e) => setEmailTestRecipient(e.target.value)} placeholder="test@yourdomain.com" />
+                      <Button variant="outline" onClick={handleSendTestEmail} disabled={emailTesting}>
+                        {emailTesting ? 'Sending Test...' : 'Send Test Email'}
+                      </Button>
+                    </div>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
