@@ -605,6 +605,8 @@ const AuthProvider = ({ children }) => {
         new_password: newPassword,
       };
     const response = await api.post('/auth/password-reset/confirm', payload);
+    localStorage.removeItem('token');
+    setUser(null);
     return response.data;
   };
 

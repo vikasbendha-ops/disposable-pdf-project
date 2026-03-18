@@ -20,6 +20,7 @@ const ResetPassword = () => {
   const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   const hashAccessToken = hashParams.get('access_token') || '';
   const hashRefreshToken = hashParams.get('refresh_token') || '';
+  const hasResetCredentials = Boolean(token || hashAccessToken);
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -30,7 +31,7 @@ const ResetPassword = () => {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    if (user) {
+    if (user && !hasResetCredentials) {
       navigate('/dashboard', { replace: true });
       return;
     }
@@ -59,7 +60,7 @@ const ResetPassword = () => {
     };
 
     validate();
-  }, [token, hashAccessToken, validatePasswordResetToken, navigate, user]);
+  }, [token, hashAccessToken, validatePasswordResetToken, navigate, user, hasResetCredentials]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

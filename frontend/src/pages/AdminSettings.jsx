@@ -184,6 +184,16 @@ const AdminSettings = () => {
   const [invoiceAccentColor, setInvoiceAccentColor] = useState('#10b981');
   const [invoiceLogoUrl, setInvoiceLogoUrl] = useState('');
   const [invoiceShowLogo, setInvoiceShowLogo] = useState(true);
+  const [authEmailTemplate, setAuthEmailTemplate] = useState(null);
+  const [authEmailLoading, setAuthEmailLoading] = useState(false);
+  const [authEmailSaving, setAuthEmailSaving] = useState(false);
+  const [passwordResetEmailSubject, setPasswordResetEmailSubject] = useState('Reset your password');
+  const [passwordResetEmailPreview, setPasswordResetEmailPreview] = useState('Use the secure link below to choose a new password for your account.');
+  const [passwordResetEmailHeading, setPasswordResetEmailHeading] = useState('Reset your password');
+  const [passwordResetEmailBody, setPasswordResetEmailBody] = useState('We received a request to reset the password for your {{app_name}} account.\n\nUse the secure button below to choose a new password.');
+  const [passwordResetEmailButtonLabel, setPasswordResetEmailButtonLabel] = useState('Reset password');
+  const [passwordResetEmailExpiryNotice, setPasswordResetEmailExpiryNotice] = useState('This secure link expires in {{expiry_minutes}} minutes.');
+  const [passwordResetEmailFooter, setPasswordResetEmailFooter] = useState('If you did not request a password reset, you can safely ignore this email.');
   const [localizationLoading, setLocalizationLoading] = useState(false);
   const [localizationSaving, setLocalizationSaving] = useState(false);
   const [platformLanguage, setPlatformLanguage] = useState('en');
@@ -413,6 +423,40 @@ const AdminSettings = () => {
     }
   };
 
+  const applyAuthEmailTemplateState = (config) => {
+    setAuthEmailTemplate(config);
+    setPasswordResetEmailSubject(config?.password_reset_subject || 'Reset your password');
+    setPasswordResetEmailPreview(
+      config?.password_reset_preview_text || 'Use the secure link below to choose a new password for your account.',
+    );
+    setPasswordResetEmailHeading(config?.password_reset_heading || 'Reset your password');
+    setPasswordResetEmailBody(
+      config?.password_reset_body || 'We received a request to reset the password for your {{app_name}} account.\n\nUse the secure button below to choose a new password.',
+    );
+    setPasswordResetEmailButtonLabel(config?.password_reset_button_label || 'Reset password');
+    setPasswordResetEmailExpiryNotice(
+      config?.password_reset_expiry_notice || 'This secure link expires in {{expiry_minutes}} minutes.',
+    );
+    setPasswordResetEmailFooter(
+      config?.password_reset_footer || 'If you did not request a password reset, you can safely ignore this email.',
+    );
+  };
+
+  const fetchAuthEmailTemplateConfig = async () => {
+    setAuthEmailLoading(true);
+    try {
+      const res = await api.get('/admin/settings/auth-email-template');
+      applyAuthEmailTemplateState(res.data);
+    } catch (err) {
+      setAuthEmailTemplate(null);
+      if (err.response?.status !== 403) {
+        toast.error(err.response?.data?.detail || 'Failed to load auth email template settings');
+      }
+    } finally {
+      setAuthEmailLoading(false);
+    }
+  };
+
   const applyPublicSiteState = (config) => {
     setPublicSiteConfig(config);
     setPublicAboutUrl(config?.about_url || DEFAULT_PUBLIC_SITE.about_url);
@@ -467,7 +511,10 @@ const AdminSettings = () => {
     if (tab === 'payments') {
       await fetchStripeConfig();
     } else if (isSuperAdmin && tab === 'email') {
-      await fetchEmailDeliveryConfig();
+      await Promise.all([
+        fetchEmailDeliveryConfig(),
+        fetchAuthEmailTemplateConfig(),
+      ]);
     } else if (tab === 'localization') {
       await fetchLocalizationConfig();
     } else if (isSuperAdmin && tab === 'storage') {
@@ -971,6 +1018,34 @@ const AdminSettings = () => {
       toast.error(err.response?.data?.detail || 'Failed to save invoice template settings');
     } finally {
       setInvoiceSaving(false);
+    }
+  };
+
+  const handleSaveAuthEmailTemplate = async () => {
+    if (!isSuperAdmin) {
+      toast.error('Only super admin can update auth email templates');
+      return;
+    }
+
+    const payload = {
+      password_reset_subject: passwordResetEmailSubject.trim(),
+      password_reset_preview_text: passwordResetEmailPreview.trim(),
+      password_reset_heading: passwordResetEmailHeading.trim(),
+      password_reset_body: passwordResetEmailBody.trim(),
+      password_reset_button_label: passwordResetEmailButtonLabel.trim(),
+      password_reset_expiry_notice: passwordResetEmailExpiryNotice.trim(),
+      password_reset_footer: passwordResetEmailFooter.trim(),
+    };
+
+    setAuthEmailSaving(true);
+    try {
+      const res = await api.put('/admin/settings/auth-email-template', payload);
+      applyAuthEmailTemplateState(res.data);
+      toast.success('Password reset email template saved');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to save auth email template settings');
+    } finally {
+      setAuthEmailSaving(false);
     }
   };
 
@@ -1754,6 +1829,109 @@ const AdminSettings = () => {
                       </Button>
                     </div>
                   </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-stone-200 mt-6">
+            <CardHeader>
+              <CardTitle>Password Reset Email</CardTitle>
+              <CardDescription>
+                Customize the email users receive when they request a password reset. Supported placeholders:
+                {' '}
+                <span className="font-mono">{'{{app_name}}'}</span>,{' '}
+                <span className="font-mono">{'{{reset_url}}'}</span>,{' '}
+                <span className="font-mono">{'{{expiry_minutes}}'}</span>,{' '}
+                <span className="font-mono">{'{{recipient_email}}'}</span>.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {authEmailLoading ? (
+                <p className="text-sm text-stone-500">Loading password reset email template...</p>
+              ) : (
+                <>
+                  <div className="grid md:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>Subject</Label>
+                      <Input
+                        value={passwordResetEmailSubject}
+                        onChange={(e) => setPasswordResetEmailSubject(e.target.value)}
+                        placeholder="Reset your password"
+                        maxLength={160}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Preview Text</Label>
+                      <Input
+                        value={passwordResetEmailPreview}
+                        onChange={(e) => setPasswordResetEmailPreview(e.target.value)}
+                        placeholder="Use the secure link below to choose a new password for your account."
+                        maxLength={220}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>Heading</Label>
+                      <Input
+                        value={passwordResetEmailHeading}
+                        onChange={(e) => setPasswordResetEmailHeading(e.target.value)}
+                        placeholder="Reset your password"
+                        maxLength={120}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Button Label</Label>
+                      <Input
+                        value={passwordResetEmailButtonLabel}
+                        onChange={(e) => setPasswordResetEmailButtonLabel(e.target.value)}
+                        placeholder="Reset password"
+                        maxLength={60}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Body</Label>
+                    <Textarea
+                      value={passwordResetEmailBody}
+                      onChange={(e) => setPasswordResetEmailBody(e.target.value)}
+                      rows={5}
+                      maxLength={1200}
+                      placeholder="We received a request to reset the password for your {{app_name}} account."
+                    />
+                    <p className="text-xs text-stone-500">Use a blank line to create a new paragraph.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Expiry Notice</Label>
+                    <Input
+                      value={passwordResetEmailExpiryNotice}
+                      onChange={(e) => setPasswordResetEmailExpiryNotice(e.target.value)}
+                      placeholder="This secure link expires in {{expiry_minutes}} minutes."
+                      maxLength={200}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Footer</Label>
+                    <Textarea
+                      value={passwordResetEmailFooter}
+                      onChange={(e) => setPasswordResetEmailFooter(e.target.value)}
+                      rows={3}
+                      maxLength={320}
+                      placeholder="If you did not request a password reset, you can safely ignore this email."
+                    />
+                  </div>
+                  <div className="rounded-xl border border-stone-200 bg-stone-50 p-4 space-y-2">
+                    <p className="text-sm font-semibold text-stone-900">Live token preview</p>
+                    <p className="text-xs text-stone-500">
+                      <span className="font-mono">{'{{app_name}}'}</span> resolves to your current platform brand.
+                      {' '}
+                      <span className="font-mono">{'{{reset_url}}'}</span> is inserted automatically when the email is sent.
+                    </p>
+                  </div>
+                  <Button onClick={handleSaveAuthEmailTemplate} disabled={authEmailSaving} className="bg-emerald-900 hover:bg-emerald-800">
+                    {authEmailSaving ? 'Saving...' : 'Save Password Reset Email'}
+                  </Button>
                 </>
               )}
             </CardContent>
