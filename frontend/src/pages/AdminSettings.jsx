@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Shield, CheckCircle, AlertCircle, Eye, EyeOff, Palette, Search, Globe, FileText } from 'lucide-react';
+import { CreditCard, Shield, CheckCircle, AlertCircle, Eye, EyeOff, Palette, Search, Globe, FileText, Mail } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -74,6 +74,21 @@ const AdminSettings = () => {
   const [wasabiAccessKey, setWasabiAccessKey] = useState('');
   const [wasabiSecretKey, setWasabiSecretKey] = useState('');
   const [wasabiForcePathStyle, setWasabiForcePathStyle] = useState(true);
+  const [emailDeliveryConfig, setEmailDeliveryConfig] = useState(null);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailTesting, setEmailTesting] = useState(false);
+  const [emailProvider, setEmailProvider] = useState('supabase');
+  const [smtpHost, setSmtpHost] = useState('');
+  const [smtpPort, setSmtpPort] = useState('587');
+  const [smtpSecure, setSmtpSecure] = useState(false);
+  const [smtpUsername, setSmtpUsername] = useState('');
+  const [smtpPassword, setSmtpPassword] = useState('');
+  const [smtpFromEmail, setSmtpFromEmail] = useState('');
+  const [smtpFromName, setSmtpFromName] = useState('');
+  const [smtpReplyTo, setSmtpReplyTo] = useState('');
+  const [showSmtpPassword, setShowSmtpPassword] = useState(false);
+  const [emailTestRecipient, setEmailTestRecipient] = useState('');
   const [vercelConfig, setVercelConfig] = useState(null);
   const [vercelLoading, setVercelLoading] = useState(false);
   const [vercelSaving, setVercelSaving] = useState(false);
@@ -182,6 +197,20 @@ const AdminSettings = () => {
     setWasabiForcePathStyle(config?.wasabi?.force_path_style !== false);
   };
 
+  const applyEmailDeliveryState = (config) => {
+    setEmailDeliveryConfig(config);
+    setEmailProvider(config?.requested_provider || config?.active_provider || 'supabase');
+    setSmtpHost(config?.smtp?.host || '');
+    setSmtpPort(String(config?.smtp?.port || 587));
+    setSmtpSecure(Boolean(config?.smtp?.secure));
+    setSmtpFromEmail(config?.smtp?.from_email || '');
+    setSmtpFromName(config?.smtp?.from_name || '');
+    setSmtpReplyTo(config?.smtp?.reply_to || '');
+    setSmtpUsername('');
+    setSmtpPassword('');
+    setEmailTestRecipient(user?.email || '');
+  };
+
   const applyVercelState = (config) => {
     setVercelConfig(config);
     setVercelProjectId(config?.project_id || '');
@@ -201,6 +230,21 @@ const AdminSettings = () => {
       }
     } finally {
       setStorageLoading(false);
+    }
+  };
+
+  const fetchEmailDeliveryConfig = async () => {
+    setEmailLoading(true);
+    try {
+      const res = await api.get('/admin/settings/email-delivery');
+      applyEmailDeliveryState(res.data);
+    } catch (err) {
+      setEmailDeliveryConfig(null);
+      if (err.response?.status !== 403) {
+        toast.error(err.response?.data?.detail || 'Failed to load email delivery settings');
+      }
+    } finally {
+      setEmailLoading(false);
     }
   };
 
