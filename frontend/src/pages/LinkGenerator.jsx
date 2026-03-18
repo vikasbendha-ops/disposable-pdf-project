@@ -50,6 +50,7 @@ const LinkGenerator = () => {
   const [ndaText, setNdaText] = useState('This document contains confidential information. By continuing, you agree not to copy, share, capture, or distribute any part of this material without authorization.');
   const [ndaAcceptLabel, setNdaAcceptLabel] = useState('I agree and continue');
   const [lockToFirstIp, setLockToFirstIp] = useState(false);
+  const [restrictToSpecificIps, setRestrictToSpecificIps] = useState(false);
   const [allowedIpAddresses, setAllowedIpAddresses] = useState('');
   
   // Generated link
@@ -75,11 +76,11 @@ const LinkGenerator = () => {
     setNdaText(user?.secure_link_defaults?.nda_text || 'This document contains confidential information. By continuing, you agree not to copy, share, capture, or distribute any part of this material without authorization.');
     setNdaAcceptLabel(user?.secure_link_defaults?.nda_accept_label || 'I agree and continue');
     setLockToFirstIp(Boolean(user?.secure_link_defaults?.lock_to_first_ip));
-    setAllowedIpAddresses(
-      Array.isArray(user?.secure_link_defaults?.allowed_ip_addresses)
-        ? user.secure_link_defaults.allowed_ip_addresses.join(', ')
-        : ''
-    );
+    const defaultAllowedIps = Array.isArray(user?.secure_link_defaults?.allowed_ip_addresses)
+      ? user.secure_link_defaults.allowed_ip_addresses
+      : [];
+    setRestrictToSpecificIps(defaultAllowedIps.length > 0);
+    setAllowedIpAddresses(defaultAllowedIps.join(', '));
   }, [user?.user_id]);
 
   const fetchData = async () => {
@@ -188,7 +189,7 @@ const LinkGenerator = () => {
           nda_text: ndaText || null,
           nda_accept_label: ndaAcceptLabel || null,
           lock_to_first_ip: lockToFirstIp,
-          allowed_ip_addresses: allowedIpAddresses,
+          allowed_ip_addresses: restrictToSpecificIps ? allowedIpAddresses : [],
         },
       });
 
@@ -708,24 +709,46 @@ const LinkGenerator = () => {
                     <div>
                       <p className="font-semibold text-stone-900">Lock to first approved IP</p>
                       <p className="mt-1 text-sm text-stone-500">
-                        Once the first approved viewer opens the link, the secure session is tied to that IP.
+                        Once the first approved viewer opens the link, the secure session is tied to that IP. Use this when you do not know the recipient IP in advance.
                       </p>
                     </div>
                     <Switch checked={lockToFirstIp} onCheckedChange={setLockToFirstIp} />
                   </div>
 
-                  <div>
-                    <Label className="text-sm font-semibold text-stone-700 mb-2 block">Allowed IP addresses</Label>
-                    <Textarea
-                      placeholder="203.0.113.10, 198.51.100.24"
-                      value={allowedIpAddresses}
-                      onChange={(e) => setAllowedIpAddresses(e.target.value)}
-                      className="min-h-[100px]"
-                      data-testid="advanced-allowed-ip-input"
-                    />
-                    <p className="mt-2 text-sm text-stone-500">
-                      Optional. Enter exact IPv4 or IPv6 addresses separated by commas. Leave empty to allow any IP.
-                    </p>
+                  <div className="rounded-xl border border-stone-200 bg-stone-50/60 p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="font-semibold text-stone-900">Restrict to specific IP addresses</p>
+                        <p className="mt-1 text-sm text-stone-500">
+                          Only use this when the recipient has a fixed office or server IP. Most home and mobile networks change often.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={restrictToSpecificIps}
+                        onCheckedChange={(checked) => {
+                          setRestrictToSpecificIps(checked);
+                          if (!checked) {
+                            setAllowedIpAddresses('');
+                          }
+                        }}
+                      />
+                    </div>
+
+                    {restrictToSpecificIps && (
+                      <div className="mt-4">
+                        <Label className="text-sm font-semibold text-stone-700 mb-2 block">Allowed IP addresses</Label>
+                        <Textarea
+                          placeholder={'203.0.113.10\n198.51.100.24'}
+                          value={allowedIpAddresses}
+                          onChange={(e) => setAllowedIpAddresses(e.target.value)}
+                          className="min-h-[100px]"
+                          data-testid="advanced-allowed-ip-input"
+                        />
+                        <p className="mt-2 text-sm text-stone-500">
+                          Enter exact IPv4 or IPv6 addresses, one per line or separated by commas.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
