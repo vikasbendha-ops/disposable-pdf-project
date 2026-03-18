@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CreditCard, Shield, CheckCircle, AlertCircle, Eye, EyeOff, Palette, Search, Globe, FileText, Mail } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
@@ -45,6 +45,19 @@ const buildPlanEditorState = (planSource = DEFAULT_SUBSCRIPTION_PLANS) => {
     };
     return accumulator;
   }, {});
+};
+
+const getCredentialSaveState = (saved, draft) => {
+  if (saved && draft) return 'updated, save pending';
+  if (saved) return 'saved';
+  if (draft) return 'entered, save pending';
+  return 'missing';
+};
+
+const getDraftFieldValue = (stateValue, inputRef) => {
+  const stateText = String(stateValue || '').trim();
+  if (stateText) return stateText;
+  return String(inputRef?.current?.value || '').trim();
 };
 
 const AdminSettings = () => {
@@ -123,6 +136,10 @@ const AdminSettings = () => {
   const [vercelApiToken, setVercelApiToken] = useState('');
   const [vercelAutoAttach, setVercelAutoAttach] = useState(true);
   const [showVercelToken, setShowVercelToken] = useState(false);
+  const gmailClientIdRef = useRef(null);
+  const gmailClientSecretRef = useRef(null);
+  const outlookClientIdRef = useRef(null);
+  const outlookClientSecretRef = useRef(null);
 
   const [brandingConfig, setBrandingConfig] = useState(null);
   const [brandingLoading, setBrandingLoading] = useState(false);
@@ -524,6 +541,47 @@ const AdminSettings = () => {
     }
   }, [user?.email, emailTestRecipient]);
 
+  useEffect(() => {
+    if (activeTab !== 'email') return;
+
+    const syncAutofilledEmailProviderFields = () => {
+      const nextGmailClientId = String(gmailClientIdRef.current?.value || '').trim();
+      const nextGmailClientSecret = String(gmailClientSecretRef.current?.value || '').trim();
+      const nextOutlookClientId = String(outlookClientIdRef.current?.value || '').trim();
+      const nextOutlookClientSecret = String(outlookClientSecretRef.current?.value || '').trim();
+
+      if (nextGmailClientId && nextGmailClientId !== gmailClientId) {
+        setGmailClientId(nextGmailClientId);
+      }
+      if (nextGmailClientSecret && nextGmailClientSecret !== gmailClientSecret) {
+        setGmailClientSecret(nextGmailClientSecret);
+      }
+      if (nextOutlookClientId && nextOutlookClientId !== outlookClientId) {
+        setOutlookClientId(nextOutlookClientId);
+      }
+      if (nextOutlookClientSecret && nextOutlookClientSecret !== outlookClientSecret) {
+        setOutlookClientSecret(nextOutlookClientSecret);
+      }
+    };
+
+    const timers = [
+      window.setTimeout(syncAutofilledEmailProviderFields, 100),
+      window.setTimeout(syncAutofilledEmailProviderFields, 500),
+      window.setTimeout(syncAutofilledEmailProviderFields, 1500),
+    ];
+
+    return () => {
+      timers.forEach((timerId) => window.clearTimeout(timerId));
+    };
+  }, [
+    activeTab,
+    emailProvider,
+    gmailClientId,
+    gmailClientSecret,
+    outlookClientId,
+    outlookClientSecret,
+  ]);
+
   const handleSaveLiveKey = async () => {
     if (!liveKey.trim()) {
       toast.error('Please enter a Stripe Live key');
@@ -615,16 +673,21 @@ const AdminSettings = () => {
     }
   };
 
-  const handleSaveEmailDeliveryConfig = async () => {
+  const saveEmailDeliveryConfig = async ({ providerOverride = null, silentSuccess = false } = {}) => {
     if (!isSuperAdmin) {
       toast.error('Only super admin can update email delivery settings');
-      return;
+      return null;
     }
 
+    const gmailClientIdValue = getDraftFieldValue(gmailClientId, gmailClientIdRef);
+    const gmailClientSecretValue = getDraftFieldValue(gmailClientSecret, gmailClientSecretRef);
+    const outlookClientIdValue = getDraftFieldValue(outlookClientId, outlookClientIdRef);
+    const outlookClientSecretValue = getDraftFieldValue(outlookClientSecret, outlookClientSecretRef);
+
     const payload = {
-      active_provider: emailProvider,
-      gmail_client_id: gmailClientId.trim() || undefined,
-      gmail_client_secret: gmailClientSecret.trim() || undefined,
+      active_provider: providerOverride || emailProvider,
+      gmail_client_id: gmailClientIdValue || undefined,
+      gmail_client_secret: gmailClientSecretValue || undefined,
       gmail_from_email: gmailFromEmail.trim(),
       gmail_from_name: gmailFromName.trim(),
       gmail_reply_to: gmailReplyTo.trim(),
@@ -635,8 +698,8 @@ const AdminSettings = () => {
       mailgun_from_name: mailgunFromName.trim(),
       mailgun_reply_to: mailgunReplyTo.trim(),
       outlook_tenant_id: outlookTenantId.trim(),
-      outlook_client_id: outlookClientId.trim() || undefined,
-      outlook_client_secret: outlookClientSecret.trim() || undefined,
+      outlook_client_id: outlookClientIdValue || undefined,
+      outlook_client_secret: outlookClientSecretValue || undefined,
       outlook_from_email: outlookFromEmail.trim(),
       outlook_from_name: outlookFromName.trim(),
       outlook_reply_to: outlookReplyTo.trim(),
@@ -661,19 +724,61 @@ const AdminSettings = () => {
     try {
       const res = await api.put('/admin/settings/email-delivery', payload);
       applyEmailDeliveryState(res.data);
-      toast.success('Email delivery settings saved');
+      if (!silentSuccess) {
+        toast.success('Email delivery settings saved');
+      }
+      return res.data;
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to save email delivery settings');
+      return null;
     } finally {
       setEmailSaving(false);
     }
   };
 
-  const handleEmailOAuthConnect = (provider) => {
+  const handleSaveEmailDeliveryConfig = async () => {
+    await saveEmailDeliveryConfig();
+  };
+
+  const handleEmailOAuthConnect = async (provider) => {
+    const savedClientIdSet =
+      provider === 'gmail'
+        ? Boolean(emailDeliveryConfig?.gmail?.client_id_set)
+        : Boolean(emailDeliveryConfig?.outlook?.client_id_set);
+    const savedClientSecretSet =
+      provider === 'gmail'
+        ? Boolean(emailDeliveryConfig?.gmail?.client_secret_set)
+        : Boolean(emailDeliveryConfig?.outlook?.client_secret_set);
+    const draftClientId =
+      provider === 'gmail'
+        ? getDraftFieldValue(gmailClientId, gmailClientIdRef)
+        : getDraftFieldValue(outlookClientId, outlookClientIdRef);
+    const draftClientSecret =
+      provider === 'gmail'
+        ? getDraftFieldValue(gmailClientSecret, gmailClientSecretRef)
+        : getDraftFieldValue(outlookClientSecret, outlookClientSecretRef);
+
+    if (!savedClientIdSet && !draftClientId) {
+      toast.error(provider === 'gmail' ? 'Enter the Google Client ID first' : 'Enter the Microsoft Application ID first');
+      return;
+    }
+    if (!savedClientSecretSet && !draftClientSecret) {
+      toast.error(provider === 'gmail' ? 'Enter the Google Client Secret first' : 'Enter the Microsoft Application Secret first');
+      return;
+    }
+
+    let nextConfig = emailDeliveryConfig;
+    if (draftClientId || draftClientSecret || !savedClientIdSet || !savedClientSecretSet) {
+      nextConfig = await saveEmailDeliveryConfig({ providerOverride: provider, silentSuccess: true });
+      if (!nextConfig) {
+        return;
+      }
+    }
+
     const startUrl =
       provider === 'gmail'
-        ? emailDeliveryConfig?.gmail?.oauth_start_url
-        : emailDeliveryConfig?.outlook?.oauth_start_url;
+        ? nextConfig?.gmail?.oauth_start_url
+        : nextConfig?.outlook?.oauth_start_url;
     if (!startUrl) {
       toast.error('Provider connect URL is not available yet');
       return;
@@ -966,6 +1071,32 @@ const AdminSettings = () => {
   }
 
   const isLive = stripeConfig?.mode === 'live';
+  const gmailDraftClientId = getDraftFieldValue(gmailClientId, gmailClientIdRef);
+  const gmailDraftClientSecret = getDraftFieldValue(gmailClientSecret, gmailClientSecretRef);
+  const outlookDraftClientId = getDraftFieldValue(outlookClientId, outlookClientIdRef);
+  const outlookDraftClientSecret = getDraftFieldValue(outlookClientSecret, outlookClientSecretRef);
+  const gmailClientIdStatus = getCredentialSaveState(
+    Boolean(emailDeliveryConfig?.gmail?.client_id_set),
+    Boolean(gmailDraftClientId),
+  );
+  const gmailClientSecretStatus = getCredentialSaveState(
+    Boolean(emailDeliveryConfig?.gmail?.client_secret_set),
+    Boolean(gmailDraftClientSecret),
+  );
+  const gmailHasClientId = Boolean(emailDeliveryConfig?.gmail?.client_id_set || gmailDraftClientId);
+  const gmailHasClientSecret = Boolean(emailDeliveryConfig?.gmail?.client_secret_set || gmailDraftClientSecret);
+  const outlookClientIdStatus = getCredentialSaveState(
+    Boolean(emailDeliveryConfig?.outlook?.client_id_set),
+    Boolean(outlookDraftClientId),
+  );
+  const outlookClientSecretStatus = getCredentialSaveState(
+    Boolean(emailDeliveryConfig?.outlook?.client_secret_set),
+    Boolean(outlookDraftClientSecret),
+  );
+  const outlookHasClientId = Boolean(emailDeliveryConfig?.outlook?.client_id_set || outlookDraftClientId);
+  const outlookHasClientSecret = Boolean(emailDeliveryConfig?.outlook?.client_secret_set || outlookDraftClientSecret);
+  const gmailCanStartOAuth = !emailSaving && gmailHasClientId && gmailHasClientSecret;
+  const outlookCanStartOAuth = !emailSaving && outlookHasClientId && outlookHasClientSecret;
   const adminTabs = [
     { value: 'payments', label: 'Payments' },
     { value: 'localization', label: 'Localization' },
@@ -1261,18 +1392,28 @@ const AdminSettings = () => {
                       <div className="grid md:grid-cols-2 gap-3">
                         <div className="space-y-2">
                           <Label>Google Client ID</Label>
-                          <Input value={gmailClientId} onChange={(e) => setGmailClientId(e.target.value)} placeholder={emailDeliveryConfig?.gmail?.client_id_set ? 'Saved client ID is already configured' : 'Google OAuth client ID'} />
+                          <Input
+                            ref={gmailClientIdRef}
+                            value={gmailClientId}
+                            onChange={(e) => setGmailClientId(e.target.value)}
+                            onBlur={() => setGmailClientId(String(gmailClientIdRef.current?.value || '').trim())}
+                            autoComplete="off"
+                            placeholder={emailDeliveryConfig?.gmail?.client_id_set ? 'Saved client ID is already configured' : 'Google OAuth client ID'}
+                          />
                           <p className="text-xs text-stone-500">
-                            Status: {emailDeliveryConfig?.gmail?.client_id_set ? 'saved' : 'missing'}
+                            Status: {gmailClientIdStatus}
                           </p>
                         </div>
                         <div className="space-y-2">
                           <Label>Google Client Secret</Label>
                           <div className="relative">
                             <Input
+                              ref={gmailClientSecretRef}
                               type={showGmailClientSecret ? 'text' : 'password'}
                               value={gmailClientSecret}
                               onChange={(e) => setGmailClientSecret(e.target.value)}
+                              onBlur={() => setGmailClientSecret(String(gmailClientSecretRef.current?.value || '').trim())}
+                              autoComplete="off"
                               placeholder={emailDeliveryConfig?.gmail?.client_secret_set ? 'Saved secret is masked. Enter a new one to replace it.' : 'Google OAuth client secret'}
                               className="pr-10"
                             />
@@ -1285,7 +1426,7 @@ const AdminSettings = () => {
                             </button>
                           </div>
                           <p className="text-xs text-stone-500">
-                            Status: {emailDeliveryConfig?.gmail?.client_secret_set ? 'saved' : 'missing'}
+                            Status: {gmailClientSecretStatus}
                           </p>
                         </div>
                         <div className="space-y-2">
@@ -1308,9 +1449,13 @@ const AdminSettings = () => {
                         <Button
                           onClick={() => handleEmailOAuthConnect('gmail')}
                           variant="outline"
-                          disabled={!emailDeliveryConfig?.gmail?.client_id_set || !emailDeliveryConfig?.gmail?.client_secret_set}
+                          disabled={!gmailCanStartOAuth}
                         >
-                          {emailDeliveryConfig?.gmail?.connected ? 'Reconnect Gmail' : 'Connect Gmail'}
+                          {emailSaving
+                            ? 'Saving Gmail Settings...'
+                            : emailDeliveryConfig?.gmail?.connected
+                              ? 'Reconnect Gmail'
+                              : 'Connect Gmail'}
                         </Button>
                         {emailDeliveryConfig?.gmail?.connected && (
                           <Button variant="outline" onClick={() => handleEmailProviderDisconnect('gmail')} disabled={emailSaving}>
@@ -1318,9 +1463,14 @@ const AdminSettings = () => {
                           </Button>
                         )}
                       </div>
-                      {!emailDeliveryConfig?.gmail?.client_secret_set && (
+                      {!gmailHasClientSecret && (
                         <p className="text-sm text-red-700">
-                          Google login will not open until the OAuth Client Secret is created in Google Cloud, saved here, and the settings are saved successfully.
+                          Google login will not open until the OAuth Client Secret is created in Google Cloud and entered here.
+                        </p>
+                      )}
+                      {(gmailDraftClientId || gmailDraftClientSecret) && (
+                        <p className="text-sm text-amber-700">
+                          Draft credentials are present. Clicking `Connect Gmail` will save them first, then continue to Google login.
                         </p>
                       )}
                     </div>
@@ -1408,18 +1558,28 @@ const AdminSettings = () => {
                         </div>
                         <div className="space-y-2">
                           <Label>Application ID</Label>
-                          <Input value={outlookClientId} onChange={(e) => setOutlookClientId(e.target.value)} placeholder={emailDeliveryConfig?.outlook?.client_id_set ? 'Saved application ID is already configured' : 'Azure application ID'} />
+                          <Input
+                            ref={outlookClientIdRef}
+                            value={outlookClientId}
+                            onChange={(e) => setOutlookClientId(e.target.value)}
+                            onBlur={() => setOutlookClientId(String(outlookClientIdRef.current?.value || '').trim())}
+                            autoComplete="off"
+                            placeholder={emailDeliveryConfig?.outlook?.client_id_set ? 'Saved application ID is already configured' : 'Azure application ID'}
+                          />
                           <p className="text-xs text-stone-500">
-                            Status: {emailDeliveryConfig?.outlook?.client_id_set ? 'saved' : 'missing'}
+                            Status: {outlookClientIdStatus}
                           </p>
                         </div>
                         <div className="space-y-2">
                           <Label>Application Secret</Label>
                           <div className="relative">
                             <Input
+                              ref={outlookClientSecretRef}
                               type={showOutlookClientSecret ? 'text' : 'password'}
                               value={outlookClientSecret}
                               onChange={(e) => setOutlookClientSecret(e.target.value)}
+                              onBlur={() => setOutlookClientSecret(String(outlookClientSecretRef.current?.value || '').trim())}
+                              autoComplete="off"
                               placeholder={emailDeliveryConfig?.outlook?.client_secret_set ? 'Saved secret is masked. Enter a new one to replace it.' : 'Azure application secret'}
                               className="pr-10"
                             />
@@ -1432,7 +1592,7 @@ const AdminSettings = () => {
                             </button>
                           </div>
                           <p className="text-xs text-stone-500">
-                            Status: {emailDeliveryConfig?.outlook?.client_secret_set ? 'saved' : 'missing'}
+                            Status: {outlookClientSecretStatus}
                           </p>
                         </div>
                         <div className="space-y-2">
@@ -1459,9 +1619,13 @@ const AdminSettings = () => {
                         <Button
                           onClick={() => handleEmailOAuthConnect('outlook')}
                           variant="outline"
-                          disabled={!emailDeliveryConfig?.outlook?.client_id_set || !emailDeliveryConfig?.outlook?.client_secret_set}
+                          disabled={!outlookCanStartOAuth}
                         >
-                          {emailDeliveryConfig?.outlook?.connected ? 'Reconnect Microsoft' : 'Connect Microsoft'}
+                          {emailSaving
+                            ? 'Saving Microsoft Settings...'
+                            : emailDeliveryConfig?.outlook?.connected
+                              ? 'Reconnect Microsoft'
+                              : 'Connect Microsoft'}
                         </Button>
                         {emailDeliveryConfig?.outlook?.connected && (
                           <Button variant="outline" onClick={() => handleEmailProviderDisconnect('outlook')} disabled={emailSaving}>
