@@ -1142,7 +1142,7 @@ const AdminSettings = () => {
                   <div>
                     <CardTitle>Email Delivery</CardTitle>
                     <CardDescription>
-                      Configure SMTP directly here. Google Workspace relay, Gmail SMTP, and standard SMTP providers are supported.
+                      Configure provider-specific mailers like Gmail, Mailgun, Microsoft 365, or Other SMTP from one place.
                     </CardDescription>
                   </div>
                 </div>
@@ -1168,6 +1168,26 @@ const AdminSettings = () => {
                       Requested provider: <span className="font-medium text-stone-900">{emailDeliveryConfig?.requested_provider || 'supabase'}</span>
                     </p>
                     <p className="text-sm text-stone-600">
+                      Gmail: <span className={emailDeliveryConfig?.gmail?.connected ? 'text-emerald-700 font-medium' : 'text-stone-500'}>
+                        {emailDeliveryConfig?.gmail?.connected ? `connected (${emailDeliveryConfig?.gmail?.email || 'account linked'})` : 'not connected'}
+                      </span>
+                    </p>
+                    <p className="text-sm text-stone-600">
+                      Microsoft 365: <span className={emailDeliveryConfig?.outlook?.connected ? 'text-emerald-700 font-medium' : 'text-stone-500'}>
+                        {emailDeliveryConfig?.outlook?.connected ? `connected (${emailDeliveryConfig?.outlook?.email || 'account linked'})` : 'not connected'}
+                      </span>
+                    </p>
+                    <p className="text-sm text-stone-600">
+                      Mailgun: <span className={emailDeliveryConfig?.mailgun?.configured ? 'text-emerald-700 font-medium' : 'text-stone-500'}>
+                        {emailDeliveryConfig?.mailgun?.configured ? `ready (${emailDeliveryConfig?.mailgun?.domain || 'domain set'})` : 'not configured'}
+                      </span>
+                    </p>
+                    <p className="text-sm text-stone-600">
+                      Other SMTP: <span className={emailDeliveryConfig?.smtp?.configured ? 'text-emerald-700 font-medium' : 'text-stone-500'}>
+                        {emailDeliveryConfig?.smtp?.configured ? `ready (${emailDeliveryConfig?.smtp?.host || 'host set'})` : 'not configured'}
+                      </span>
+                    </p>
+                    <p className="text-sm text-stone-600">
                       Supabase publishable key: <span className={emailDeliveryConfig?.supabase?.publishable_key_set ? 'text-emerald-700 font-medium' : 'text-red-700 font-medium'}>
                         {emailDeliveryConfig?.supabase?.publishable_key_set ? 'set' : 'missing'}
                       </span>
@@ -1190,68 +1210,329 @@ const AdminSettings = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="supabase">Supabase Auth Emails</SelectItem>
-                        <SelectItem value="smtp">Custom SMTP</SelectItem>
+                        <SelectItem value="gmail">Gmail / Google Workspace</SelectItem>
+                        <SelectItem value="mailgun">Mailgun API</SelectItem>
+                        <SelectItem value="outlook">Microsoft 365 / Outlook</SelectItem>
+                        <SelectItem value="smtp">Other SMTP</SelectItem>
                         <SelectItem value="resend">Resend Environment</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-stone-500">
-                      Use `Custom SMTP` if you want emails fully controlled from this platform. Use `Supabase` only if SMTP is configured in the Supabase dashboard.
+                      Gmail and Microsoft use OAuth connect flows. Mailgun uses API credentials. Other SMTP is for host, port, encryption, auth, reply-to, and return-path.
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>SMTP Host</Label>
-                      <Input value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} placeholder="smtp-relay.gmail.com" className="mt-1" />
-                    </div>
-                    <div>
-                      <Label>SMTP Port</Label>
-                      <Input value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} placeholder="587" className="mt-1" />
-                    </div>
-                    <div>
-                      <Label>SMTP Username</Label>
-                      <Input value={smtpUsername} onChange={(e) => setSmtpUsername(e.target.value)} placeholder={emailDeliveryConfig?.smtp?.username_set ? `Saved: ${emailDeliveryConfig?.smtp?.username_preview || 'set'}` : 'Optional for relay'} className="mt-1" />
-                    </div>
-                    <div>
-                      <Label>SMTP Password</Label>
-                      <div className="relative mt-1">
-                        <Input
-                          type={showSmtpPassword ? 'text' : 'password'}
-                          value={smtpPassword}
-                          onChange={(e) => setSmtpPassword(e.target.value)}
-                          placeholder={emailDeliveryConfig?.smtp?.password_set ? 'Saved password is masked. Enter a new one to replace it.' : 'Optional for relay'}
-                          className="pr-10"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowSmtpPassword((prev) => !prev)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700"
-                        >
-                          {showSmtpPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
+                  {emailProvider === 'gmail' && (
+                    <div className="space-y-4 rounded-xl border border-stone-200 p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="font-semibold text-stone-900">Gmail / Google Workspace mailer</p>
+                          <p className="text-sm text-stone-500">
+                            Save your Google app credentials, then connect the mailbox with OAuth.
+                          </p>
+                          <p className="text-xs text-stone-500 mt-2">
+                            Redirect URI: {emailDeliveryConfig?.gmail?.oauth_callback_url || 'Unavailable until this page is served from the live app URL'}
+                          </p>
+                        </div>
+                        <Badge className={emailDeliveryConfig?.gmail?.connected ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-stone-100 text-stone-700 border-stone-200'}>
+                          {emailDeliveryConfig?.gmail?.connected ? 'Connected' : 'Not Connected'}
+                        </Badge>
+                      </div>
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>Google Client ID</Label>
+                          <Input value={gmailClientId} onChange={(e) => setGmailClientId(e.target.value)} placeholder={emailDeliveryConfig?.gmail?.client_id_set ? 'Saved client ID is already configured' : 'Google OAuth client ID'} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Google Client Secret</Label>
+                          <div className="relative">
+                            <Input
+                              type={showGmailClientSecret ? 'text' : 'password'}
+                              value={gmailClientSecret}
+                              onChange={(e) => setGmailClientSecret(e.target.value)}
+                              placeholder={emailDeliveryConfig?.gmail?.client_secret_set ? 'Saved secret is masked. Enter a new one to replace it.' : 'Google OAuth client secret'}
+                              className="pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowGmailClientSecret((prev) => !prev)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700"
+                            >
+                              {showGmailClientSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>From Email</Label>
+                          <Input value={gmailFromEmail} onChange={(e) => setGmailFromEmail(e.target.value)} placeholder={emailDeliveryConfig?.gmail?.email || 'mailer@yourdomain.com'} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>From Name</Label>
+                          <Input value={gmailFromName} onChange={(e) => setGmailFromName(e.target.value)} placeholder="Secure PDF Platform" />
+                        </div>
+                        <div className="md:col-span-2 space-y-2">
+                          <Label>Reply-To</Label>
+                          <Input value={gmailReplyTo} onChange={(e) => setGmailReplyTo(e.target.value)} placeholder="support@yourdomain.com" />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between rounded-xl border border-stone-200 p-4">
+                        <div>
+                          <p className="font-medium text-stone-900">Force Return-Path</p>
+                          <p className="text-sm text-stone-500">Stored for consistency with other mailers. Final return-path behavior depends on Google.</p>
+                        </div>
+                        <Switch checked={gmailForceReturnPath} onCheckedChange={setGmailForceReturnPath} />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button onClick={() => handleEmailOAuthConnect('gmail')} variant="outline">
+                          {emailDeliveryConfig?.gmail?.connected ? 'Reconnect Gmail' : 'Connect Gmail'}
+                        </Button>
+                        {emailDeliveryConfig?.gmail?.connected && (
+                          <Button variant="outline" onClick={() => handleEmailProviderDisconnect('gmail')} disabled={emailSaving}>
+                            Disconnect Gmail
+                          </Button>
+                        )}
                       </div>
                     </div>
-                    <div>
-                      <Label>From Email</Label>
-                      <Input value={smtpFromEmail} onChange={(e) => setSmtpFromEmail(e.target.value)} placeholder="no-reply@yourdomain.com" className="mt-1" />
-                    </div>
-                    <div>
-                      <Label>From Name</Label>
-                      <Input value={smtpFromName} onChange={(e) => setSmtpFromName(e.target.value)} placeholder="Secure PDF Platform" className="mt-1" />
-                    </div>
-                    <div className="md:col-span-2">
-                      <Label>Reply-To</Label>
-                      <Input value={smtpReplyTo} onChange={(e) => setSmtpReplyTo(e.target.value)} placeholder="support@yourdomain.com" className="mt-1" />
-                    </div>
-                  </div>
+                  )}
 
-                  <div className="flex items-center justify-between rounded-xl border border-stone-200 p-4">
-                    <div>
-                      <p className="font-medium text-stone-900">Use TLS / SSL</p>
-                      <p className="text-sm text-stone-500">Enable for SMTPS on port 465. Keep off for STARTTLS on port 587.</p>
+                  {emailProvider === 'mailgun' && (
+                    <div className="space-y-4 rounded-xl border border-stone-200 p-4">
+                      <div>
+                        <p className="font-semibold text-stone-900">Mailgun API mailer</p>
+                        <p className="text-sm text-stone-500">Use your Mailgun sending domain, API key, and preferred sender identity.</p>
+                      </div>
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>Mailgun API Key</Label>
+                          <div className="relative">
+                            <Input
+                              type={showMailgunApiKey ? 'text' : 'password'}
+                              value={mailgunApiKey}
+                              onChange={(e) => setMailgunApiKey(e.target.value)}
+                              placeholder={emailDeliveryConfig?.mailgun?.api_key_set ? 'Saved API key is masked. Enter a new one to replace it.' : 'key-...'}
+                              className="pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowMailgunApiKey((prev) => !prev)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700"
+                            >
+                              {showMailgunApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Sending Domain</Label>
+                          <Input value={mailgunDomain} onChange={(e) => setMailgunDomain(e.target.value)} placeholder="mg.yourdomain.com" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Region</Label>
+                          <Select value={mailgunRegion} onValueChange={setMailgunRegion}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="us">US</SelectItem>
+                              <SelectItem value="eu">EU</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>From Email</Label>
+                          <Input value={mailgunFromEmail} onChange={(e) => setMailgunFromEmail(e.target.value)} placeholder="mailer@yourdomain.com" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>From Name</Label>
+                          <Input value={mailgunFromName} onChange={(e) => setMailgunFromName(e.target.value)} placeholder="Secure PDF Platform" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Reply-To</Label>
+                          <Input value={mailgunReplyTo} onChange={(e) => setMailgunReplyTo(e.target.value)} placeholder="support@yourdomain.com" />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between rounded-xl border border-stone-200 p-4">
+                        <div>
+                          <p className="font-medium text-stone-900">Force Return-Path</p>
+                          <p className="text-sm text-stone-500">Stored alongside the mailer settings. Mailgun manages the final bounce routing.</p>
+                        </div>
+                        <Switch checked={mailgunForceReturnPath} onCheckedChange={setMailgunForceReturnPath} />
+                      </div>
                     </div>
-                    <Switch checked={smtpSecure} onCheckedChange={setSmtpSecure} />
-                  </div>
+                  )}
+
+                  {emailProvider === 'outlook' && (
+                    <div className="space-y-4 rounded-xl border border-stone-200 p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="font-semibold text-stone-900">Microsoft 365 / Outlook mailer</p>
+                          <p className="text-sm text-stone-500">Save the Azure app credentials, then authorize the Microsoft account that will send mail.</p>
+                          <p className="text-xs text-stone-500 mt-2">
+                            Redirect URI: {emailDeliveryConfig?.outlook?.oauth_callback_url || 'Unavailable until this page is served from the live app URL'}
+                          </p>
+                        </div>
+                        <Badge className={emailDeliveryConfig?.outlook?.connected ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-stone-100 text-stone-700 border-stone-200'}>
+                          {emailDeliveryConfig?.outlook?.connected ? 'Connected' : 'Not Connected'}
+                        </Badge>
+                      </div>
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>Tenant ID</Label>
+                          <Input value={outlookTenantId} onChange={(e) => setOutlookTenantId(e.target.value)} placeholder="common" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Application ID</Label>
+                          <Input value={outlookClientId} onChange={(e) => setOutlookClientId(e.target.value)} placeholder={emailDeliveryConfig?.outlook?.client_id_set ? 'Saved application ID is already configured' : 'Azure application ID'} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Application Secret</Label>
+                          <div className="relative">
+                            <Input
+                              type={showOutlookClientSecret ? 'text' : 'password'}
+                              value={outlookClientSecret}
+                              onChange={(e) => setOutlookClientSecret(e.target.value)}
+                              placeholder={emailDeliveryConfig?.outlook?.client_secret_set ? 'Saved secret is masked. Enter a new one to replace it.' : 'Azure application secret'}
+                              className="pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowOutlookClientSecret((prev) => !prev)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700"
+                            >
+                              {showOutlookClientSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>From Email</Label>
+                          <Input value={outlookFromEmail} onChange={(e) => setOutlookFromEmail(e.target.value)} placeholder={emailDeliveryConfig?.outlook?.email || 'mailer@yourdomain.com'} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>From Name</Label>
+                          <Input value={outlookFromName} onChange={(e) => setOutlookFromName(e.target.value)} placeholder="Secure PDF Platform" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Reply-To</Label>
+                          <Input value={outlookReplyTo} onChange={(e) => setOutlookReplyTo(e.target.value)} placeholder="support@yourdomain.com" />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between rounded-xl border border-stone-200 p-4">
+                        <div>
+                          <p className="font-medium text-stone-900">Save a copy to Sent Items</p>
+                          <p className="text-sm text-stone-500">Uses Microsoft Graph `saveToSentItems` for the connected mailbox.</p>
+                        </div>
+                        <Switch checked={outlookSaveToSentItems} onCheckedChange={setOutlookSaveToSentItems} />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button onClick={() => handleEmailOAuthConnect('outlook')} variant="outline">
+                          {emailDeliveryConfig?.outlook?.connected ? 'Reconnect Microsoft' : 'Connect Microsoft'}
+                        </Button>
+                        {emailDeliveryConfig?.outlook?.connected && (
+                          <Button variant="outline" onClick={() => handleEmailProviderDisconnect('outlook')} disabled={emailSaving}>
+                            Disconnect Microsoft
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {emailProvider === 'smtp' && (
+                    <div className="space-y-4 rounded-xl border border-stone-200 p-4">
+                      <div>
+                        <p className="font-semibold text-stone-900">Other SMTP</p>
+                        <p className="text-sm text-stone-500">Use this for any standard SMTP server with custom host, port, encryption, reply-to, and return-path.</p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label>SMTP Host</Label>
+                          <Input value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} placeholder="smtp.your-provider.com" className="mt-1" />
+                        </div>
+                        <div>
+                          <Label>SMTP Port</Label>
+                          <Input value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} placeholder="587" className="mt-1" />
+                        </div>
+                        <div>
+                          <Label>Encryption</Label>
+                          <Select value={smtpEncryption} onValueChange={setSmtpEncryption}>
+                            <SelectTrigger className="mt-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None</SelectItem>
+                              <SelectItem value="tls">TLS / STARTTLS</SelectItem>
+                              <SelectItem value="ssl">SSL / SMTPS</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center justify-between rounded-xl border border-stone-200 p-4 mt-6">
+                          <div>
+                            <p className="font-medium text-stone-900">Use SMTP Authentication</p>
+                            <p className="text-sm text-stone-500">Turn this off only for relays that do not require username and password.</p>
+                          </div>
+                          <Switch checked={smtpAuthEnabled} onCheckedChange={setSmtpAuthEnabled} />
+                        </div>
+                        <div>
+                          <Label>SMTP Username</Label>
+                          <Input value={smtpUsername} onChange={(e) => setSmtpUsername(e.target.value)} placeholder={emailDeliveryConfig?.smtp?.username_set ? `Saved: ${emailDeliveryConfig?.smtp?.username_preview || 'set'}` : 'mailer@yourdomain.com'} className="mt-1" />
+                        </div>
+                        <div>
+                          <Label>SMTP Password</Label>
+                          <div className="relative mt-1">
+                            <Input
+                              type={showSmtpPassword ? 'text' : 'password'}
+                              value={smtpPassword}
+                              onChange={(e) => setSmtpPassword(e.target.value)}
+                              placeholder={emailDeliveryConfig?.smtp?.password_set ? 'Saved password is masked. Enter a new one to replace it.' : 'SMTP password or app password'}
+                              className="pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowSmtpPassword((prev) => !prev)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700"
+                            >
+                              {showSmtpPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+                        <div>
+                          <Label>From Email</Label>
+                          <Input value={smtpFromEmail} onChange={(e) => setSmtpFromEmail(e.target.value)} placeholder="no-reply@yourdomain.com" className="mt-1" />
+                        </div>
+                        <div>
+                          <Label>From Name</Label>
+                          <Input value={smtpFromName} onChange={(e) => setSmtpFromName(e.target.value)} placeholder="Secure PDF Platform" className="mt-1" />
+                        </div>
+                        <div className="md:col-span-2">
+                          <Label>Reply-To</Label>
+                          <Input value={smtpReplyTo} onChange={(e) => setSmtpReplyTo(e.target.value)} placeholder="support@yourdomain.com" className="mt-1" />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between rounded-xl border border-stone-200 p-4">
+                        <div>
+                          <p className="font-medium text-stone-900">Force Return-Path</p>
+                          <p className="text-sm text-stone-500">Sets the SMTP envelope sender to match the From Email when supported.</p>
+                        </div>
+                        <Switch checked={smtpForceReturnPath} onCheckedChange={setSmtpForceReturnPath} />
+                      </div>
+                    </div>
+                  )}
+
+                  {emailProvider === 'resend' && (
+                    <div className="space-y-2 rounded-xl border border-stone-200 p-4">
+                      <p className="font-semibold text-stone-900">Resend Environment</p>
+                      <p className="text-sm text-stone-500">
+                        This provider uses `RESEND_API_KEY` and `EMAIL_FROM` from the server environment. Configure those in Vercel, then save this provider as active here.
+                      </p>
+                    </div>
+                  )}
+
+                  {emailProvider === 'supabase' && (
+                    <div className="space-y-2 rounded-xl border border-stone-200 p-4">
+                      <p className="font-semibold text-stone-900">Supabase Auth Emails</p>
+                      <p className="text-sm text-stone-500">
+                        Use this only if you configured custom SMTP inside Supabase Auth. Supabase default delivery is not appropriate for production.
+                      </p>
+                    </div>
+                  )}
 
                   <div className="flex flex-col sm:flex-row gap-2">
                     <Button onClick={handleSaveEmailDeliveryConfig} disabled={emailSaving} className="bg-emerald-900 hover:bg-emerald-800">
