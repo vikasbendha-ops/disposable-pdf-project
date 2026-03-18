@@ -79,14 +79,39 @@ const AdminSettings = () => {
   const [emailSaving, setEmailSaving] = useState(false);
   const [emailTesting, setEmailTesting] = useState(false);
   const [emailProvider, setEmailProvider] = useState('supabase');
+  const [gmailClientId, setGmailClientId] = useState('');
+  const [gmailClientSecret, setGmailClientSecret] = useState('');
+  const [gmailFromEmail, setGmailFromEmail] = useState('');
+  const [gmailFromName, setGmailFromName] = useState('');
+  const [gmailReplyTo, setGmailReplyTo] = useState('');
+  const [gmailForceReturnPath, setGmailForceReturnPath] = useState(false);
+  const [showGmailClientSecret, setShowGmailClientSecret] = useState(false);
+  const [mailgunApiKey, setMailgunApiKey] = useState('');
+  const [mailgunDomain, setMailgunDomain] = useState('');
+  const [mailgunRegion, setMailgunRegion] = useState('us');
+  const [mailgunFromEmail, setMailgunFromEmail] = useState('');
+  const [mailgunFromName, setMailgunFromName] = useState('');
+  const [mailgunReplyTo, setMailgunReplyTo] = useState('');
+  const [mailgunForceReturnPath, setMailgunForceReturnPath] = useState(false);
+  const [showMailgunApiKey, setShowMailgunApiKey] = useState(false);
+  const [outlookTenantId, setOutlookTenantId] = useState('common');
+  const [outlookClientId, setOutlookClientId] = useState('');
+  const [outlookClientSecret, setOutlookClientSecret] = useState('');
+  const [outlookFromEmail, setOutlookFromEmail] = useState('');
+  const [outlookFromName, setOutlookFromName] = useState('');
+  const [outlookReplyTo, setOutlookReplyTo] = useState('');
+  const [outlookSaveToSentItems, setOutlookSaveToSentItems] = useState(true);
+  const [showOutlookClientSecret, setShowOutlookClientSecret] = useState(false);
   const [smtpHost, setSmtpHost] = useState('');
   const [smtpPort, setSmtpPort] = useState('587');
-  const [smtpSecure, setSmtpSecure] = useState(false);
+  const [smtpEncryption, setSmtpEncryption] = useState('tls');
+  const [smtpAuthEnabled, setSmtpAuthEnabled] = useState(true);
   const [smtpUsername, setSmtpUsername] = useState('');
   const [smtpPassword, setSmtpPassword] = useState('');
   const [smtpFromEmail, setSmtpFromEmail] = useState('');
   const [smtpFromName, setSmtpFromName] = useState('');
   const [smtpReplyTo, setSmtpReplyTo] = useState('');
+  const [smtpForceReturnPath, setSmtpForceReturnPath] = useState(false);
   const [showSmtpPassword, setShowSmtpPassword] = useState(false);
   const [emailTestRecipient, setEmailTestRecipient] = useState('');
   const [vercelConfig, setVercelConfig] = useState(null);
@@ -200,15 +225,37 @@ const AdminSettings = () => {
   const applyEmailDeliveryState = (config) => {
     setEmailDeliveryConfig(config);
     setEmailProvider(config?.requested_provider || config?.active_provider || 'supabase');
+    setGmailClientId('');
+    setGmailClientSecret('');
+    setGmailFromEmail(config?.gmail?.from_email || '');
+    setGmailFromName(config?.gmail?.from_name || '');
+    setGmailReplyTo(config?.gmail?.reply_to || '');
+    setGmailForceReturnPath(Boolean(config?.gmail?.force_return_path));
+    setMailgunApiKey('');
+    setMailgunDomain(config?.mailgun?.domain || '');
+    setMailgunRegion(config?.mailgun?.region || 'us');
+    setMailgunFromEmail(config?.mailgun?.from_email || '');
+    setMailgunFromName(config?.mailgun?.from_name || '');
+    setMailgunReplyTo(config?.mailgun?.reply_to || '');
+    setMailgunForceReturnPath(Boolean(config?.mailgun?.force_return_path));
+    setOutlookTenantId(config?.outlook?.tenant_id || 'common');
+    setOutlookClientId('');
+    setOutlookClientSecret('');
+    setOutlookFromEmail(config?.outlook?.from_email || '');
+    setOutlookFromName(config?.outlook?.from_name || '');
+    setOutlookReplyTo(config?.outlook?.reply_to || '');
+    setOutlookSaveToSentItems(config?.outlook?.save_to_sent_items !== false);
     setSmtpHost(config?.smtp?.host || '');
     setSmtpPort(String(config?.smtp?.port || 587));
-    setSmtpSecure(Boolean(config?.smtp?.secure));
+    setSmtpEncryption(config?.smtp?.encryption || 'tls');
+    setSmtpAuthEnabled(config?.smtp?.auth_enabled !== false);
     setSmtpFromEmail(config?.smtp?.from_email || '');
     setSmtpFromName(config?.smtp?.from_name || '');
     setSmtpReplyTo(config?.smtp?.reply_to || '');
+    setSmtpForceReturnPath(Boolean(config?.smtp?.force_return_path));
     setSmtpUsername('');
     setSmtpPassword('');
-    setEmailTestRecipient(user?.email || '');
+    setEmailTestRecipient((current) => current || user?.email || '');
   };
 
   const applyVercelState = (config) => {
@@ -430,6 +477,46 @@ const AdminSettings = () => {
     ensureTabLoaded(activeTab);
   }, [activeTab, isSuperAdmin]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    const tab = url.searchParams.get('tab');
+    const oauth = url.searchParams.get('oauth');
+    const provider = url.searchParams.get('provider');
+    const message = url.searchParams.get('message');
+
+    if (tab === 'email') {
+      setActiveTab('email');
+    }
+
+    if (!oauth) return;
+
+    if (oauth === 'connected') {
+      toast.success(
+        provider === 'gmail'
+          ? 'Gmail connected successfully'
+          : provider === 'outlook'
+            ? 'Microsoft connected successfully'
+            : 'Email provider connected successfully',
+      );
+    } else {
+      toast.error(message || 'Email provider connection failed');
+    }
+
+    fetchEmailDeliveryConfig();
+    url.searchParams.delete('tab');
+    url.searchParams.delete('oauth');
+    url.searchParams.delete('provider');
+    url.searchParams.delete('message');
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  }, []);
+
+  useEffect(() => {
+    if (user?.email && !emailTestRecipient) {
+      setEmailTestRecipient(user.email);
+    }
+  }, [user?.email, emailTestRecipient]);
+
   const handleSaveLiveKey = async () => {
     if (!liveKey.trim()) {
       toast.error('Please enter a Stripe Live key');
@@ -529,17 +616,39 @@ const AdminSettings = () => {
 
     const payload = {
       active_provider: emailProvider,
+      gmail_client_id: gmailClientId.trim() || undefined,
+      gmail_client_secret: gmailClientSecret.trim() || undefined,
+      gmail_from_email: gmailFromEmail.trim(),
+      gmail_from_name: gmailFromName.trim(),
+      gmail_reply_to: gmailReplyTo.trim(),
+      gmail_force_return_path: gmailForceReturnPath,
+      mailgun_api_key: mailgunApiKey.trim() || undefined,
+      mailgun_domain: mailgunDomain.trim(),
+      mailgun_region: mailgunRegion,
+      mailgun_from_email: mailgunFromEmail.trim(),
+      mailgun_from_name: mailgunFromName.trim(),
+      mailgun_reply_to: mailgunReplyTo.trim(),
+      mailgun_force_return_path: mailgunForceReturnPath,
+      outlook_tenant_id: outlookTenantId.trim(),
+      outlook_client_id: outlookClientId.trim() || undefined,
+      outlook_client_secret: outlookClientSecret.trim() || undefined,
+      outlook_from_email: outlookFromEmail.trim(),
+      outlook_from_name: outlookFromName.trim(),
+      outlook_reply_to: outlookReplyTo.trim(),
+      outlook_save_to_sent_items: outlookSaveToSentItems,
       smtp_host: smtpHost.trim(),
       smtp_port: Number.parseInt(smtpPort || '587', 10),
-      smtp_secure: smtpSecure,
+      smtp_encryption: smtpEncryption,
+      smtp_auth_enabled: smtpAuthEnabled,
       smtp_from_email: smtpFromEmail.trim(),
       smtp_from_name: smtpFromName.trim(),
       smtp_reply_to: smtpReplyTo.trim(),
+      smtp_force_return_path: smtpForceReturnPath,
     };
-    if (smtpUsername.trim()) {
+    if (smtpUsername.trim() || smtpAuthEnabled) {
       payload.smtp_username = smtpUsername.trim();
     }
-    if (smtpPassword.trim()) {
+    if (smtpPassword.trim() || smtpAuthEnabled) {
       payload.smtp_password = smtpPassword.trim();
     }
 
@@ -550,6 +659,31 @@ const AdminSettings = () => {
       toast.success('Email delivery settings saved');
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to save email delivery settings');
+    } finally {
+      setEmailSaving(false);
+    }
+  };
+
+  const handleEmailOAuthConnect = (provider) => {
+    const startUrl =
+      provider === 'gmail'
+        ? emailDeliveryConfig?.gmail?.oauth_start_url
+        : emailDeliveryConfig?.outlook?.oauth_start_url;
+    if (!startUrl) {
+      toast.error('Provider connect URL is not available yet');
+      return;
+    }
+    window.location.href = startUrl;
+  };
+
+  const handleEmailProviderDisconnect = async (provider) => {
+    setEmailSaving(true);
+    try {
+      const res = await api.post(`/admin/settings/email-delivery/${provider}/disconnect`);
+      applyEmailDeliveryState(res.data);
+      toast.success(`${provider === 'gmail' ? 'Gmail' : 'Microsoft'} disconnected`);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to disconnect provider');
     } finally {
       setEmailSaving(false);
     }
