@@ -1180,6 +1180,50 @@ const AdminSettings = () => {
   const outlookHasClientSecret = Boolean(emailDeliveryConfig?.outlook?.client_secret_set || outlookDraftClientSecret);
   const gmailCanStartOAuth = !emailSaving && gmailHasClientId && gmailHasClientSecret;
   const outlookCanStartOAuth = !emailSaving && outlookHasClientId && outlookHasClientSecret;
+  const activeEmailProvider = emailDeliveryConfig?.active_provider || 'supabase';
+  const requestedEmailProvider = emailDeliveryConfig?.requested_provider || activeEmailProvider;
+  const emailProviderLabels = {
+    gmail: 'Gmail / Google Workspace',
+    mailgun: 'Mailgun',
+    outlook: 'Microsoft 365 / Outlook',
+    resend: 'Resend',
+    smtp: 'Other SMTP',
+    supabase: 'Supabase Auth Emails',
+  };
+  let emailHealthStatus = 'Not ready';
+  let emailHealthStatusClass = 'text-amber-700';
+  let emailHealthDetail = '';
+
+  if (activeEmailProvider === 'gmail') {
+    emailHealthStatus = emailDeliveryConfig?.gmail?.connected ? 'Connected' : 'Needs connection';
+    emailHealthStatusClass = emailDeliveryConfig?.gmail?.connected ? 'text-emerald-700' : 'text-amber-700';
+    emailHealthDetail = emailDeliveryConfig?.gmail?.email || gmailFromEmail || 'Sender mailbox not confirmed yet';
+  } else if (activeEmailProvider === 'outlook') {
+    emailHealthStatus = emailDeliveryConfig?.outlook?.connected ? 'Connected' : 'Needs connection';
+    emailHealthStatusClass = emailDeliveryConfig?.outlook?.connected ? 'text-emerald-700' : 'text-amber-700';
+    emailHealthDetail = emailDeliveryConfig?.outlook?.email || outlookFromEmail || 'Sender mailbox not confirmed yet';
+  } else if (activeEmailProvider === 'mailgun') {
+    emailHealthStatus = emailDeliveryConfig?.mailgun?.configured ? 'Ready' : 'Needs configuration';
+    emailHealthStatusClass = emailDeliveryConfig?.mailgun?.configured ? 'text-emerald-700' : 'text-amber-700';
+    emailHealthDetail = emailDeliveryConfig?.mailgun?.domain || mailgunDomain || 'Mailgun sending domain not set';
+  } else if (activeEmailProvider === 'smtp') {
+    emailHealthStatus = emailDeliveryConfig?.smtp?.configured ? 'Ready' : 'Needs configuration';
+    emailHealthStatusClass = emailDeliveryConfig?.smtp?.configured ? 'text-emerald-700' : 'text-amber-700';
+    emailHealthDetail = emailDeliveryConfig?.smtp?.from_email || smtpFromEmail || emailDeliveryConfig?.smtp?.host || smtpHost || 'SMTP sender not set';
+  } else if (activeEmailProvider === 'resend') {
+    emailHealthStatus = emailDeliveryConfig?.resend?.configured ? 'Ready' : 'Needs configuration';
+    emailHealthStatusClass = emailDeliveryConfig?.resend?.configured ? 'text-emerald-700' : 'text-amber-700';
+    emailHealthDetail = emailDeliveryConfig?.resend?.from_email || 'Resend sender email not configured';
+  } else {
+    emailHealthStatus = emailDeliveryConfig?.supabase?.publishable_key_set ? 'Ready' : 'Needs configuration';
+    emailHealthStatusClass = emailDeliveryConfig?.supabase?.publishable_key_set ? 'text-emerald-700' : 'text-amber-700';
+    emailHealthDetail = emailDeliveryConfig?.supabase?.publishable_key_set
+      ? 'Supabase Auth email delivery is enabled'
+      : 'Supabase publishable key is missing';
+  }
+  const emailFallbackNotice = requestedEmailProvider !== activeEmailProvider
+    ? `${emailProviderLabels[requestedEmailProvider] || requestedEmailProvider} is not ready, so ${emailProviderLabels[activeEmailProvider] || activeEmailProvider} is active.`
+    : '';
   const adminTabs = [
     { value: 'payments', label: 'Payments' },
     { value: 'localization', label: 'Localization' },
@@ -1393,44 +1437,17 @@ const AdminSettings = () => {
                   <div className="rounded-xl bg-stone-50 border border-stone-200 p-4 space-y-2">
                     <p className="font-semibold text-stone-900">Delivery health</p>
                     <p className="text-sm text-stone-600">
-                      Active provider: <span className="font-medium text-stone-900">{emailDeliveryConfig?.active_provider || 'supabase'}</span>
+                      Active provider: <span className="font-medium text-stone-900">{emailProviderLabels[activeEmailProvider] || activeEmailProvider}</span>
                     </p>
                     <p className="text-sm text-stone-600">
-                      Requested provider: <span className="font-medium text-stone-900">{emailDeliveryConfig?.requested_provider || 'supabase'}</span>
+                      Status: <span className={`font-medium ${emailHealthStatusClass}`}>{emailHealthStatus}</span>
                     </p>
                     <p className="text-sm text-stone-600">
-                      Gmail: <span className={emailDeliveryConfig?.gmail?.connected ? 'text-emerald-700 font-medium' : 'text-stone-500'}>
-                        {emailDeliveryConfig?.gmail?.connected ? `connected (${emailDeliveryConfig?.gmail?.email || 'account linked'})` : 'not connected'}
-                      </span>
+                      Active sender: <span className="font-medium text-stone-900">{emailHealthDetail}</span>
                     </p>
-                    <p className="text-sm text-stone-600">
-                      Microsoft 365: <span className={emailDeliveryConfig?.outlook?.connected ? 'text-emerald-700 font-medium' : 'text-stone-500'}>
-                        {emailDeliveryConfig?.outlook?.connected ? `connected (${emailDeliveryConfig?.outlook?.email || 'account linked'})` : 'not connected'}
-                      </span>
-                    </p>
-                    <p className="text-sm text-stone-600">
-                      Mailgun: <span className={emailDeliveryConfig?.mailgun?.configured ? 'text-emerald-700 font-medium' : 'text-stone-500'}>
-                        {emailDeliveryConfig?.mailgun?.configured ? `ready (${emailDeliveryConfig?.mailgun?.domain || 'domain set'})` : 'not configured'}
-                      </span>
-                    </p>
-                    <p className="text-sm text-stone-600">
-                      Other SMTP: <span className={emailDeliveryConfig?.smtp?.configured ? 'text-emerald-700 font-medium' : 'text-stone-500'}>
-                        {emailDeliveryConfig?.smtp?.configured ? `ready (${emailDeliveryConfig?.smtp?.host || 'host set'})` : 'not configured'}
-                      </span>
-                    </p>
-                    <p className="text-sm text-stone-600">
-                      Supabase publishable key: <span className={emailDeliveryConfig?.supabase?.publishable_key_set ? 'text-emerald-700 font-medium' : 'text-red-700 font-medium'}>
-                        {emailDeliveryConfig?.supabase?.publishable_key_set ? 'set' : 'missing'}
-                      </span>
-                    </p>
-                    <p className="text-sm text-stone-600">
-                      Resend env: <span className={emailDeliveryConfig?.resend?.configured ? 'text-emerald-700 font-medium' : 'text-stone-500'}>
-                        {emailDeliveryConfig?.resend?.configured ? `ready (${emailDeliveryConfig?.resend?.from_email || 'from email set'})` : 'not configured'}
-                      </span>
-                    </p>
-                    <p className="text-xs text-stone-500 pt-1">
-                      Google Workspace relay usually uses `smtp-relay.gmail.com`. Gmail mailbox SMTP usually uses `smtp.gmail.com`.
-                    </p>
+                    {emailFallbackNotice && (
+                      <p className="text-xs text-amber-700 pt-1">{emailFallbackNotice}</p>
+                    )}
                   </div>
 
                   <div className="space-y-3">
