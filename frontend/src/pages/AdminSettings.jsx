@@ -679,45 +679,53 @@ const AdminSettings = () => {
       return null;
     }
 
+    const targetProvider = providerOverride || emailProvider;
     const gmailClientIdValue = getDraftFieldValue(gmailClientId, gmailClientIdRef);
     const gmailClientSecretValue = getDraftFieldValue(gmailClientSecret, gmailClientSecretRef);
     const outlookClientIdValue = getDraftFieldValue(outlookClientId, outlookClientIdRef);
     const outlookClientSecretValue = getDraftFieldValue(outlookClientSecret, outlookClientSecretRef);
 
     const payload = {
-      active_provider: providerOverride || emailProvider,
-      gmail_client_id: gmailClientIdValue || undefined,
-      gmail_client_secret: gmailClientSecretValue || undefined,
-      gmail_from_email: gmailFromEmail.trim(),
-      gmail_from_name: gmailFromName.trim(),
-      gmail_reply_to: gmailReplyTo.trim(),
-      mailgun_api_key: mailgunApiKey.trim() || undefined,
-      mailgun_domain: mailgunDomain.trim(),
-      mailgun_region: mailgunRegion,
-      mailgun_from_email: mailgunFromEmail.trim(),
-      mailgun_from_name: mailgunFromName.trim(),
-      mailgun_reply_to: mailgunReplyTo.trim(),
-      outlook_tenant_id: outlookTenantId.trim(),
-      outlook_client_id: outlookClientIdValue || undefined,
-      outlook_client_secret: outlookClientSecretValue || undefined,
-      outlook_from_email: outlookFromEmail.trim(),
-      outlook_from_name: outlookFromName.trim(),
-      outlook_reply_to: outlookReplyTo.trim(),
-      outlook_save_to_sent_items: outlookSaveToSentItems,
-      smtp_host: smtpHost.trim(),
-      smtp_port: Number.parseInt(smtpPort || '587', 10),
-      smtp_encryption: smtpEncryption,
-      smtp_auth_enabled: smtpAuthEnabled,
-      smtp_from_email: smtpFromEmail.trim(),
-      smtp_from_name: smtpFromName.trim(),
-      smtp_reply_to: smtpReplyTo.trim(),
-      smtp_force_return_path: smtpForceReturnPath,
+      active_provider: targetProvider,
     };
-    if (smtpUsername.trim() || smtpAuthEnabled) {
-      payload.smtp_username = smtpUsername.trim();
-    }
-    if (smtpPassword.trim() || smtpAuthEnabled) {
-      payload.smtp_password = smtpPassword.trim();
+
+    if (targetProvider === 'gmail') {
+      payload.gmail_client_id = gmailClientIdValue || undefined;
+      payload.gmail_client_secret = gmailClientSecretValue || undefined;
+      payload.gmail_from_email = gmailFromEmail.trim();
+      payload.gmail_from_name = gmailFromName.trim();
+      payload.gmail_reply_to = gmailReplyTo.trim();
+    } else if (targetProvider === 'mailgun') {
+      payload.mailgun_api_key = mailgunApiKey.trim() || undefined;
+      payload.mailgun_domain = mailgunDomain.trim();
+      payload.mailgun_region = mailgunRegion;
+      payload.mailgun_from_email = mailgunFromEmail.trim();
+      payload.mailgun_from_name = mailgunFromName.trim();
+      payload.mailgun_reply_to = mailgunReplyTo.trim();
+    } else if (targetProvider === 'outlook') {
+      payload.outlook_tenant_id = outlookTenantId.trim();
+      payload.outlook_client_id = outlookClientIdValue || undefined;
+      payload.outlook_client_secret = outlookClientSecretValue || undefined;
+      payload.outlook_from_email = outlookFromEmail.trim();
+      payload.outlook_from_name = outlookFromName.trim();
+      payload.outlook_reply_to = outlookReplyTo.trim();
+      payload.outlook_save_to_sent_items = outlookSaveToSentItems;
+    } else if (targetProvider === 'smtp') {
+      payload.smtp_host = smtpHost.trim();
+      payload.smtp_port = Number.parseInt(smtpPort || '587', 10);
+      payload.smtp_encryption = smtpEncryption;
+      payload.smtp_auth_enabled = smtpAuthEnabled;
+      payload.smtp_from_email = smtpFromEmail.trim();
+      payload.smtp_from_name = smtpFromName.trim();
+      payload.smtp_reply_to = smtpReplyTo.trim();
+      payload.smtp_force_return_path = smtpForceReturnPath;
+
+      if (smtpUsername.trim() || smtpAuthEnabled) {
+        payload.smtp_username = smtpUsername.trim();
+      }
+      if (smtpPassword.trim() || smtpAuthEnabled) {
+        payload.smtp_password = smtpPassword.trim();
+      }
     }
 
     setEmailSaving(true);
