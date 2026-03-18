@@ -4,8 +4,10 @@ import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Switch } from '../components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { api, useAuth, useSubscriptionPlans } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -50,6 +52,16 @@ const Settings = () => {
   const [sendingResetEmail, setSendingResetEmail] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [sendingEmailChange, setSendingEmailChange] = useState(false);
+  const [savingSecureLinkDefaults, setSavingSecureLinkDefaults] = useState(false);
+  const [secureLinkDefaults, setSecureLinkDefaults] = useState({
+    focus_lock_enabled: true,
+    idle_timeout_seconds: null,
+    nda_required: false,
+    nda_title: 'Confidentiality agreement',
+    nda_text: 'This document contains confidential information. By continuing, you agree not to copy, share, capture, or distribute any part of this material without authorization.',
+    nda_accept_label: 'I agree and continue',
+    lock_to_first_ip: false,
+  });
 
   useEffect(() => {
     if (user) {
@@ -68,6 +80,15 @@ const Settings = () => {
         state: user?.billing_profile?.state || '',
         postal_code: user?.billing_profile?.postal_code || '',
         country: user?.billing_profile?.country || '',
+      });
+      setSecureLinkDefaults({
+        focus_lock_enabled: user?.secure_link_defaults?.focus_lock_enabled !== false,
+        idle_timeout_seconds: Number(user?.secure_link_defaults?.idle_timeout_seconds || 0) || null,
+        nda_required: Boolean(user?.secure_link_defaults?.nda_required),
+        nda_title: user?.secure_link_defaults?.nda_title || 'Confidentiality agreement',
+        nda_text: user?.secure_link_defaults?.nda_text || 'This document contains confidential information. By continuing, you agree not to copy, share, capture, or distribute any part of this material without authorization.',
+        nda_accept_label: user?.secure_link_defaults?.nda_accept_label || 'I agree and continue',
+        lock_to_first_ip: Boolean(user?.secure_link_defaults?.lock_to_first_ip),
       });
     }
   }, [user]);
@@ -320,6 +341,29 @@ const Settings = () => {
       toast.error(error.response?.data?.detail || t('settings.emailChangeFailed'));
     } finally {
       setSendingEmailChange(false);
+    }
+  };
+
+  const updateSecureLinkDefault = (field, value) => {
+    setSecureLinkDefaults((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSaveSecureLinkDefaults = async (e) => {
+    e.preventDefault();
+    setSavingSecureLinkDefaults(true);
+    try {
+      await api.put('/auth/profile', {
+        secure_link_defaults: secureLinkDefaults,
+      });
+      await refreshUser();
+      toast.success('Secure link defaults updated');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update secure link defaults');
+    } finally {
+      setSavingSecureLinkDefaults(false);
     }
   };
 
@@ -714,6 +758,101 @@ const Settings = () => {
               >
                 {sendingResetEmail ? 'Sending...' : 'Send Password Reset Email'}
               </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border-stone-200">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Lock className="w-5 h-5 text-emerald-700" />
+                <span>Secure Link Defaults</span>
+              </CardTitle>
+              <CardDescription>
+                Set your default NDA and advanced viewer protection options for new secure links. You can still override them per link.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSaveSecureLinkDefaults} className="space-y-5">
+                <div className="flex items-center justify-between rounded-lg border border-stone-200 p-4">
+                  <div>
+                    <p className="font-medium text-stone-900">Focus lock on tab blur</p>
+                    <p className="text-sm text-stone-500">Black out the viewer when the tab or window loses focus until the viewer is resumed manually.</p>
+                  </div>
+                  <Switch
+                    checked={secureLinkDefaults.focus_lock_enabled}
+                    onCheckedChange={(checked) => updateSecureLinkDefault('focus_lock_enabled', checked)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Default idle timeout (seconds)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="86400"
+                    value={secureLinkDefaults.idle_timeout_seconds || 0}
+                    onChange={(e) => updateSecureLinkDefault('idle_timeout_seconds', Number.parseInt(e.target.value || '0', 10) || null)}
+                    className="h-12"
+                  />
+                  <p className="text-xs text-stone-500">Use `0` to disable. Minimum active timeout is 15 seconds when enabled.</p>
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border border-stone-200 p-4">
+                  <div>
+                    <p className="font-medium text-stone-900">Lock new links to the first viewer IP</p>
+                    <p className="text-sm text-stone-500">After the first approved viewer opens the link, any other IP address is blocked.</p>
+                  </div>
+                  <Switch
+                    checked={secureLinkDefaults.lock_to_first_ip}
+                    onCheckedChange={(checked) => updateSecureLinkDefault('lock_to_first_ip', checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border border-stone-200 p-4">
+                  <div>
+                    <p className="font-medium text-stone-900">Require NDA by default</p>
+                    <p className="text-sm text-stone-500">Show a confidentiality acknowledgement before the PDF is displayed.</p>
+                  </div>
+                  <Switch
+                    checked={secureLinkDefaults.nda_required}
+                    onCheckedChange={(checked) => updateSecureLinkDefault('nda_required', checked)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Default NDA title</Label>
+                  <Input
+                    value={secureLinkDefaults.nda_title}
+                    onChange={(e) => updateSecureLinkDefault('nda_title', e.target.value)}
+                    className="h-12"
+                    maxLength={120}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Default NDA text</Label>
+                  <Textarea
+                    value={secureLinkDefaults.nda_text}
+                    onChange={(e) => updateSecureLinkDefault('nda_text', e.target.value)}
+                    rows={5}
+                    maxLength={4000}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Default NDA button label</Label>
+                  <Input
+                    value={secureLinkDefaults.nda_accept_label}
+                    onChange={(e) => updateSecureLinkDefault('nda_accept_label', e.target.value)}
+                    className="h-12"
+                    maxLength={60}
+                  />
+                </div>
+
+                <Button type="submit" className="bg-emerald-900 hover:bg-emerald-800" disabled={savingSecureLinkDefaults}>
+                  {savingSecureLinkDefaults ? 'Saving...' : 'Save Secure Link Defaults'}
+                </Button>
+              </form>
             </CardContent>
           </Card>
         </TabsContent>

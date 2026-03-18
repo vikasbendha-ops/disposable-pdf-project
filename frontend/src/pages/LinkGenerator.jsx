@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Clock, Calendar, Hand, FileText, ChevronRight, AlertCircle, Copy, Check } from 'lucide-react';
+import { Clock, Calendar, Hand, FileText, ChevronRight, AlertCircle, Copy, Check, Shield, ChevronDown, ChevronUp } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -9,6 +9,7 @@ import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Switch } from '../components/ui/switch';
 import { Calendar as CalendarPicker } from '../components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { api, useAuth } from '../App';
@@ -41,6 +42,15 @@ const LinkGenerator = () => {
   const [selectedDomainId, setSelectedDomainId] = useState('platform');
   const [internalTitle, setInternalTitle] = useState('');
   const [internalNote, setInternalNote] = useState('');
+  const [advancedSecurityOpen, setAdvancedSecurityOpen] = useState(false);
+  const [focusLockEnabled, setFocusLockEnabled] = useState(true);
+  const [idleTimeoutSeconds, setIdleTimeoutSeconds] = useState(0);
+  const [ndaRequired, setNdaRequired] = useState(false);
+  const [ndaTitle, setNdaTitle] = useState('Confidentiality agreement');
+  const [ndaText, setNdaText] = useState('This document contains confidential information. By continuing, you agree not to copy, share, capture, or distribute any part of this material without authorization.');
+  const [ndaAcceptLabel, setNdaAcceptLabel] = useState('I agree and continue');
+  const [lockToFirstIp, setLockToFirstIp] = useState(false);
+  const [allowedIpAddresses, setAllowedIpAddresses] = useState('');
   
   // Generated link
   const [generatedLink, setGeneratedLink] = useState(null);
@@ -55,6 +65,22 @@ const LinkGenerator = () => {
       setSelectedPdf(pdfId);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!user) return;
+    setFocusLockEnabled(user?.secure_link_defaults?.focus_lock_enabled !== false);
+    setIdleTimeoutSeconds(Number(user?.secure_link_defaults?.idle_timeout_seconds || 0) || 0);
+    setNdaRequired(Boolean(user?.secure_link_defaults?.nda_required));
+    setNdaTitle(user?.secure_link_defaults?.nda_title || 'Confidentiality agreement');
+    setNdaText(user?.secure_link_defaults?.nda_text || 'This document contains confidential information. By continuing, you agree not to copy, share, capture, or distribute any part of this material without authorization.');
+    setNdaAcceptLabel(user?.secure_link_defaults?.nda_accept_label || 'I agree and continue');
+    setLockToFirstIp(Boolean(user?.secure_link_defaults?.lock_to_first_ip));
+    setAllowedIpAddresses(
+      Array.isArray(user?.secure_link_defaults?.allowed_ip_addresses)
+        ? user.secure_link_defaults.allowed_ip_addresses.join(', ')
+        : ''
+    );
+  }, [user?.user_id]);
 
   const fetchData = async () => {
     try {
@@ -112,6 +138,22 @@ const LinkGenerator = () => {
       toast.error('Internal note must be 400 characters or less');
       return;
     }
+    if (idleTimeoutSeconds && idleTimeoutSeconds < 15) {
+      toast.error('Idle timeout must be at least 15 seconds');
+      return;
+    }
+    if (ndaTitle.trim().length > 120) {
+      toast.error('NDA title must be 120 characters or less');
+      return;
+    }
+    if (ndaText.trim().length > 4000) {
+      toast.error('NDA text must be 4000 characters or less');
+      return;
+    }
+    if (ndaAcceptLabel.trim().length > 60) {
+      toast.error('NDA button label must be 60 characters or less');
+      return;
+    }
 
     setCreating(true);
 
@@ -138,6 +180,16 @@ const LinkGenerator = () => {
         custom_expired_message: customExpiredMessage || null,
         internal_title: internalTitle || null,
         internal_note: internalNote || null,
+        security_options: {
+          focus_lock_enabled: focusLockEnabled,
+          idle_timeout_seconds: idleTimeoutSeconds > 0 ? idleTimeoutSeconds : null,
+          nda_required: ndaRequired,
+          nda_title: ndaTitle || null,
+          nda_text: ndaText || null,
+          nda_accept_label: ndaAcceptLabel || null,
+          lock_to_first_ip: lockToFirstIp,
+          allowed_ip_addresses: allowedIpAddresses,
+        },
       });
 
       const fullUrl = response.data?.secure_url || `${window.location.origin}/view/${response.data.token}`;
@@ -548,6 +600,136 @@ const LinkGenerator = () => {
                 />
               </div>
             </CardContent>
+          </Card>
+
+          <Card className="border-stone-200">
+            <CardHeader>
+              <button
+                type="button"
+                onClick={() => setAdvancedSecurityOpen((prev) => !prev)}
+                className="flex w-full items-start justify-between gap-4 text-left"
+                data-testid="advanced-security-toggle"
+              >
+                <div className="space-y-1">
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-emerald-700" />
+                    <span>Advanced Security</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Optional NDA, focus lock, inactivity pause, and IP-based access rules for this link.
+                  </CardDescription>
+                </div>
+                <div className="mt-1 rounded-full border border-stone-200 p-2 text-stone-500">
+                  {advancedSecurityOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </div>
+              </button>
+            </CardHeader>
+            {advancedSecurityOpen && (
+              <CardContent className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-xl border border-stone-200 p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="font-semibold text-stone-900">Focus lock on tab change</p>
+                        <p className="mt-1 text-sm text-stone-500">
+                          Black out the PDF area when the viewer loses focus. The recipient must resume manually.
+                        </p>
+                      </div>
+                      <Switch checked={focusLockEnabled} onCheckedChange={setFocusLockEnabled} />
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-stone-200 p-4">
+                    <Label className="text-sm font-semibold text-stone-900">Idle timeout (seconds)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="86400"
+                      value={idleTimeoutSeconds}
+                      onChange={(e) => setIdleTimeoutSeconds(Number.parseInt(e.target.value || '0', 10) || 0)}
+                      className="mt-3 h-12"
+                      data-testid="advanced-idle-timeout-input"
+                    />
+                    <p className="mt-2 text-sm text-stone-500">
+                      Use `0` to disable. When enabled, the viewer pauses after inactivity and needs a manual resume.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-stone-200 p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="font-semibold text-stone-900">Require NDA acknowledgement</p>
+                      <p className="mt-1 text-sm text-stone-500">
+                        Show a confidentiality screen before the document becomes visible.
+                      </p>
+                    </div>
+                    <Switch checked={ndaRequired} onCheckedChange={setNdaRequired} />
+                  </div>
+
+                  {ndaRequired && (
+                    <div className="mt-5 grid gap-4">
+                      <div>
+                        <Label className="text-sm font-semibold text-stone-700 mb-2 block">NDA title</Label>
+                        <Input
+                          value={ndaTitle}
+                          onChange={(e) => setNdaTitle(e.target.value)}
+                          maxLength={120}
+                          className="h-12"
+                          data-testid="advanced-nda-title-input"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm font-semibold text-stone-700 mb-2 block">NDA text</Label>
+                        <Textarea
+                          value={ndaText}
+                          onChange={(e) => setNdaText(e.target.value)}
+                          maxLength={4000}
+                          className="min-h-[160px]"
+                          data-testid="advanced-nda-text-input"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-sm font-semibold text-stone-700 mb-2 block">Accept button label</Label>
+                        <Input
+                          value={ndaAcceptLabel}
+                          onChange={(e) => setNdaAcceptLabel(e.target.value)}
+                          maxLength={60}
+                          className="h-12"
+                          data-testid="advanced-nda-accept-label-input"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-stone-200 p-4 space-y-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="font-semibold text-stone-900">Lock to first approved IP</p>
+                      <p className="mt-1 text-sm text-stone-500">
+                        Once the first approved viewer opens the link, the secure session is tied to that IP.
+                      </p>
+                    </div>
+                    <Switch checked={lockToFirstIp} onCheckedChange={setLockToFirstIp} />
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-semibold text-stone-700 mb-2 block">Allowed IP addresses</Label>
+                    <Textarea
+                      placeholder="203.0.113.10, 198.51.100.24"
+                      value={allowedIpAddresses}
+                      onChange={(e) => setAllowedIpAddresses(e.target.value)}
+                      className="min-h-[100px]"
+                      data-testid="advanced-allowed-ip-input"
+                    />
+                    <p className="mt-2 text-sm text-stone-500">
+                      Optional. Enter exact IPv4 or IPv6 addresses separated by commas. Leave empty to allow any IP.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            )}
           </Card>
 
           {/* Submit */}

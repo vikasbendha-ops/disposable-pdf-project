@@ -35,12 +35,16 @@ const SecureViewer = () => {
   const [renderingPdf, setRenderingPdf] = useState(false);
   const [pageLinks, setPageLinks] = useState([]);
   const [captureShieldActive, setCaptureShieldActive] = useState(false);
+  const [viewerLock, setViewerLock] = useState(null);
+  const [acceptingNda, setAcceptingNda] = useState(false);
   const timerRef = useRef(null);
   const shieldTimeoutRef = useRef(null);
+  const idleTimeoutRef = useRef(null);
   const canvasRefs = useRef([]);
   const fetchedRef = useRef(false);
 
   const pdfUrl = linkData?.pdf_url ? `${BACKEND_URL}${linkData.pdf_url}` : null;
+  const securityOptions = linkData?.security_options || {};
 
   const triggerCaptureShield = useCallback((durationMs = 1800) => {
     setCaptureShieldActive(true);
@@ -52,8 +56,48 @@ const SecureViewer = () => {
     }, durationMs);
   }, []);
 
-  const fetchLinkData = useCallback(async () => {
-    if (fetchedRef.current) return;
+  const clearIdleTimer = useCallback(() => {
+    if (idleTimeoutRef.current) {
+      clearTimeout(idleTimeoutRef.current);
+      idleTimeoutRef.current = null;
+    }
+  }, []);
+
+  const activateViewerLock = useCallback((reason, detail = null) => {
+    setViewerLock((current) => {
+      if (current?.reason === reason) {
+        return current;
+      }
+      if (reason === 'idle') {
+        return {
+          reason,
+          title: 'Viewer paused',
+          message: detail || 'The secure viewer paused after inactivity. Resume to continue reading.',
+          actionLabel: 'Resume viewing',
+        };
+      }
+      return {
+        reason,
+        title: 'Viewer focus required',
+        message: detail || 'The secure viewer was hidden when the tab or window lost focus. Resume when you are ready to continue.',
+        actionLabel: 'Resume viewing',
+      };
+    });
+  }, []);
+
+  const scheduleIdleTimer = useCallback((overrideSeconds = null) => {
+    clearIdleTimer();
+    const idleSeconds = Number((overrideSeconds ?? securityOptions.idle_timeout_seconds) || 0);
+    if (linkData?.status !== 'active' || !idleSeconds) {
+      return;
+    }
+    idleTimeoutRef.current = setTimeout(() => {
+      activateViewerLock('idle', `The secure viewer paused after ${idleSeconds} seconds of inactivity.`);
+    }, idleSeconds * 1000);
+  }, [activateViewerLock, clearIdleTimer, linkData?.status, securityOptions.idle_timeout_seconds]);
+
+  const fetchLinkData = useCallback(async ({ force = false } = {}) => {
+    if (fetchedRef.current && !force) return;
     fetchedRef.current = true;
 
     try {
@@ -74,15 +118,29 @@ const SecureViewer = () => {
         }
         return;
       }
-      
+
+      if (data.status === 'blocked') {
+        setError(data.custom_expired_message || 'Access to this document is blocked');
+        setLinkData(null);
+        setRemainingTime(null);
+        setWatermarks([]);
+        clearIdleTimer();
+        return;
+      }
+
+      setError(null);
       setLinkData(data);
       if (data.remaining_seconds !== null && data.remaining_seconds !== undefined) {
         setRemainingTime(data.remaining_seconds);
+      } else {
+        setRemainingTime(null);
       }
       
       // Generate watermarks
-      if (data.watermark_data) {
+      if (data.status === 'active' && data.watermark_data) {
         generateWatermarks(data.watermark_data);
+      } else {
+        setWatermarks([]);
       }
     } catch (err) {
       if (err.response?.status === 404) {
@@ -95,7 +153,25 @@ const SecureViewer = () => {
     } finally {
       setLoading(false);
     }
-  }, [token, navigate]);
+  }, [clearIdleTimer, token, navigate]);
+
+  const handleResumeViewer = useCallback(() => {
+    setViewerLock(null);
+    scheduleIdleTimer();
+  }, [scheduleIdleTimer]);
+
+  const handleAcceptNda = useCallback(async () => {
+    setAcceptingNda(true);
+    try {
+      await axios.post(`${API}/view/${token}/nda-accept`);
+      await fetchLinkData({ force: true });
+      setViewerLock(null);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to accept confidentiality acknowledgement');
+    } finally {
+      setAcceptingNda(false);
+    }
+  }, [fetchLinkData, token]);
 
   useEffect(() => {
     fetchLinkData();
@@ -132,25 +208,6 @@ const SecureViewer = () => {
     const handleBeforePrint = (e) => e.preventDefault();
     window.addEventListener('beforeprint', handleBeforePrint);
     
-    // Blur on tab switch (deterrent)
-    const handleVisibilityChange = () => {
-      const viewer = document.getElementById('pdf-container');
-      if (viewer) {
-        if (document.hidden) {
-          viewer.style.filter = 'blur(15px)';
-          triggerCaptureShield(2500);
-        } else {
-          viewer.style.filter = 'none';
-        }
-      }
-    };
-
-    const handleWindowBlur = () => {
-      triggerCaptureShield(2500);
-    };
-    window.addEventListener('blur', handleWindowBlur);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
     return () => {
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('keydown', handleKeyDown);
@@ -159,16 +216,76 @@ const SecureViewer = () => {
       document.removeEventListener('selectstart', preventEvent);
       document.removeEventListener('dragstart', preventEvent);
       window.removeEventListener('beforeprint', handleBeforePrint);
-      window.removeEventListener('blur', handleWindowBlur);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
       if (shieldTimeoutRef.current) {
         clearTimeout(shieldTimeoutRef.current);
       }
+      clearIdleTimer();
     };
-  }, [fetchLinkData, triggerCaptureShield]);
+  }, [clearIdleTimer, fetchLinkData, triggerCaptureShield]);
+
+  useEffect(() => {
+    if (linkData?.status !== 'active') {
+      clearIdleTimer();
+      return undefined;
+    }
+
+    const focusLockEnabled = securityOptions.focus_lock_enabled !== false;
+    const idleSeconds = Number(securityOptions.idle_timeout_seconds || 0);
+
+    const handleVisibilityChange = () => {
+      if (document.hidden && focusLockEnabled) {
+        activateViewerLock('focus');
+        clearIdleTimer();
+        triggerCaptureShield(2500);
+      } else if (!document.hidden && !viewerLock) {
+        scheduleIdleTimer(idleSeconds);
+      }
+    };
+
+    const handleWindowBlur = () => {
+      if (!focusLockEnabled) return;
+      activateViewerLock('focus');
+      clearIdleTimer();
+      triggerCaptureShield(2500);
+    };
+
+    const handleActivity = () => {
+      if (document.hidden || viewerLock) return;
+      scheduleIdleTimer(idleSeconds);
+    };
+
+    window.addEventListener('blur', handleWindowBlur);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    if (idleSeconds > 0 && !viewerLock) {
+      const activityEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'wheel', 'scroll'];
+      activityEvents.forEach((eventName) => window.addEventListener(eventName, handleActivity, true));
+      scheduleIdleTimer(idleSeconds);
+      return () => {
+        window.removeEventListener('blur', handleWindowBlur);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        activityEvents.forEach((eventName) => window.removeEventListener(eventName, handleActivity, true));
+        clearIdleTimer();
+      };
+    }
+
+    return () => {
+      window.removeEventListener('blur', handleWindowBlur);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [
+    activateViewerLock,
+    clearIdleTimer,
+    linkData?.status,
+    scheduleIdleTimer,
+    securityOptions.focus_lock_enabled,
+    securityOptions.idle_timeout_seconds,
+    triggerCaptureShield,
+    viewerLock,
+  ]);
 
   // Countdown timer
   useEffect(() => {
@@ -414,6 +531,45 @@ const SecureViewer = () => {
     );
   }
 
+  if (linkData?.status === 'nda_required') {
+    return (
+      <div className="min-h-screen bg-stone-900 flex items-center justify-center p-4">
+        <div className="w-full max-w-3xl rounded-3xl border border-stone-700 bg-stone-800/95 p-8 shadow-2xl">
+          <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-600/15">
+            <Shield className="h-8 w-8 text-emerald-400" />
+          </div>
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-400">Confidential access</p>
+          <h1 className="mt-3 text-3xl font-bold text-white">
+            {linkData.nda?.title || 'Confidentiality agreement'}
+          </h1>
+          <p className="mt-4 whitespace-pre-wrap leading-7 text-stone-300">
+            {linkData.nda?.text || 'This document contains confidential information. By continuing, you agree to keep it private.'}
+          </p>
+          <div className="mt-6 grid gap-3 rounded-2xl border border-stone-700 bg-stone-900/50 p-5 text-sm text-stone-400 md:grid-cols-2">
+            <p>Copying, printing, and common capture shortcuts stay blocked while this viewer is active.</p>
+            <p>Opening the document starts the secure access session and any link timer configured by the owner.</p>
+          </div>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <Button
+              onClick={handleAcceptNda}
+              disabled={acceptingNda}
+              className="h-12 bg-emerald-600 px-6 text-base hover:bg-emerald-500"
+            >
+              {acceptingNda ? 'Verifying access...' : (linkData.nda?.accept_label || 'I agree and continue')}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate('/', { replace: true })}
+              className="h-12 border-stone-600 bg-transparent text-stone-200 hover:bg-stone-700"
+            >
+              Leave viewer
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const time = remainingTime !== null ? formatTime(remainingTime) : null;
 
   return (
@@ -423,6 +579,27 @@ const SecureViewer = () => {
           <p className="text-red-200 text-sm font-medium tracking-wide">
             Protected content hidden during screen capture attempt
           </p>
+        </div>
+      )}
+
+      {viewerLock && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-stone-950/96 p-6">
+          <div className="w-full max-w-xl rounded-3xl border border-stone-700 bg-stone-900/90 p-8 text-center shadow-2xl">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-600/15">
+              <Shield className="h-8 w-8 text-emerald-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-white">{viewerLock.title}</h2>
+            <p className="mt-3 leading-7 text-stone-300">{viewerLock.message}</p>
+            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Button
+                onClick={handleResumeViewer}
+                className="h-12 min-w-[180px] bg-emerald-600 text-base hover:bg-emerald-500"
+              >
+                {viewerLock.actionLabel || 'Resume viewing'}
+              </Button>
+              <p className="text-sm text-stone-500">The document stays hidden until you resume the secure session.</p>
+            </div>
+          </div>
         </div>
       )}
 
