@@ -24,6 +24,7 @@ import {
 import { useLanguage } from '../contexts/LanguageContext';
 import { DEFAULT_SEO_SETTINGS } from '../../../lib/seo';
 import { toast } from 'sonner';
+import { useLocation } from 'react-router-dom';
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 const PLAN_EDITOR_ORDER = ['basic', 'pro', 'enterprise'];
@@ -47,6 +48,7 @@ const buildPlanEditorState = (planSource = DEFAULT_SUBSCRIPTION_PLANS) => {
 };
 
 const AdminSettings = () => {
+  const location = useLocation();
   const { user } = useAuth();
   const { refreshBranding } = useBranding();
   const { refreshPublicSite } = usePublicSite();
@@ -112,6 +114,7 @@ const AdminSettings = () => {
   const [smtpForceReturnPath, setSmtpForceReturnPath] = useState(false);
   const [showSmtpPassword, setShowSmtpPassword] = useState(false);
   const [emailTestRecipient, setEmailTestRecipient] = useState('');
+  const [emailOauthFeedback, setEmailOauthFeedback] = useState(null);
   const [vercelConfig, setVercelConfig] = useState(null);
   const [vercelLoading, setVercelLoading] = useState(false);
   const [vercelSaving, setVercelSaving] = useState(false);
@@ -485,18 +488,26 @@ const AdminSettings = () => {
       setActiveTab('email');
     }
 
-    if (!oauth) return;
+    if (!oauth) {
+      setEmailOauthFeedback(null);
+      return;
+    }
+
+    const providerLabel =
+      provider === 'gmail'
+        ? 'Gmail'
+        : provider === 'outlook'
+          ? 'Microsoft'
+          : 'Email provider';
 
     if (oauth === 'connected') {
-      toast.success(
-        provider === 'gmail'
-          ? 'Gmail connected successfully'
-          : provider === 'outlook'
-            ? 'Microsoft connected successfully'
-            : 'Email provider connected successfully',
-      );
+      const successMessage = `${providerLabel} connected successfully`;
+      setEmailOauthFeedback({ type: 'success', message: successMessage });
+      toast.success(successMessage);
     } else {
-      toast.error(message || 'Email provider connection failed');
+      const errorMessage = message || `${providerLabel} connection failed`;
+      setEmailOauthFeedback({ type: 'error', message: errorMessage });
+      toast.error(errorMessage);
     }
 
     fetchEmailDeliveryConfig();
@@ -505,7 +516,7 @@ const AdminSettings = () => {
     url.searchParams.delete('provider');
     url.searchParams.delete('message');
     window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
-  }, []);
+  }, [location.search]);
 
   useEffect(() => {
     if (user?.email && !emailTestRecipient) {
@@ -1153,6 +1164,18 @@ const AdminSettings = () => {
                 <p className="text-sm text-stone-500">Loading email delivery settings...</p>
               ) : (
                 <>
+                  {emailOauthFeedback && (
+                    <div
+                      className={`rounded-xl border p-4 text-sm ${
+                        emailOauthFeedback.type === 'success'
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                          : 'border-red-200 bg-red-50 text-red-800'
+                      }`}
+                    >
+                      {emailOauthFeedback.message}
+                    </div>
+                  )}
+
                   <div className="rounded-xl bg-stone-50 border border-stone-200 p-4 space-y-2">
                     <p className="font-semibold text-stone-900">Delivery health</p>
                     <p className="text-sm text-stone-600">
@@ -1239,6 +1262,9 @@ const AdminSettings = () => {
                         <div className="space-y-2">
                           <Label>Google Client ID</Label>
                           <Input value={gmailClientId} onChange={(e) => setGmailClientId(e.target.value)} placeholder={emailDeliveryConfig?.gmail?.client_id_set ? 'Saved client ID is already configured' : 'Google OAuth client ID'} />
+                          <p className="text-xs text-stone-500">
+                            Status: {emailDeliveryConfig?.gmail?.client_id_set ? 'saved' : 'missing'}
+                          </p>
                         </div>
                         <div className="space-y-2">
                           <Label>Google Client Secret</Label>
@@ -1258,6 +1284,9 @@ const AdminSettings = () => {
                               {showGmailClientSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>
                           </div>
+                          <p className="text-xs text-stone-500">
+                            Status: {emailDeliveryConfig?.gmail?.client_secret_set ? 'saved' : 'missing'}
+                          </p>
                         </div>
                         <div className="space-y-2">
                           <Label>From Email</Label>
@@ -1276,7 +1305,11 @@ const AdminSettings = () => {
                         `Reply-To` is supported here. Bounce handling and actual return-path are managed by Google.
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        <Button onClick={() => handleEmailOAuthConnect('gmail')} variant="outline">
+                        <Button
+                          onClick={() => handleEmailOAuthConnect('gmail')}
+                          variant="outline"
+                          disabled={!emailDeliveryConfig?.gmail?.client_id_set || !emailDeliveryConfig?.gmail?.client_secret_set}
+                        >
                           {emailDeliveryConfig?.gmail?.connected ? 'Reconnect Gmail' : 'Connect Gmail'}
                         </Button>
                         {emailDeliveryConfig?.gmail?.connected && (
@@ -1285,6 +1318,11 @@ const AdminSettings = () => {
                           </Button>
                         )}
                       </div>
+                      {!emailDeliveryConfig?.gmail?.client_secret_set && (
+                        <p className="text-sm text-red-700">
+                          Google login will not open until the OAuth Client Secret is created in Google Cloud, saved here, and the settings are saved successfully.
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -1371,6 +1409,9 @@ const AdminSettings = () => {
                         <div className="space-y-2">
                           <Label>Application ID</Label>
                           <Input value={outlookClientId} onChange={(e) => setOutlookClientId(e.target.value)} placeholder={emailDeliveryConfig?.outlook?.client_id_set ? 'Saved application ID is already configured' : 'Azure application ID'} />
+                          <p className="text-xs text-stone-500">
+                            Status: {emailDeliveryConfig?.outlook?.client_id_set ? 'saved' : 'missing'}
+                          </p>
                         </div>
                         <div className="space-y-2">
                           <Label>Application Secret</Label>
@@ -1390,6 +1431,9 @@ const AdminSettings = () => {
                               {showOutlookClientSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>
                           </div>
+                          <p className="text-xs text-stone-500">
+                            Status: {emailDeliveryConfig?.outlook?.client_secret_set ? 'saved' : 'missing'}
+                          </p>
                         </div>
                         <div className="space-y-2">
                           <Label>From Email</Label>
@@ -1412,7 +1456,11 @@ const AdminSettings = () => {
                         <Switch checked={outlookSaveToSentItems} onCheckedChange={setOutlookSaveToSentItems} />
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <Button onClick={() => handleEmailOAuthConnect('outlook')} variant="outline">
+                        <Button
+                          onClick={() => handleEmailOAuthConnect('outlook')}
+                          variant="outline"
+                          disabled={!emailDeliveryConfig?.outlook?.client_id_set || !emailDeliveryConfig?.outlook?.client_secret_set}
+                        >
                           {emailDeliveryConfig?.outlook?.connected ? 'Reconnect Microsoft' : 'Connect Microsoft'}
                         </Button>
                         {emailDeliveryConfig?.outlook?.connected && (
