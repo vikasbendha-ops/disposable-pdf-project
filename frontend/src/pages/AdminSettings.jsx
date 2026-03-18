@@ -84,7 +84,6 @@ const AdminSettings = () => {
   const [gmailFromEmail, setGmailFromEmail] = useState('');
   const [gmailFromName, setGmailFromName] = useState('');
   const [gmailReplyTo, setGmailReplyTo] = useState('');
-  const [gmailForceReturnPath, setGmailForceReturnPath] = useState(false);
   const [showGmailClientSecret, setShowGmailClientSecret] = useState(false);
   const [mailgunApiKey, setMailgunApiKey] = useState('');
   const [mailgunDomain, setMailgunDomain] = useState('');
@@ -92,7 +91,6 @@ const AdminSettings = () => {
   const [mailgunFromEmail, setMailgunFromEmail] = useState('');
   const [mailgunFromName, setMailgunFromName] = useState('');
   const [mailgunReplyTo, setMailgunReplyTo] = useState('');
-  const [mailgunForceReturnPath, setMailgunForceReturnPath] = useState(false);
   const [showMailgunApiKey, setShowMailgunApiKey] = useState(false);
   const [outlookTenantId, setOutlookTenantId] = useState('common');
   const [outlookClientId, setOutlookClientId] = useState('');
@@ -230,14 +228,12 @@ const AdminSettings = () => {
     setGmailFromEmail(config?.gmail?.from_email || '');
     setGmailFromName(config?.gmail?.from_name || '');
     setGmailReplyTo(config?.gmail?.reply_to || '');
-    setGmailForceReturnPath(Boolean(config?.gmail?.force_return_path));
     setMailgunApiKey('');
     setMailgunDomain(config?.mailgun?.domain || '');
     setMailgunRegion(config?.mailgun?.region || 'us');
     setMailgunFromEmail(config?.mailgun?.from_email || '');
     setMailgunFromName(config?.mailgun?.from_name || '');
     setMailgunReplyTo(config?.mailgun?.reply_to || '');
-    setMailgunForceReturnPath(Boolean(config?.mailgun?.force_return_path));
     setOutlookTenantId(config?.outlook?.tenant_id || 'common');
     setOutlookClientId('');
     setOutlookClientSecret('');
@@ -621,14 +617,12 @@ const AdminSettings = () => {
       gmail_from_email: gmailFromEmail.trim(),
       gmail_from_name: gmailFromName.trim(),
       gmail_reply_to: gmailReplyTo.trim(),
-      gmail_force_return_path: gmailForceReturnPath,
       mailgun_api_key: mailgunApiKey.trim() || undefined,
       mailgun_domain: mailgunDomain.trim(),
       mailgun_region: mailgunRegion,
       mailgun_from_email: mailgunFromEmail.trim(),
       mailgun_from_name: mailgunFromName.trim(),
       mailgun_reply_to: mailgunReplyTo.trim(),
-      mailgun_force_return_path: mailgunForceReturnPath,
       outlook_tenant_id: outlookTenantId.trim(),
       outlook_client_id: outlookClientId.trim() || undefined,
       outlook_client_secret: outlookClientSecret.trim() || undefined,
@@ -1218,7 +1212,7 @@ const AdminSettings = () => {
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-stone-500">
-                      Gmail and Microsoft use OAuth connect flows. Mailgun uses API credentials. Other SMTP is for host, port, encryption, auth, reply-to, and return-path.
+                      Gmail and Microsoft use OAuth connect flows. Mailgun uses API credentials. Other SMTP is for host, port, encryption, auth, reply-to, and controllable return-path.
                     </p>
                   </div>
 
@@ -1275,13 +1269,9 @@ const AdminSettings = () => {
                           <Input value={gmailReplyTo} onChange={(e) => setGmailReplyTo(e.target.value)} placeholder="support@yourdomain.com" />
                         </div>
                       </div>
-                      <div className="flex items-center justify-between rounded-xl border border-stone-200 p-4">
-                        <div>
-                          <p className="font-medium text-stone-900">Force Return-Path</p>
-                          <p className="text-sm text-stone-500">Stored for consistency with other mailers. Final return-path behavior depends on Google.</p>
-                        </div>
-                        <Switch checked={gmailForceReturnPath} onCheckedChange={setGmailForceReturnPath} />
-                      </div>
+                      <p className="text-sm text-stone-500">
+                        `Reply-To` is supported here. Bounce handling and actual return-path are managed by Google.
+                      </p>
                       <div className="flex flex-wrap gap-2">
                         <Button onClick={() => handleEmailOAuthConnect('gmail')} variant="outline">
                           {emailDeliveryConfig?.gmail?.connected ? 'Reconnect Gmail' : 'Connect Gmail'}
@@ -1350,13 +1340,9 @@ const AdminSettings = () => {
                           <Input value={mailgunReplyTo} onChange={(e) => setMailgunReplyTo(e.target.value)} placeholder="support@yourdomain.com" />
                         </div>
                       </div>
-                      <div className="flex items-center justify-between rounded-xl border border-stone-200 p-4">
-                        <div>
-                          <p className="font-medium text-stone-900">Force Return-Path</p>
-                          <p className="text-sm text-stone-500">Stored alongside the mailer settings. Mailgun manages the final bounce routing.</p>
-                        </div>
-                        <Switch checked={mailgunForceReturnPath} onCheckedChange={setMailgunForceReturnPath} />
-                      </div>
+                      <p className="text-sm text-stone-500">
+                        `Reply-To` is supported here. Bounce routing and return-path are managed by Mailgun and your sending domain configuration.
+                      </p>
                     </div>
                   )}
 
