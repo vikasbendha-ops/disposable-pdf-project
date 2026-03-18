@@ -1222,10 +1222,13 @@ const AdminSettings = () => {
                         <div>
                           <p className="font-semibold text-stone-900">Gmail / Google Workspace mailer</p>
                           <p className="text-sm text-stone-500">
-                            Save your Google app credentials, then connect the mailbox with OAuth.
+                            Save your Google OAuth web app credentials, then connect the mailbox with OAuth.
                           </p>
                           <p className="text-xs text-stone-500 mt-2">
                             Redirect URI: {emailDeliveryConfig?.gmail?.oauth_callback_url || 'Unavailable until this page is served from the live app URL'}
+                          </p>
+                          <p className="text-xs text-stone-500 mt-1">
+                            Use the OAuth Client ID and Client Secret from Google Cloud. The API key is not used here.
                           </p>
                         </div>
                         <Badge className={emailDeliveryConfig?.gmail?.connected ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-stone-100 text-stone-700 border-stone-200'}>
