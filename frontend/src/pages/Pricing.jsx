@@ -1,34 +1,55 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Check, FileText, ChevronRight, Zap, Shield, Clock, Users } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
-import { api, useAuth, useBranding, useSubscriptionPlans } from '../App';
+import { api, getOrderedPlanEntries, useAuth, useBranding, useSubscriptionPlans } from '../App';
+import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
+
+const PLAN_ICON_MAP = {
+  basic: Zap,
+  pro: Shield,
+  enterprise: Users,
+};
 
 const Pricing = () => {
   const [processingPlan, setProcessingPlan] = useState(null);
   const { user } = useAuth();
   const { branding } = useBranding();
   const { plans, loading } = useSubscriptionPlans();
+  const { t } = useLanguage();
   const brandName = branding?.app_name || 'Autodestroy';
   const productName = branding?.product_name || 'Autodestroy PDF Platform';
   const footerText = branding?.footer_text || 'All rights reserved.';
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const requestedPlanId = String(searchParams.get('plan') || '').trim();
 
   useEffect(() => {
-    // Check for cancelled payment
     if (searchParams.get('payment') === 'cancelled') {
-      toast.info('Payment cancelled');
+      toast.info(t('pricingPage.paymentCancelled'));
     }
-  }, [searchParams]);
+  }, [searchParams, t]);
+
+  const orderedPlans = useMemo(
+    () => getOrderedPlanEntries(plans).filter(([, plan]) => plan && plan.active !== false),
+    [plans],
+  );
+
+  const requestedPlanEntry = requestedPlanId
+    ? orderedPlans.find(([planId]) => planId === requestedPlanId)
+    : null;
+  const isDirectPlanView = Boolean(requestedPlanEntry);
+  const visiblePlans = isDirectPlanView
+    ? [requestedPlanEntry]
+    : orderedPlans.filter(([, plan]) => plan.public_visible !== false);
 
   const handleSubscribe = async (planId) => {
     if (!user) {
-      navigate('/register');
+      navigate(`/register?plan=${encodeURIComponent(planId)}`);
       return;
     }
 
@@ -37,28 +58,16 @@ const Pricing = () => {
     try {
       const response = await api.post('/subscription/checkout', {
         plan: planId,
-        origin_url: window.location.origin
+        origin_url: window.location.origin,
       });
-
-      // Redirect to Stripe
       window.location.href = response.data.url;
     } catch (error) {
-      const message = error.response?.data?.detail || 'Failed to start checkout';
+      const message = error.response?.data?.detail || t('pricingPage.checkoutFailed');
       toast.error(message);
     } finally {
       setProcessingPlan(null);
     }
   };
-
-  const planIcons = {
-    basic: Zap,
-    pro: Shield,
-    enterprise: Users
-  };
-  const planOrder = ['basic', 'pro', 'enterprise'];
-  const visiblePlans = planOrder
-    .map((planId) => [planId, plans?.[planId]])
-    .filter(([, plan]) => plan && plan.active !== false);
 
   const formatPrice = (amount, currency) => {
     try {
@@ -75,62 +84,71 @@ const Pricing = () => {
 
   return (
     <div className="min-h-screen bg-stone-50">
-      {/* Navigation */}
-      <nav className="bg-white border-b border-stone-200 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <nav className="border-b border-stone-200 bg-white px-6 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between">
           <Link to="/" className="flex items-center space-x-2">
-            <div className="w-10 h-10 bg-emerald-900 rounded-lg flex items-center justify-center">
-              <FileText className="w-5 h-5 text-white" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-900">
+              <FileText className="h-5 w-5 text-white" />
             </div>
-            <span className="font-heading font-bold text-xl text-stone-900">{brandName}</span>
+            <span className="font-heading text-xl font-bold text-stone-900">{brandName}</span>
           </Link>
-          
+
           {user ? (
             <Link to="/dashboard">
-              <Button variant="outline">Dashboard</Button>
+              <Button variant="outline">{t('pricingPage.dashboard')}</Button>
             </Link>
           ) : (
             <div className="flex items-center space-x-4">
               <Link to="/login">
-                <Button variant="ghost">Sign In</Button>
+                <Button variant="ghost">{t('pricingPage.signIn')}</Button>
               </Link>
               <Link to="/register">
-                <Button className="bg-emerald-900 hover:bg-emerald-800">Get Started</Button>
+                <Button className="bg-emerald-900 hover:bg-emerald-800">{t('pricingPage.getStarted')}</Button>
               </Link>
             </div>
           )}
         </div>
       </nav>
 
-      {/* Header */}
-      <section className="py-16 px-6 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <span className="inline-block px-4 py-2 bg-emerald-100 text-emerald-900 rounded-full text-sm font-semibold mb-6">
-            PRICING
+      <section className="px-6 py-16 text-center">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+          <span className="mb-6 inline-block rounded-full bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-900">
+            {isDirectPlanView ? t('pricingPage.directPlanBadge') : t('pricingPage.badge')}
           </span>
-          <h1 className="font-heading text-4xl md:text-5xl font-bold text-stone-900 mb-4">
-            Simple, Transparent Pricing
+          <h1 className="font-heading mb-4 text-4xl font-bold text-stone-900 md:text-5xl">
+            {isDirectPlanView ? t('pricingPage.directTitle') : t('pricingPage.title')}
           </h1>
-          <p className="text-lg text-stone-600 max-w-2xl mx-auto">
-            Choose the plan that fits your needs. All plans include our core security features.
+          <p className="mx-auto max-w-2xl text-lg text-stone-600">
+            {isDirectPlanView ? t('pricingPage.directSubtitle') : t('pricingPage.subtitle')}
           </p>
+          {isDirectPlanView && (
+            <div className="mt-6">
+              <Link to="/pricing">
+                <Button variant="outline">{t('pricingPage.viewAllPlans')}</Button>
+              </Link>
+            </div>
+          )}
         </motion.div>
       </section>
 
-      {/* Plans */}
-      <section className="pb-24 px-6">
-        <div className="max-w-6xl mx-auto">
+      <section className="px-6 pb-24">
+        <div className="mx-auto max-w-6xl">
           {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-900"></div>
+            <div className="flex h-64 items-center justify-center">
+              <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-emerald-900" />
             </div>
+          ) : visiblePlans.length === 0 ? (
+            <Card className="border-stone-200">
+              <CardContent className="py-16 text-center">
+                <Clock className="mx-auto mb-4 h-12 w-12 text-stone-300" />
+                <h2 className="text-xl font-semibold text-stone-900">{t('pricingPage.noPlansTitle')}</h2>
+                <p className="mt-2 text-stone-500">{t('pricingPage.noPlansDescription')}</p>
+              </CardContent>
+            </Card>
           ) : (
-            <div className="grid md:grid-cols-3 gap-8">
-              {visiblePlans.map(([planId, plan], i) => {
-                const Icon = planIcons[planId];
+            <div className={cn('grid gap-8', visiblePlans.length === 1 ? 'mx-auto max-w-xl' : 'md:grid-cols-2 xl:grid-cols-3')}>
+              {visiblePlans.map(([planId, plan], index) => {
+                const Icon = PLAN_ICON_MAP[planId] || Shield;
                 const features = Array.isArray(plan?.features) ? plan.features : [];
                 const isPopular = Boolean(plan?.featured);
                 const isCurrentPlan = user?.plan === planId && user?.subscription_status === 'active';
@@ -140,46 +158,49 @@ const Pricing = () => {
                     key={planId}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.1 }}
+                    transition={{ delay: index * 0.08 }}
                   >
-                    <Card className={cn(
-                      "relative h-full border-2 transition-all",
-                      isPopular ? "border-emerald-600 shadow-xl scale-105" : "border-stone-200"
-                    )}>
+                    <Card
+                      className={cn(
+                        'relative h-full border-2 transition-all',
+                        isPopular ? 'scale-[1.02] border-emerald-600 shadow-xl' : 'border-stone-200',
+                      )}
+                    >
                       {isPopular && plan?.badge && (
                         <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                          <span className="bg-emerald-900 text-white px-4 py-1 rounded-full text-sm font-semibold">
+                          <span className="rounded-full bg-emerald-900 px-4 py-1 text-sm font-semibold text-white">
                             {plan.badge}
                           </span>
                         </div>
                       )}
-                      
-                      <CardHeader className="text-center pb-2">
-                        <div className={cn(
-                          "w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4",
-                          isPopular ? "bg-emerald-100" : "bg-stone-100"
-                        )}>
-                          <Icon className={cn(
-                            "w-7 h-7",
-                            isPopular ? "text-emerald-700" : "text-stone-600"
-                          )} />
+
+                      <CardHeader className="pb-2 text-center">
+                        <div
+                          className={cn(
+                            'mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl',
+                            isPopular ? 'bg-emerald-100' : 'bg-stone-100',
+                          )}
+                        >
+                          <Icon className={cn('h-7 w-7', isPopular ? 'text-emerald-700' : 'text-stone-600')} />
                         </div>
                         <CardTitle className="font-heading text-2xl">{plan.name}</CardTitle>
                         <CardDescription>{plan.description}</CardDescription>
                       </CardHeader>
-                      
+
                       <CardContent className="pt-4">
-                        <div className="text-center mb-6">
+                        <div className="mb-6 text-center">
                           <span className="font-heading text-5xl font-bold text-stone-900">
                             {formatPrice(plan.price, plan.currency)}
                           </span>
-                          <span className="text-stone-500">/{plan.interval || 'month'}</span>
+                          <span className="text-stone-500">
+                            /{plan.interval === 'year' ? t('pricingPage.intervalYear') : t('pricingPage.intervalMonth')}
+                          </span>
                         </div>
 
-                        <ul className="space-y-3 mb-8">
-                          {features.map((feature, j) => (
-                            <li key={j} className="flex items-center text-stone-600">
-                              <Check className="w-5 h-5 text-emerald-600 mr-3 flex-shrink-0" />
+                        <ul className="mb-8 space-y-3">
+                          {features.map((feature, featureIndex) => (
+                            <li key={featureIndex} className="flex items-center text-stone-600">
+                              <Check className="mr-3 h-5 w-5 flex-shrink-0 text-emerald-600" />
                               {feature}
                             </li>
                           ))}
@@ -187,10 +208,8 @@ const Pricing = () => {
 
                         <Button
                           className={cn(
-                            "w-full h-12",
-                            isPopular 
-                              ? "bg-emerald-900 hover:bg-emerald-800" 
-                              : "bg-stone-900 hover:bg-stone-800"
+                            'h-12 w-full',
+                            isPopular ? 'bg-emerald-900 hover:bg-emerald-800' : 'bg-stone-900 hover:bg-stone-800',
                           )}
                           onClick={() => handleSubscribe(planId)}
                           disabled={isCurrentPlan || processingPlan === planId}
@@ -198,15 +217,15 @@ const Pricing = () => {
                         >
                           {processingPlan === planId ? (
                             <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
-                              Processing...
+                              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-t-transparent border-white" />
+                              {t('pricingPage.processing')}
                             </>
                           ) : isCurrentPlan ? (
-                            'Current Plan'
+                            t('pricingPage.currentPlan')
                           ) : (
                             <>
-                              Get Started
-                              <ChevronRight className="w-4 h-4 ml-2" />
+                              {t('pricingPage.cta')}
+                              <ChevronRight className="ml-2 h-4 w-4" />
                             </>
                           )}
                         </Button>
@@ -220,43 +239,24 @@ const Pricing = () => {
         </div>
       </section>
 
-      {/* FAQ */}
-      <section className="py-16 px-6 bg-white border-t border-stone-200">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="font-heading text-3xl font-bold text-stone-900 text-center mb-12">
-            Frequently Asked Questions
+      <section className="border-t border-stone-200 bg-white px-6 py-16">
+        <div className="mx-auto max-w-4xl">
+          <h2 className="font-heading mb-12 text-center text-3xl font-bold text-stone-900">
+            {t('pricingPage.faqTitle')}
           </h2>
           <div className="grid gap-6">
-            {[
-              {
-                q: 'Can I upgrade or downgrade my plan?',
-                a: 'Yes, you can change your plan at any time. Changes take effect on your next billing cycle.'
-              },
-              {
-                q: 'What payment methods do you accept?',
-                a: 'We accept all major credit cards through our secure Stripe integration.'
-              },
-              {
-                q: 'Is there a free trial?',
-                a: 'We offer a 14-day money-back guarantee on all plans. Try risk-free!'
-              },
-              {
-                q: 'What happens when my storage is full?',
-                a: 'You\'ll need to delete some files or upgrade your plan to upload more PDFs.'
-              }
-            ].map((faq, i) => (
-              <div key={i} className="bg-stone-50 rounded-xl p-6">
-                <h3 className="font-semibold text-stone-900 mb-2">{faq.q}</h3>
-                <p className="text-stone-600">{faq.a}</p>
+            {['upgrade', 'payments', 'trial', 'storage'].map((faqKey) => (
+              <div key={faqKey} className="rounded-xl bg-stone-50 p-6">
+                <h3 className="mb-2 font-semibold text-stone-900">{t(`pricingPage.faq.${faqKey}.q`)}</h3>
+                <p className="text-stone-600">{t(`pricingPage.faq.${faqKey}.a`)}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-stone-900 text-white py-8 px-6">
-        <div className="max-w-7xl mx-auto text-center">
+      <footer className="bg-stone-900 px-6 py-8 text-white">
+        <div className="mx-auto max-w-7xl text-center">
           <p className="text-stone-400">
             &copy; {new Date().getFullYear()} {productName}. {footerText}
           </p>

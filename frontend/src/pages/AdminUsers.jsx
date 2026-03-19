@@ -39,7 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
-import { api, useAuth, useSubscriptionPlans } from '../App';
+import { api, getOrderedPlanEntries, useAuth, useSubscriptionPlans } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -347,7 +347,9 @@ const AdminUsers = () => {
     return t('adminUsers.noSubscription');
   };
 
-  const managedPlanIds = ['basic', 'pro', 'enterprise'].filter((planId) => plans?.[planId]);
+  const managedPlanIds = getOrderedPlanEntries(plans)
+    .filter(([, plan]) => plan && plan.active !== false)
+    .map(([planId]) => planId);
   const subscriptionOptions = [
     { value: 'none', label: getPlanLabel('none') },
     ...managedPlanIds.map((planId) => ({

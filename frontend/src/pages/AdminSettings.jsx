@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { CreditCard, Shield, CheckCircle, AlertCircle, Eye, EyeOff, Palette, Search, Globe, FileText, Mail } from 'lucide-react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { CreditCard, Shield, CheckCircle, AlertCircle, Eye, EyeOff, Palette, Search, Globe, FileText, Mail, Copy, Link2, Plus } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -15,6 +15,7 @@ import {
   DEFAULT_BRANDING,
   DEFAULT_PUBLIC_SITE,
   DEFAULT_SUBSCRIPTION_PLANS,
+  getOrderedPlanEntries,
   useAuth,
   useBranding,
   usePublicSite,
@@ -27,22 +28,53 @@ import { toast } from 'sonner';
 import { useLocation } from 'react-router-dom';
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
-const PLAN_EDITOR_ORDER = ['basic', 'pro', 'enterprise'];
+const PLAN_ID_RE = /^[a-z0-9][a-z0-9_-]{1,39}$/;
+
+const formatPlanNameFromId = (planId) =>
+  String(planId || '')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase()) || 'Custom Plan';
+
+const createPlanEditor = (planId, plan = {}, index = 0) => {
+  const defaults = DEFAULT_SUBSCRIPTION_PLANS[planId] || {
+    name: formatPlanNameFromId(planId),
+    description: '',
+    badge: '',
+    price: 0,
+    storage_mb: 0,
+    links_per_month: 0,
+    featured: false,
+    active: true,
+    public_visible: false,
+    sort_order: 100 + index,
+    features: [],
+  };
+  return {
+    name: plan?.name || defaults.name || '',
+    description: plan?.description || defaults.description || '',
+    badge: plan?.badge || defaults.badge || '',
+    price: String(plan?.price ?? defaults.price ?? ''),
+    storage_mb: String(plan?.storage_mb ?? defaults.storage_mb ?? ''),
+    links_per_month: String(plan?.links_per_month ?? defaults.links_per_month ?? ''),
+    featured: Boolean(plan?.featured ?? defaults.featured),
+    active: plan?.active !== false,
+    public_visible:
+      plan?.public_visible !== undefined
+        ? Boolean(plan.public_visible)
+        : Boolean(defaults.public_visible),
+    sort_order: String(plan?.sort_order ?? defaults.sort_order ?? (100 + index)),
+    features: Array.isArray(plan?.features) ? plan.features.join('\n') : defaults.features.join('\n'),
+  };
+};
 
 const buildPlanEditorState = (planSource = DEFAULT_SUBSCRIPTION_PLANS) => {
-  return PLAN_EDITOR_ORDER.reduce((accumulator, planId) => {
-    const plan = planSource?.[planId] || DEFAULT_SUBSCRIPTION_PLANS[planId];
-    accumulator[planId] = {
-      name: plan?.name || '',
-      description: plan?.description || '',
-      badge: plan?.badge || '',
-      price: String(plan?.price ?? ''),
-      storage_mb: String(plan?.storage_mb ?? ''),
-      links_per_month: String(plan?.links_per_month ?? ''),
-      featured: Boolean(plan?.featured),
-      active: plan?.active !== false,
-      features: Array.isArray(plan?.features) ? plan.features.join('\n') : '',
-    };
+  const orderedPlanIds = getOrderedPlanEntries({
+    ...DEFAULT_SUBSCRIPTION_PLANS,
+    ...(planSource || {}),
+  }).map(([planId]) => planId);
+  return orderedPlanIds.reduce((accumulator, planId, index) => {
+    accumulator[planId] = createPlanEditor(planId, planSource?.[planId], index);
     return accumulator;
   }, {});
 };
@@ -220,6 +252,10 @@ const AdminSettings = () => {
   const [planCurrency, setPlanCurrency] = useState('eur');
   const [planInterval, setPlanInterval] = useState('month');
   const [planEditors, setPlanEditors] = useState(() => buildPlanEditorState());
+  const [showNewPlanDialog, setShowNewPlanDialog] = useState(false);
+  const [newPlanId, setNewPlanId] = useState('');
+  const [newPlanName, setNewPlanName] = useState('');
+  const [copiedPlanLink, setCopiedPlanLink] = useState('');
 
   const fetchStripeConfig = async () => {
     try {
@@ -1130,6 +1166,58 @@ const AdminSettings = () => {
     }));
   };
 
+  const handleAddPlanEditor = () => {
+    const normalizedPlanId = String(newPlanId || '').trim().toLowerCase();
+    const normalizedPlanName = String(newPlanName || '').trim() || formatPlanNameFromId(normalizedPlanId);
+
+    if (!PLAN_ID_RE.test(normalizedPlanId)) {
+      toast.error('Plan ID must use lowercase letters, numbers, dashes, or underscores');
+      return;
+    }
+    if (planEditors[normalizedPlanId]) {
+      toast.error('A plan with this ID already exists');
+      return;
+    }
+
+    const nextSortOrder = Math.max(
+      0,
+      ...Object.values(planEditors || {}).map((plan) => Number(plan?.sort_order || 0)),
+    ) + 10;
+
+    setPlanEditors((prev) => ({
+      ...prev,
+      [normalizedPlanId]: createPlanEditor(
+        normalizedPlanId,
+        {
+          name: normalizedPlanName,
+          public_visible: false,
+          sort_order: nextSortOrder,
+          features: ['Secure PDF access'],
+        },
+        Object.keys(prev || {}).length,
+      ),
+    }));
+    setShowNewPlanDialog(false);
+    setNewPlanId('');
+    setNewPlanName('');
+    toast.success('Plan editor added');
+  };
+
+  const handleCopyPlanLink = async (planId) => {
+    const shareUrl =
+      typeof window === 'undefined'
+        ? `/pricing?plan=${encodeURIComponent(planId)}`
+        : `${window.location.origin}/pricing?plan=${encodeURIComponent(planId)}`;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopiedPlanLink(planId);
+      window.setTimeout(() => setCopiedPlanLink(''), 1600);
+      toast.success('Plan link copied');
+    } catch {
+      toast.error('Failed to copy plan link');
+    }
+  };
+
   const handleSaveSubscriptionPlans = async () => {
     if (!isSuperAdmin) {
       toast.error('Only super admin can update subscription plans');
@@ -1139,8 +1227,7 @@ const AdminSettings = () => {
     const payload = {
       currency: planCurrency,
       interval: planInterval,
-      plans: PLAN_EDITOR_ORDER.reduce((accumulator, planId) => {
-        const editor = planEditors[planId];
+      plans: Object.entries(planEditors).reduce((accumulator, [planId, editor]) => {
         accumulator[planId] = {
           name: editor.name.trim(),
           description: editor.description.trim(),
@@ -1150,6 +1237,8 @@ const AdminSettings = () => {
           links_per_month: Number(editor.links_per_month || 0),
           featured: Boolean(editor.featured),
           active: Boolean(editor.active),
+          public_visible: Boolean(editor.public_visible),
+          sort_order: Number(editor.sort_order || 0),
           features: editor.features
             .split('\n')
             .map((item) => item.trim())
@@ -1183,6 +1272,21 @@ const AdminSettings = () => {
   }
 
   const isLive = stripeConfig?.mode === 'live';
+  const orderedPlanEntries = useMemo(
+    () => getOrderedPlanEntries(
+      Object.fromEntries(
+        Object.entries(planEditors || {}).map(([planId, editor]) => [
+          planId,
+          {
+            ...editor,
+            name: editor?.name || formatPlanNameFromId(planId),
+            sort_order: Number(editor?.sort_order || 0),
+          },
+        ]),
+      ),
+    ),
+    [planEditors],
+  );
   const gmailDraftClientId = getDraftFieldValue(gmailClientId, gmailClientIdRef);
   const gmailDraftClientSecret = getDraftFieldValue(gmailClientSecret, gmailClientSecretRef);
   const outlookDraftClientId = getDraftFieldValue(outlookClientId, outlookClientIdRef);
@@ -1254,28 +1358,28 @@ const AdminSettings = () => {
     ? `${emailProviderLabels[requestedEmailProvider] || requestedEmailProvider} is not ready, so ${emailProviderLabels[activeEmailProvider] || activeEmailProvider} is active.`
     : '';
   const adminTabs = [
-    { value: 'payments', label: 'Payments' },
-    { value: 'localization', label: 'Localization' },
+    { value: 'payments', label: t('adminSettingsTabs.payments') },
+    { value: 'localization', label: t('adminSettingsTabs.localization') },
   ];
   const superAdminTabs = [
-    { value: 'email', label: 'Email' },
-    { value: 'public-site', label: 'Public Site' },
-    { value: 'plans', label: 'Plans' },
-    { value: 'storage', label: 'Storage' },
-    { value: 'domains', label: 'Domains' },
-    { value: 'branding', label: 'Branding' },
-    { value: 'seo', label: 'SEO' },
-    { value: 'invoice', label: 'Invoice' },
+    { value: 'email', label: t('adminSettingsTabs.email') },
+    { value: 'public-site', label: t('adminSettingsTabs.publicSite') },
+    { value: 'plans', label: t('adminSettingsTabs.plans') },
+    { value: 'storage', label: t('adminSettingsTabs.storage') },
+    { value: 'domains', label: t('adminSettingsTabs.domains') },
+    { value: 'branding', label: t('adminSettingsTabs.branding') },
+    { value: 'seo', label: t('adminSettingsTabs.seo') },
+    { value: 'invoice', label: t('adminSettingsTabs.invoice') },
   ];
   const displayedTabs = isSuperAdmin ? [...adminTabs, ...superAdminTabs] : adminTabs;
   const seoPreviewUrl = (seoCanonicalBaseUrl || 'https://your-domain.com').replace(/\/$/, '');
 
   return (
     <DashboardLayout
-      title={isSuperAdmin ? 'Platform Settings' : t('admin.stripeSettings')}
+      title={isSuperAdmin ? t('admin.platformSettings') : t('admin.stripeSettings')}
       subtitle={
         isSuperAdmin
-          ? 'Payments, plans, branding, public links, storage, SEO, and domain automation.'
+          ? t('adminSettingsTabs.subtitle')
           : t('adminSettingsLocalization.description')
       }
     >
@@ -2190,92 +2294,141 @@ const AdminSettings = () => {
             <TabsContent value="plans" className="max-w-5xl">
               <Card className="border-stone-200">
                 <CardHeader>
-                  <CardTitle>Subscription Plans</CardTitle>
+                  <CardTitle>{t('adminSettingsPlans.title')}</CardTitle>
                   <CardDescription>
-                    Centralized plan pricing, limits, and marketing copy used in checkout and pricing views.
+                    {t('adminSettingsPlans.description')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {planLoading ? (
-                    <p className="text-sm text-stone-500">Loading subscription plan settings...</p>
+                    <p className="text-sm text-stone-500">{t('adminSettingsPlans.loading')}</p>
                   ) : (
                     <>
-                      <div className="grid md:grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <Label>Currency</Label>
-                          <Input value={planCurrency} onChange={(e) => setPlanCurrency(e.target.value.toLowerCase())} placeholder="eur" maxLength={3} />
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                        <div className="grid flex-1 gap-3 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label>{t('adminSettingsPlans.currency')}</Label>
+                            <Input value={planCurrency} onChange={(e) => setPlanCurrency(e.target.value.toLowerCase())} placeholder="eur" maxLength={3} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>{t('adminSettingsPlans.billingInterval')}</Label>
+                            <Select value={planInterval} onValueChange={setPlanInterval}>
+                              <SelectTrigger className="h-12">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="month">{t('adminSettingsPlans.intervalMonth')}</SelectItem>
+                                <SelectItem value="year">{t('adminSettingsPlans.intervalYear')}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          <Label>Billing Interval</Label>
-                          <Select value={planInterval} onValueChange={setPlanInterval}>
-                            <SelectTrigger className="h-12">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="month">month</SelectItem>
-                              <SelectItem value="year">year</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        <Button
+                          type="button"
+                          className="bg-emerald-900 hover:bg-emerald-800"
+                          onClick={() => setShowNewPlanDialog(true)}
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          {t('adminSettingsPlans.newPlan')}
+                        </Button>
                       </div>
 
                       <div className="grid gap-4">
-                        {PLAN_EDITOR_ORDER.map((planId) => {
-                          const editor = planEditors[planId];
+                        {orderedPlanEntries.map(([planId, editor]) => {
+                          const shareUrl =
+                            typeof window === 'undefined'
+                              ? `/pricing?plan=${encodeURIComponent(planId)}`
+                              : `${window.location.origin}/pricing?plan=${encodeURIComponent(planId)}`;
                           return (
                             <Card key={planId} className="border-stone-200 bg-stone-50/50">
-                              <CardContent className="p-4 space-y-4">
-                                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                              <CardContent className="space-y-4 p-4">
+                                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                   <div>
-                                    <p className="font-semibold text-stone-900 capitalize">{planId}</p>
-                                    <p className="text-sm text-stone-500">Checkout, storage limit, and pricing card configuration.</p>
+                                    <p className="font-semibold text-stone-900">{editor.name || formatPlanNameFromId(planId)}</p>
+                                    <p className="text-sm text-stone-500">
+                                      {t('adminSettingsPlans.planId')}: <code>{planId}</code>
+                                    </p>
                                   </div>
-                                  <div className="flex items-center gap-4">
+                                  <div className="flex flex-wrap items-center gap-4">
                                     <div className="flex items-center gap-2">
-                                      <span className="text-sm text-stone-600">Featured</span>
+                                      <span className="text-sm text-stone-600">{t('adminSettingsPlans.featured')}</span>
                                       <Switch checked={editor.featured} onCheckedChange={(value) => updatePlanEditorField(planId, 'featured', value)} />
                                     </div>
                                     <div className="flex items-center gap-2">
-                                      <span className="text-sm text-stone-600">Active</span>
+                                      <span className="text-sm text-stone-600">{t('adminSettingsPlans.active')}</span>
                                       <Switch checked={editor.active} onCheckedChange={(value) => updatePlanEditorField(planId, 'active', value)} />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm text-stone-600">{t('adminSettingsPlans.showOnPricing')}</span>
+                                      <Switch checked={editor.public_visible} onCheckedChange={(value) => updatePlanEditorField(planId, 'public_visible', value)} />
                                     </div>
                                   </div>
                                 </div>
 
-                                <div className="grid md:grid-cols-2 gap-3">
+                                <div className="grid gap-3 md:grid-cols-2">
                                   <div className="space-y-2">
-                                    <Label>Name</Label>
+                                    <Label>{t('adminSettingsPlans.name')}</Label>
                                     <Input value={editor.name} onChange={(e) => updatePlanEditorField(planId, 'name', e.target.value)} />
                                   </div>
                                   <div className="space-y-2">
-                                    <Label>Badge</Label>
-                                    <Input value={editor.badge} onChange={(e) => updatePlanEditorField(planId, 'badge', e.target.value)} placeholder="Most Popular" />
+                                    <Label>{t('adminSettingsPlans.badge')}</Label>
+                                    <Input value={editor.badge} onChange={(e) => updatePlanEditorField(planId, 'badge', e.target.value)} placeholder={t('adminSettingsPlans.badgePlaceholder')} />
                                   </div>
                                 </div>
 
                                 <div className="space-y-2">
-                                  <Label>Description</Label>
+                                  <Label>{t('adminSettingsPlans.descriptionLabel')}</Label>
                                   <Input value={editor.description} onChange={(e) => updatePlanEditorField(planId, 'description', e.target.value)} />
                                 </div>
 
-                                <div className="grid md:grid-cols-3 gap-3">
+                                <div className="grid gap-3 md:grid-cols-4">
                                   <div className="space-y-2">
-                                    <Label>Price</Label>
+                                    <Label>{t('adminSettingsPlans.price')}</Label>
                                     <Input type="number" min="0" step="0.01" value={editor.price} onChange={(e) => updatePlanEditorField(planId, 'price', e.target.value)} />
                                   </div>
                                   <div className="space-y-2">
-                                    <Label>Storage (MB)</Label>
+                                    <Label>{t('adminSettingsPlans.storageMb')}</Label>
                                     <Input type="number" min="0" step="1" value={editor.storage_mb} onChange={(e) => updatePlanEditorField(planId, 'storage_mb', e.target.value)} />
                                   </div>
                                   <div className="space-y-2">
-                                    <Label>Links / month</Label>
+                                    <Label>{t('adminSettingsPlans.linksPerMonth')}</Label>
                                     <Input type="number" min="0" step="1" value={editor.links_per_month} onChange={(e) => updatePlanEditorField(planId, 'links_per_month', e.target.value)} />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label>{t('adminSettingsPlans.sortOrder')}</Label>
+                                    <Input type="number" min="0" step="1" value={editor.sort_order} onChange={(e) => updatePlanEditorField(planId, 'sort_order', e.target.value)} />
                                   </div>
                                 </div>
 
                                 <div className="space-y-2">
-                                  <Label>Features (one per line)</Label>
+                                  <Label>{t('adminSettingsPlans.features')}</Label>
                                   <Textarea value={editor.features} onChange={(e) => updatePlanEditorField(planId, 'features', e.target.value)} rows={6} />
+                                </div>
+
+                                <div className="rounded-xl border border-stone-200 bg-white p-4">
+                                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                    <div>
+                                      <p className="font-medium text-stone-900">{t('adminSettingsPlans.shareLink')}</p>
+                                      <p className="text-sm text-stone-500">
+                                        {editor.public_visible
+                                          ? t('adminSettingsPlans.shareLinkPublic')
+                                          : t('adminSettingsPlans.shareLinkHidden')}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Link2 className="h-4 w-4 text-stone-400" />
+                                      <code className="max-w-[440px] truncate rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-600">
+                                        {shareUrl}
+                                      </code>
+                                      <Button type="button" variant="outline" size="icon" onClick={() => handleCopyPlanLink(planId)}>
+                                        {copiedPlanLink === planId ? (
+                                          <CheckCircle className="h-4 w-4 text-emerald-600" />
+                                        ) : (
+                                          <Copy className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                    </div>
+                                  </div>
                                 </div>
                               </CardContent>
                             </Card>
@@ -2288,7 +2441,7 @@ const AdminSettings = () => {
                         disabled={planSaving}
                         className="bg-emerald-900 hover:bg-emerald-800"
                       >
-                        {planSaving ? 'Saving...' : 'Save Subscription Plans'}
+                        {planSaving ? t('adminSettingsPlans.saving') : t('adminSettingsPlans.save')}
                       </Button>
                     </>
                   )}
@@ -2546,6 +2699,44 @@ const AdminSettings = () => {
             </TabsContent>
           </>
         )}
+
+        <Dialog open={showNewPlanDialog} onOpenChange={setShowNewPlanDialog}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{t('adminSettingsPlans.newPlan')}</DialogTitle>
+              <DialogDescription>{t('adminSettingsPlans.newPlanDescription')}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>{t('adminSettingsPlans.planId')}</Label>
+                <Input
+                  value={newPlanId}
+                  onChange={(e) => setNewPlanId(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+                  placeholder="team"
+                  maxLength={40}
+                />
+                <p className="text-xs text-stone-500">{t('adminSettingsPlans.planIdHelp')}</p>
+              </div>
+              <div className="space-y-2">
+                <Label>{t('adminSettingsPlans.name')}</Label>
+                <Input
+                  value={newPlanName}
+                  onChange={(e) => setNewPlanName(e.target.value)}
+                  placeholder={t('adminSettingsPlans.namePlaceholder')}
+                  maxLength={48}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowNewPlanDialog(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button type="button" className="bg-emerald-900 hover:bg-emerald-800" onClick={handleAddPlanEditor}>
+                {t('adminSettingsPlans.addPlan')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </Tabs>
     </DashboardLayout>
   );

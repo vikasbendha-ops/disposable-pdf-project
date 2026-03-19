@@ -4,7 +4,7 @@ import {
   LayoutDashboard, FileText, Link2, Settings, LogOut, Shield,
   ChevronRight, Users, BarChart3, Menu, X, ClipboardList
 } from 'lucide-react';
-import { useAuth, useBranding } from '../App';
+import { useAuth, useBranding, useSubscriptionPlans } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Button } from '../components/ui/button';
 import { cn } from '../lib/utils';
@@ -12,6 +12,7 @@ import { cn } from '../lib/utils';
 const DashboardLayout = ({ children, title, subtitle }) => {
   const { user, logout } = useAuth();
   const { branding } = useBranding();
+  const { plans } = useSubscriptionPlans();
   const { t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
@@ -19,6 +20,10 @@ const DashboardLayout = ({ children, title, subtitle }) => {
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
   const brandName = branding?.app_name || 'Autodestroy';
+  const currentPlanLabel =
+    user?.plan && plans?.[user.plan]?.name
+      ? plans[user.plan].name
+      : (user?.plan?.toUpperCase() || 'FREE');
 
   const mainNavItems = [
     { icon: LayoutDashboard, label: t('dashboard.title'), path: '/dashboard' },
@@ -142,7 +147,7 @@ const DashboardLayout = ({ children, title, subtitle }) => {
                     ? "bg-emerald-100 text-emerald-800" 
                     : "bg-stone-200 text-stone-600"
                 )}>
-                  {user?.plan?.toUpperCase() || 'FREE'}
+                  {currentPlanLabel}
                 </span>
               </div>
               {user?.subscription_status !== 'active' && (

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
+import { Checkbox } from '../components/ui/checkbox';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import { Card, CardContent } from '../components/ui/card';
@@ -91,6 +92,7 @@ const PDFManagement = () => {
   const [renameTarget, setRenameTarget] = useState(null);
   const [newName, setNewName] = useState('');
   const [moveTarget, setMoveTarget] = useState(null);
+  const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [renameFolderTarget, setRenameFolderTarget] = useState(null);
@@ -118,6 +120,9 @@ const PDFManagement = () => {
 
   const [copiedValue, setCopiedValue] = useState('');
   const [updatingDirect, setUpdatingDirect] = useState(null);
+  const [selectedPdfIds, setSelectedPdfIds] = useState([]);
+  const [draggedPdfIds, setDraggedPdfIds] = useState([]);
+  const [folderDropTarget, setFolderDropTarget] = useState(null);
   const [thumbnails, setThumbnails] = useState({});
   const [thumbnailLoading, setThumbnailLoading] = useState({});
   const thumbnailsRef = useRef({});
@@ -139,11 +144,11 @@ const PDFManagement = () => {
       setFolders(Array.isArray(foldersRes.data) ? foldersRes.data : []);
       setLinks(Array.isArray(linksRes.data) ? linksRes.data : []);
     } catch (error) {
-      toast.error('Failed to load PDFs');
+      toast.error(t('pdfManagement.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchData();
@@ -165,9 +170,9 @@ const PDFManagement = () => {
       focus_lock_enabled: security.focus_lock_enabled !== false,
       idle_timeout_seconds: Number(security.idle_timeout_seconds || 0) || 0,
       nda_required: Boolean(security.nda_required),
-      nda_title: security.nda_title || 'Confidentiality agreement',
-      nda_text: security.nda_text || 'This document contains confidential information. By continuing, you agree not to copy, share, capture, or distribute any part of this material without authorization.',
-      nda_accept_label: security.nda_accept_label || 'I agree and continue',
+      nda_title: security.nda_title || t('pdfManagement.defaultNdaTitle'),
+      nda_text: security.nda_text || t('pdfManagement.defaultNdaText'),
+      nda_accept_label: security.nda_accept_label || t('pdfManagement.defaultNdaAccept'),
       lock_to_first_ip: Boolean(security.lock_to_first_ip),
       restrict_to_specific_ips: allowedIps.length > 0,
       allowed_ip_addresses: allowedIps.join(', '),
@@ -184,27 +189,27 @@ const PDFManagement = () => {
   const handleSaveLinkSettings = async () => {
     if (!editLinkTarget) return;
     if ((editLinkForm.idle_timeout_seconds || 0) > 0 && editLinkForm.idle_timeout_seconds < 15) {
-      toast.error('Idle timeout must be at least 15 seconds');
+      toast.error(t('pdfManagement.idleTimeoutMin'));
       return;
     }
     if ((editLinkForm.internal_title || '').trim().length > 140) {
-      toast.error('Link title must be 140 characters or less');
+      toast.error(t('pdfManagement.linkTitleLimit'));
       return;
     }
     if ((editLinkForm.internal_note || '').trim().length > 400) {
-      toast.error('Internal note must be 400 characters or less');
+      toast.error(t('pdfManagement.internalNoteLimit'));
       return;
     }
     if ((editLinkForm.nda_title || '').trim().length > 120) {
-      toast.error('NDA title must be 120 characters or less');
+      toast.error(t('pdfManagement.ndaTitleLimit'));
       return;
     }
     if ((editLinkForm.nda_text || '').trim().length > 4000) {
-      toast.error('NDA text must be 4000 characters or less');
+      toast.error(t('pdfManagement.ndaTextLimit'));
       return;
     }
     if ((editLinkForm.nda_accept_label || '').trim().length > 60) {
-      toast.error('NDA button label must be 60 characters or less');
+      toast.error(t('pdfManagement.ndaButtonLimit'));
       return;
     }
 
@@ -230,10 +235,10 @@ const PDFManagement = () => {
       if (updatedLink?.link_id) {
         setLinks((prev) => prev.map((item) => (item.link_id === updatedLink.link_id ? { ...item, ...updatedLink } : item)));
       }
-      toast.success('Link settings updated');
+      toast.success(t('pdfManagement.linkSettingsUpdated'));
       setEditLinkTarget(null);
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to update link settings');
+      toast.error(error.response?.data?.detail || t('pdfManagement.linkSettingsUpdateFailed'));
     } finally {
       setSavingLinkSettings(false);
     }
@@ -244,12 +249,12 @@ const PDFManagement = () => {
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith('.pdf')) {
-      toast.error('Only PDF files are allowed');
+      toast.error(t('pdfManagement.onlyPdfAllowed'));
       return;
     }
 
     if (user?.subscription_status !== 'active') {
-      toast.error('Active subscription required to upload PDFs');
+      toast.error(t('pdfManagement.activeSubscriptionRequired'));
       return;
     }
 
@@ -261,10 +266,10 @@ const PDFManagement = () => {
       await api.post('/pdfs/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      toast.success('PDF uploaded successfully');
+      toast.success(t('pdfManagement.pdfUploadSuccess'));
       fetchData();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Upload failed');
+      toast.error(error.response?.data?.detail || t('pdfManagement.uploadFailed'));
     } finally {
       setUploading(false);
       e.target.value = '';
@@ -277,9 +282,9 @@ const PDFManagement = () => {
       await api.delete(`/pdfs/${deleteTarget.pdf_id}`);
       setPdfs((prev) => prev.filter((item) => item.pdf_id !== deleteTarget.pdf_id));
       setLinks((prev) => prev.filter((link) => link.pdf_id !== deleteTarget.pdf_id));
-      toast.success('PDF deleted');
+      toast.success(t('pdfManagement.pdfDeleted'));
     } catch {
-      toast.error('Failed to delete PDF');
+      toast.error(t('pdfManagement.pdfDeleteFailed'));
     } finally {
       setDeleteTarget(null);
     }
@@ -296,9 +301,9 @@ const PDFManagement = () => {
             : item,
         ),
       );
-      toast.success('Filename updated');
+      toast.success(t('pdfManagement.filenameUpdated'));
     } catch {
-      toast.error('Failed to rename PDF');
+      toast.error(t('pdfManagement.renamePdfFailed'));
     } finally {
       setRenameTarget(null);
       setNewName('');
@@ -310,9 +315,9 @@ const PDFManagement = () => {
     try {
       const response = await api.post('/folders', { name: newFolderName.trim() });
       setFolders((prev) => [...prev, response.data]);
-      toast.success('Folder created');
+      toast.success(t('pdfManagement.folderCreated'));
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to create folder');
+      toast.error(error.response?.data?.detail || t('pdfManagement.folderCreateFailed'));
     } finally {
       setShowNewFolder(false);
       setNewFolderName('');
@@ -343,9 +348,9 @@ const PDFManagement = () => {
             : folder,
         ),
       );
-      toast.success('Folder renamed');
+      toast.success(t('pdfManagement.folderRenamed'));
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to rename folder');
+      toast.error(error.response?.data?.detail || t('pdfManagement.folderRenameFailed'));
     } finally {
       setRenameFolderTarget(null);
       setRenameFolderName('');
@@ -372,33 +377,99 @@ const PDFManagement = () => {
       }
       toast.success(
         movedCount > 0
-          ? `Folder deleted. ${movedCount} PDF${movedCount === 1 ? '' : 's'} moved to Root`
-          : 'Folder deleted',
+          ? t('pdfManagement.folderDeletedMoved', { count: movedCount })
+          : t('pdfManagement.folderDeleted'),
       );
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to delete folder');
+      toast.error(error.response?.data?.detail || t('pdfManagement.folderDeleteFailed'));
     } finally {
       setDeleteFolderTarget(null);
     }
   };
 
-  const handleMovePdf = async (folderId) => {
-    if (!moveTarget) return;
+  const toggleSelectedPdf = (pdfId, checked) => {
+    setSelectedPdfIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(pdfId);
+      } else {
+        next.delete(pdfId);
+      }
+      return Array.from(next);
+    });
+  };
+
+  const clearSelectedPdfs = () => {
+    setSelectedPdfIds([]);
+  };
+
+  const handleSelectAllVisible = () => {
+    setSelectedPdfIds((prev) => Array.from(new Set([...prev, ...filteredPdfs.map((pdf) => pdf.pdf_id)])));
+  };
+
+  const handleMoveMultiplePdfs = async (pdfIds, folderId, successMessage = t('pdfManagement.pdfsMovedDefault')) => {
+    const normalizedTargetFolder = folderId || null;
+    const moveIds = (Array.isArray(pdfIds) ? pdfIds : []).filter((pdfId) => {
+      const pdf = pdfs.find((item) => item.pdf_id === pdfId);
+      return pdf && (pdf.folder || null) !== normalizedTargetFolder;
+    });
+
+    if (moveIds.length === 0) {
+      setBulkMoveOpen(false);
+      setMoveTarget(null);
+      setDraggedPdfIds([]);
+      setFolderDropTarget(null);
+      return;
+    }
+
     try {
-      await api.put(`/pdfs/${moveTarget.pdf_id}/move`, { folder: folderId });
+      await Promise.all(moveIds.map((pdfId) => api.put(`/pdfs/${pdfId}/move`, { folder: normalizedTargetFolder })));
       setPdfs((prev) =>
         prev.map((item) =>
-          item.pdf_id === moveTarget.pdf_id
-            ? { ...item, folder: folderId || null }
+          moveIds.includes(item.pdf_id)
+            ? { ...item, folder: normalizedTargetFolder }
             : item,
         ),
       );
-      toast.success('PDF moved');
+      setSelectedPdfIds((prev) => prev.filter((pdfId) => !moveIds.includes(pdfId)));
+      toast.success(successMessage);
     } catch {
-      toast.error('Failed to move PDF');
+      toast.error(t('pdfManagement.moveFailed'));
     } finally {
+      setBulkMoveOpen(false);
       setMoveTarget(null);
+      setDraggedPdfIds([]);
+      setFolderDropTarget(null);
     }
+  };
+
+  const handleMovePdf = async (folderId) => {
+    if (!moveTarget) return;
+    void handleMoveMultiplePdfs([moveTarget.pdf_id], folderId, t('pdfManagement.pdfMoved'));
+  };
+
+  const handleBulkMove = (folderId) => {
+    void handleMoveMultiplePdfs(
+      selectedPdfIds,
+      folderId,
+      t('pdfManagement.pdfsMovedCount', { count: selectedPdfIds.length }),
+    );
+  };
+
+  const handlePdfDragStart = (pdfId, event) => {
+    const dragIds = selectedPdfIds.includes(pdfId) ? selectedPdfIds : [pdfId];
+    setDraggedPdfIds(dragIds);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', dragIds.join(','));
+  };
+
+  const handleFolderDrop = (folderId) => {
+    if (!draggedPdfIds.length) return;
+    void handleMoveMultiplePdfs(
+      draggedPdfIds,
+      folderId,
+      t('pdfManagement.pdfsMovedCount', { count: draggedPdfIds.length }),
+    );
   };
 
   const handleRevokeLink = async () => {
@@ -412,9 +483,9 @@ const PDFManagement = () => {
             : item,
         ),
       );
-      toast.success('Link revoked');
+      toast.success(t('adminLinks.revokeSuccess'));
     } catch {
-      toast.error('Failed to revoke link');
+      toast.error(t('adminLinks.revokeFailed'));
     } finally {
       setRevokeLinkTarget(null);
     }
@@ -425,9 +496,9 @@ const PDFManagement = () => {
     try {
       await api.delete(`/links/${deleteLinkTarget.link_id}`);
       setLinks((prev) => prev.filter((item) => item.link_id !== deleteLinkTarget.link_id));
-      toast.success('Link deleted');
+      toast.success(t('adminLinks.deleteSuccess'));
     } catch {
-      toast.error('Failed to delete link');
+      toast.error(t('adminLinks.deleteFailed'));
     } finally {
       setDeleteLinkTarget(null);
     }
@@ -453,9 +524,9 @@ const PDFManagement = () => {
             : item,
         ),
       );
-      toast.success('Direct link settings updated');
+      toast.success(t('pdfManagement.directLinkUpdated'));
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to update direct link settings');
+      toast.error(error.response?.data?.detail || t('pdfManagement.directLinkUpdateFailed'));
     } finally {
       setUpdatingDirect(null);
     }
@@ -467,9 +538,9 @@ const PDFManagement = () => {
       await navigator.clipboard.writeText(value);
       setCopiedValue(key);
       setTimeout(() => setCopiedValue(''), 1800);
-      toast.success('Copied');
+      toast.success(t('common.copied'));
     } catch {
-      toast.error('Failed to copy');
+      toast.error(t('pdfManagement.copyFailed'));
     }
   };
 
@@ -583,26 +654,39 @@ const PDFManagement = () => {
     };
   }, [folders, pdfMetrics, pdfs, totals.activeLinks, totals.totalViews]);
 
+  const getFolderName = (folderId) =>
+    folderId ? (folderLookup[folderId]?.name || t('pdfManagement.unknownFolder')) : t('pdfManagement.root');
+
+  const getExpiryModeLabel = (expiryMode) => {
+    if (expiryMode === 'countdown') return t('pdfManagement.expiryCountdown');
+    if (expiryMode === 'fixed') return t('pdfManagement.expiryFixed');
+    return t('pdfManagement.expiryManual');
+  };
+
   const folderFilterMeta = useMemo(() => {
     if (folderFilter === 'all') {
       return {
-        title: 'All PDFs',
-        description: `${folderStats.all.pdfCount} PDFs across your full workspace`,
+        title: t('pdfManagement.allPdfs'),
+        description: t('pdfManagement.filterSummaryAll', { count: folderStats.all.pdfCount }),
       };
     }
     if (folderFilter === 'root') {
       return {
-        title: 'Root',
-        description: `${folderStats.root.pdfCount} PDFs without a folder`,
+        title: t('pdfManagement.root'),
+        description: t('pdfManagement.filterSummaryRoot', { count: folderStats.root.pdfCount }),
       };
     }
     const folder = folderLookup[folderFilter];
     const stats = folderStats.byFolder[folderFilter] || { pdfCount: 0 };
     return {
-      title: folder?.name || 'Folder',
-      description: `${stats.pdfCount} PDFs in this folder`,
+      title: folder?.name || t('pdfManagement.folderFallbackTitle'),
+      description: t('pdfManagement.filterSummaryFolder', { count: stats.pdfCount }),
     };
-  }, [folderFilter, folderLookup, folderStats]);
+  }, [folderFilter, folderLookup, folderStats, t]);
+
+  useEffect(() => {
+    setSelectedPdfIds((prev) => prev.filter((pdfId) => pdfs.some((pdf) => pdf.pdf_id === pdfId)));
+  }, [pdfs]);
 
   const filteredPdfs = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -650,6 +734,10 @@ const PDFManagement = () => {
     });
     return sorted;
   }, [folderFilter, linksByPdf, pdfMetrics, pdfs, searchQuery, sortBy]);
+
+  const allVisibleSelected =
+    filteredPdfs.length > 0 &&
+    filteredPdfs.every((pdf) => selectedPdfIds.includes(pdf.pdf_id));
 
   const generateThumbnail = useCallback(async (pdfId) => {
     if (!pdfId) return;
@@ -755,7 +843,7 @@ const PDFManagement = () => {
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center text-stone-400">
             <FileText className="w-8 h-8 mb-2" />
-            <span className="text-xs">No preview</span>
+            <span className="text-xs">{t('pdfManagement.noPreview')}</span>
           </div>
         )}
       </div>
@@ -764,12 +852,12 @@ const PDFManagement = () => {
 
   const renderStatusBadge = (status) => {
     if (status === 'active') {
-      return <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-700">Active</span>;
+      return <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-100 text-emerald-700">{t('links.active')}</span>;
     }
     if (status === 'expired') {
-      return <span className="px-2 py-0.5 rounded-full text-xs bg-stone-100 text-stone-600">Expired</span>;
+      return <span className="px-2 py-0.5 rounded-full text-xs bg-stone-100 text-stone-600">{t('links.expired')}</span>;
     }
-    return <span className="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700">Revoked</span>;
+    return <span className="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700">{t('links.revoked')}</span>;
   };
 
   const renderPdfLinks = (pdf) => {
@@ -777,7 +865,7 @@ const PDFManagement = () => {
     if (pdfLinks.length === 0) {
       return (
         <div className="mt-3 rounded-lg border border-dashed border-stone-300 px-3 py-3 text-sm text-stone-500">
-          No links created for this PDF yet.
+          {t('pdfManagement.noLinksForPdf')}
         </div>
       );
     }
@@ -808,8 +896,8 @@ const PDFManagement = () => {
                   </p>
                 )}
                 <div className="text-xs text-stone-500 mt-1 flex flex-wrap items-center gap-3">
-                  <span>{Number(link.open_count || 0)} views</span>
-                  <span>{link.expiry_mode === 'countdown' ? 'Countdown' : link.expiry_mode === 'fixed' ? 'Fixed Date' : 'Manual'}</span>
+                  <span>{t('pdfManagement.linkViews', { count: Number(link.open_count || 0) })}</span>
+                  <span>{getExpiryModeLabel(link.expiry_mode)}</span>
                   <span>{format(new Date(link.created_at), 'MMM d, yyyy')}</span>
                 </div>
               </div>
@@ -873,8 +961,8 @@ const PDFManagement = () => {
       <div className="mt-4 rounded-lg border border-stone-200 bg-stone-50 p-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-stone-900">Direct PDF Link</p>
-            <p className="text-xs text-stone-500">Optional unrestricted full-view PDF link</p>
+            <p className="text-sm font-semibold text-stone-900">{t('pdfManagement.directLinkTitle')}</p>
+            <p className="text-xs text-stone-500">{t('pdfManagement.directLinkDescription')}</p>
           </div>
           <span className={`px-2 py-1 rounded-full text-xs ${
             pdf.direct_access_enabled
@@ -883,13 +971,17 @@ const PDFManagement = () => {
                 : 'bg-amber-100 text-amber-700'
               : 'bg-stone-200 text-stone-600'
           }`}>
-            {!pdf.direct_access_enabled ? 'Disabled' : pdf.direct_access_public ? 'Public' : 'Login only'}
+            {!pdf.direct_access_enabled
+              ? t('pdfManagement.statusDisabled')
+              : pdf.direct_access_public
+                ? t('pdfManagement.statusPublic')
+                : t('pdfManagement.statusLoginOnly')}
           </span>
         </div>
 
         <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="rounded-md bg-white border border-stone-200 px-3 py-2 flex items-center justify-between">
-            <span className="text-sm text-stone-700">Enable direct link</span>
+            <span className="text-sm text-stone-700">{t('pdfManagement.enableDirectLink')}</span>
             <Switch
               checked={Boolean(pdf.direct_access_enabled)}
               disabled={updatingDirect === pdf.pdf_id}
@@ -897,7 +989,7 @@ const PDFManagement = () => {
             />
           </div>
           <div className="rounded-md bg-white border border-stone-200 px-3 py-2 flex items-center justify-between">
-            <span className="text-sm text-stone-700">Open for all</span>
+            <span className="text-sm text-stone-700">{t('pdfManagement.openForAll')}</span>
             <Switch
               checked={Boolean(pdf.direct_access_public)}
               disabled={!pdf.direct_access_enabled || updatingDirect === pdf.pdf_id}
@@ -944,11 +1036,23 @@ const PDFManagement = () => {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: index * 0.03 }}
+        draggable
+        onDragStart={(event) => handlePdfDragStart(pdf.pdf_id, event)}
+        onDragEnd={() => {
+          setDraggedPdfIds([]);
+          setFolderDropTarget(null);
+        }}
       >
         <Card className="border-stone-200 hover:shadow-md transition-shadow">
           <CardContent className="p-4 md:p-5">
             <div className="flex flex-col xl:flex-row gap-4">
               <div className="flex items-start gap-4 flex-1 min-w-0">
+                <div className="pt-1">
+                  <Checkbox
+                    checked={selectedPdfIds.includes(pdf.pdf_id)}
+                    onCheckedChange={(checked) => toggleSelectedPdf(pdf.pdf_id, Boolean(checked))}
+                  />
+                </div>
                 {renderPdfPreview(pdf)}
                 <div className="min-w-0 flex-1">
                   <h3 className="font-semibold text-stone-900 truncate">{pdf.filename}</h3>
@@ -959,19 +1063,19 @@ const PDFManagement = () => {
                       {format(new Date(pdf.created_at), 'MMM d, yyyy h:mm a')}
                     </span>
                     <span className="text-stone-600">
-                      Folder: {pdf.folder ? (folderLookup[pdf.folder]?.name || 'Unknown') : 'Root'}
+                      {t('pdfManagement.folderLabel')}: {getFolderName(pdf.folder)}
                     </span>
                   </div>
 
                   <div className="mt-3 flex flex-wrap gap-2">
                     <span className="px-2.5 py-1 rounded-full text-xs bg-emerald-100 text-emerald-700">
-                      {metrics.activeLinks} active links
+                      {t('pdfManagement.activeLinksCount', { count: metrics.activeLinks })}
                     </span>
                     <span className="px-2.5 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
-                      {metrics.linkCount} total links
+                      {t('pdfManagement.totalLinksCount', { count: metrics.linkCount })}
                     </span>
                     <span className="px-2.5 py-1 rounded-full text-xs bg-violet-100 text-violet-700">
-                      {metrics.totalViews} views
+                      {t('pdfManagement.totalViewsCount', { count: metrics.totalViews })}
                     </span>
                   </div>
 
@@ -985,7 +1089,7 @@ const PDFManagement = () => {
                 <Link to={`/links/create?pdf=${pdf.pdf_id}`}>
                   <Button variant="outline" size="sm" className="w-full xl:w-auto">
                     <Link2 className="w-4 h-4 mr-2" />
-                    Create Link
+                    {t('pdfs.createLink')}
                   </Button>
                 </Link>
                 <Button
@@ -994,7 +1098,9 @@ const PDFManagement = () => {
                   className="w-full xl:w-auto"
                   onClick={() => setExpandedPdfId((prev) => (prev === pdf.pdf_id ? null : pdf.pdf_id))}
                 >
-                  {expandedPdfId === pdf.pdf_id ? 'Hide Links' : `Show Links (${metrics.linkCount})`}
+                  {expandedPdfId === pdf.pdf_id
+                    ? t('pdfManagement.hideLinks')
+                    : t('pdfManagement.showLinks', { count: metrics.linkCount })}
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -1010,11 +1116,11 @@ const PDFManagement = () => {
                       }}
                     >
                       <Edit2 className="w-4 h-4 mr-2" />
-                      Rename
+                      {t('pdfManagement.renamePdfAction')}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setMoveTarget(pdf)}>
                       <FolderOpen className="w-4 h-4 mr-2" />
-                      Move
+                      {t('pdfManagement.moveAction')}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -1022,7 +1128,7 @@ const PDFManagement = () => {
                       className="text-red-600 focus:text-red-600"
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
-                      Delete
+                      {t('common.delete')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -1044,27 +1150,42 @@ const PDFManagement = () => {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: index * 0.03 }}
+        draggable
+        onDragStart={(event) => handlePdfDragStart(pdf.pdf_id, event)}
+        onDragEnd={() => {
+          setDraggedPdfIds([]);
+          setFolderDropTarget(null);
+        }}
       >
         <Card className="border-stone-200 hover:shadow-md transition-shadow h-full">
           <CardContent className="p-4 h-full flex flex-col">
+            <div className="mb-3 flex items-center justify-between">
+              <Checkbox
+                checked={selectedPdfIds.includes(pdf.pdf_id)}
+                onCheckedChange={(checked) => toggleSelectedPdf(pdf.pdf_id, Boolean(checked))}
+              />
+              <span className="text-[11px] uppercase tracking-[0.18em] text-stone-400">
+                {t('pdfManagement.dragToFolder')}
+              </span>
+            </div>
             {renderPdfPreview(pdf, true)}
             <h3 className="font-semibold text-stone-900 mt-3 truncate">{pdf.filename}</h3>
             <p className="text-xs text-stone-500 mt-1">
-              {formatBytes(pdf.file_size)} • {format(new Date(pdf.created_at), 'MMM d, yyyy')} • {pdf.folder ? (folderLookup[pdf.folder]?.name || 'Unknown') : 'Root'}
+              {formatBytes(pdf.file_size)} • {format(new Date(pdf.created_at), 'MMM d, yyyy')} • {getFolderName(pdf.folder)}
             </p>
 
             <div className="mt-3 grid grid-cols-3 gap-2 text-center">
               <div className="rounded-lg bg-emerald-50 text-emerald-700 py-2">
                 <p className="text-sm font-semibold">{metrics.activeLinks}</p>
-                <p className="text-[10px] uppercase tracking-wide">Active</p>
+                <p className="text-[10px] uppercase tracking-wide">{t('pdfManagement.activeShort')}</p>
               </div>
               <div className="rounded-lg bg-blue-50 text-blue-700 py-2">
                 <p className="text-sm font-semibold">{metrics.linkCount}</p>
-                <p className="text-[10px] uppercase tracking-wide">Links</p>
+                <p className="text-[10px] uppercase tracking-wide">{t('pdfManagement.linksShort')}</p>
               </div>
               <div className="rounded-lg bg-violet-50 text-violet-700 py-2">
                 <p className="text-sm font-semibold">{metrics.totalViews}</p>
-                <p className="text-[10px] uppercase tracking-wide">Views</p>
+                <p className="text-[10px] uppercase tracking-wide">{t('pdfManagement.viewsShort')}</p>
               </div>
             </div>
 
@@ -1072,7 +1193,7 @@ const PDFManagement = () => {
               <Link to={`/links/create?pdf=${pdf.pdf_id}`} className="flex-1">
                 <Button variant="outline" size="sm" className="w-full">
                   <Link2 className="w-4 h-4 mr-2" />
-                  Create
+                  {t('pdfManagement.createShort')}
                 </Button>
               </Link>
               <Button
@@ -1081,7 +1202,7 @@ const PDFManagement = () => {
                 className="flex-1"
                 onClick={() => setExpandedPdfId((prev) => (prev === pdf.pdf_id ? null : pdf.pdf_id))}
               >
-                Links
+                {t('pdfManagement.linksShort')}
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -1097,11 +1218,11 @@ const PDFManagement = () => {
                     }}
                   >
                     <Edit2 className="w-4 h-4 mr-2" />
-                    Rename
+                    {t('pdfManagement.renamePdfAction')}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setMoveTarget(pdf)}>
                     <FolderOpen className="w-4 h-4 mr-2" />
-                    Move
+                    {t('pdfManagement.moveAction')}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -1109,7 +1230,7 @@ const PDFManagement = () => {
                     className="text-red-600 focus:text-red-600"
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
-                    Delete
+                    {t('common.delete')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -1124,7 +1245,7 @@ const PDFManagement = () => {
   };
 
   return (
-    <DashboardLayout title={t('pdfs.title')} subtitle="Unified documents and links workspace">
+    <DashboardLayout title={t('pdfs.title')} subtitle={t('pdfManagement.subtitle')}>
       {user?.subscription_status !== 'active' && (
         <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center space-x-3">
           <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
@@ -1138,19 +1259,19 @@ const PDFManagement = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Card className="border-stone-200">
           <CardContent className="p-4">
-            <p className="text-sm text-stone-500">My PDFs</p>
+            <p className="text-sm text-stone-500">{t('pdfManagement.statsPdfs')}</p>
             <p className="text-2xl font-bold text-stone-900 mt-1">{totals.pdfCount}</p>
           </CardContent>
         </Card>
         <Card className="border-stone-200">
           <CardContent className="p-4">
-            <p className="text-sm text-stone-500">Active Links</p>
+            <p className="text-sm text-stone-500">{t('pdfManagement.statsActiveLinks')}</p>
             <p className="text-2xl font-bold text-stone-900 mt-1">{totals.activeLinks}</p>
           </CardContent>
         </Card>
         <Card className="border-stone-200">
           <CardContent className="p-4">
-            <p className="text-sm text-stone-500">Total Views</p>
+            <p className="text-sm text-stone-500">{t('pdfManagement.statsViews')}</p>
             <p className="text-2xl font-bold text-stone-900 mt-1">{totals.totalViews}</p>
           </CardContent>
         </Card>
@@ -1161,7 +1282,7 @@ const PDFManagement = () => {
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
             <Input
-              placeholder="Search PDFs or link tokens..."
+              placeholder={t('pdfManagement.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-12 h-12 bg-white border-stone-200"
@@ -1172,7 +1293,7 @@ const PDFManagement = () => {
           <div className="flex items-center gap-2">
             <Button variant="outline" className="h-12" onClick={() => setShowNewFolder(true)}>
               <FolderPlus className="w-4 h-4 mr-2" />
-              New Folder
+              {t('pdfManagement.newFolder')}
             </Button>
             <label className="cursor-pointer">
               <input
@@ -1213,12 +1334,12 @@ const PDFManagement = () => {
               onChange={(e) => setSortBy(e.target.value)}
               className="h-10 rounded-md border border-stone-200 bg-white px-3 text-sm text-stone-700"
             >
-              <option value="recent">Newest</option>
-              <option value="oldest">Oldest</option>
-              <option value="name">Name</option>
-              <option value="size">File size</option>
-              <option value="views">Most views</option>
-              <option value="links">Most active links</option>
+              <option value="recent">{t('pdfManagement.sortNewest')}</option>
+              <option value="oldest">{t('pdfManagement.sortOldest')}</option>
+              <option value="name">{t('pdfManagement.sortName')}</option>
+              <option value="size">{t('pdfManagement.sortSize')}</option>
+              <option value="views">{t('pdfManagement.sortViews')}</option>
+              <option value="links">{t('pdfManagement.sortLinks')}</option>
             </select>
           </div>
 
@@ -1230,7 +1351,7 @@ const PDFManagement = () => {
               onClick={() => setViewMode('list')}
             >
               <List className="w-4 h-4 mr-1" />
-              List
+              {t('pdfManagement.listView')}
             </Button>
             <Button
               variant={viewMode === 'grid' ? 'default' : 'ghost'}
@@ -1239,7 +1360,7 @@ const PDFManagement = () => {
               onClick={() => setViewMode('grid')}
             >
               <Grid3X3 className="w-4 h-4 mr-1" />
-              Grid
+              {t('pdfManagement.gridView')}
             </Button>
           </div>
         </div>
@@ -1251,10 +1372,10 @@ const PDFManagement = () => {
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Folders</p>
-                  <h2 className="mt-1 text-lg font-semibold text-stone-900">Browse folders without risky one-click actions</h2>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">{t('pdfManagement.foldersEyebrow')}</p>
+                  <h2 className="mt-1 text-lg font-semibold text-stone-900">{t('pdfManagement.foldersTitle')}</h2>
                   <p className="mt-1 text-sm text-stone-500">
-                    Select a folder to filter your PDFs. Rename or delete folders from the menu only.
+                    {t('pdfManagement.foldersDescription')}
                   </p>
                 </div>
                 <div className="rounded-xl border border-emerald-100 bg-white/80 px-4 py-3 text-sm text-stone-600">
@@ -1283,9 +1404,9 @@ const PDFManagement = () => {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className={`text-sm font-semibold ${folderFilter === 'all' ? 'text-emerald-50' : 'text-stone-900'}`}>All PDFs</p>
+                      <p className={`text-sm font-semibold ${folderFilter === 'all' ? 'text-emerald-50' : 'text-stone-900'}`}>{t('pdfManagement.allPdfs')}</p>
                       <p className={`mt-1 text-xs ${folderFilter === 'all' ? 'text-emerald-100/80' : 'text-stone-500'}`}>
-                        Everything in your workspace
+                        {t('pdfManagement.allPdfsDescription')}
                       </p>
                     </div>
                     <FolderOpen className={`h-5 w-5 ${folderFilter === 'all' ? 'text-emerald-100' : 'text-emerald-700'}`} />
@@ -1293,11 +1414,11 @@ const PDFManagement = () => {
                   <div className="mt-5 flex items-end justify-between gap-3">
                     <div>
                       <p className={`text-2xl font-semibold ${folderFilter === 'all' ? 'text-white' : 'text-stone-900'}`}>{folderStats.all.pdfCount}</p>
-                      <p className={`text-xs ${folderFilter === 'all' ? 'text-emerald-100/80' : 'text-stone-500'}`}>PDFs</p>
+                      <p className={`text-xs ${folderFilter === 'all' ? 'text-emerald-100/80' : 'text-stone-500'}`}>{t('pdfManagement.pdfsCountLabel')}</p>
                     </div>
                     <div className={`text-right text-xs ${folderFilter === 'all' ? 'text-emerald-100/80' : 'text-stone-500'}`}>
-                      <p>{folderStats.all.activeLinks} active links</p>
-                      <p>{folderStats.all.totalViews} views</p>
+                      <p>{t('pdfManagement.activeLinksCount', { count: folderStats.all.activeLinks })}</p>
+                      <p>{t('pdfManagement.totalViewsCount', { count: folderStats.all.totalViews })}</p>
                     </div>
                   </div>
                 </div>
@@ -1306,6 +1427,15 @@ const PDFManagement = () => {
                   role="button"
                   tabIndex={0}
                   onClick={() => setFolderFilter('root')}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setFolderDropTarget('root');
+                  }}
+                  onDragLeave={() => setFolderDropTarget((prev) => (prev === 'root' ? null : prev))}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    handleFolderDrop(null);
+                  }}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
@@ -1315,14 +1445,16 @@ const PDFManagement = () => {
                   className={`rounded-2xl border p-4 transition-all cursor-pointer ${
                     folderFilter === 'root'
                       ? 'border-emerald-900 bg-emerald-900 text-white shadow-md'
-                      : 'border-stone-200 bg-white hover:border-stone-300 hover:shadow-sm'
+                      : folderDropTarget === 'root'
+                        ? 'border-emerald-500 bg-emerald-50 shadow-sm'
+                        : 'border-stone-200 bg-white hover:border-stone-300 hover:shadow-sm'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className={`text-sm font-semibold ${folderFilter === 'root' ? 'text-emerald-50' : 'text-stone-900'}`}>Root</p>
+                      <p className={`text-sm font-semibold ${folderFilter === 'root' ? 'text-emerald-50' : 'text-stone-900'}`}>{t('pdfManagement.root')}</p>
                       <p className={`mt-1 text-xs ${folderFilter === 'root' ? 'text-emerald-100/80' : 'text-stone-500'}`}>
-                        PDFs not assigned to any folder
+                        {t('pdfManagement.rootDescription')}
                       </p>
                     </div>
                     <Folder className={`h-5 w-5 ${folderFilter === 'root' ? 'text-emerald-100' : 'text-amber-600'}`} />
@@ -1330,11 +1462,11 @@ const PDFManagement = () => {
                   <div className="mt-5 flex items-end justify-between gap-3">
                     <div>
                       <p className={`text-2xl font-semibold ${folderFilter === 'root' ? 'text-white' : 'text-stone-900'}`}>{folderStats.root.pdfCount}</p>
-                      <p className={`text-xs ${folderFilter === 'root' ? 'text-emerald-100/80' : 'text-stone-500'}`}>PDFs</p>
+                      <p className={`text-xs ${folderFilter === 'root' ? 'text-emerald-100/80' : 'text-stone-500'}`}>{t('pdfManagement.pdfsCountLabel')}</p>
                     </div>
                     <div className={`text-right text-xs ${folderFilter === 'root' ? 'text-emerald-100/80' : 'text-stone-500'}`}>
-                      <p>{folderStats.root.activeLinks} active links</p>
-                      <p>{folderStats.root.totalViews} views</p>
+                      <p>{t('pdfManagement.activeLinksCount', { count: folderStats.root.activeLinks })}</p>
+                      <p>{t('pdfManagement.totalViewsCount', { count: folderStats.root.totalViews })}</p>
                     </div>
                   </div>
                 </div>
@@ -1348,6 +1480,15 @@ const PDFManagement = () => {
                       role="button"
                       tabIndex={0}
                       onClick={() => setFolderFilter(folder.folder_id)}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        setFolderDropTarget(folder.folder_id);
+                      }}
+                      onDragLeave={() => setFolderDropTarget((prev) => (prev === folder.folder_id ? null : prev))}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        handleFolderDrop(folder.folder_id);
+                      }}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault();
@@ -1357,14 +1498,16 @@ const PDFManagement = () => {
                       className={`rounded-2xl border p-4 transition-all cursor-pointer ${
                         isActive
                           ? 'border-emerald-900 bg-emerald-900 text-white shadow-md'
-                          : 'border-stone-200 bg-white hover:border-stone-300 hover:shadow-sm'
+                          : folderDropTarget === folder.folder_id
+                            ? 'border-emerald-500 bg-emerald-50 shadow-sm'
+                            : 'border-stone-200 bg-white hover:border-stone-300 hover:shadow-sm'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className={`truncate text-sm font-semibold ${isActive ? 'text-emerald-50' : 'text-stone-900'}`}>{folder.name}</p>
                           <p className={`mt-1 text-xs ${isActive ? 'text-emerald-100/80' : 'text-stone-500'}`}>
-                            Managed folder
+                            {t('pdfManagement.managedFolder')}
                           </p>
                         </div>
                         <div className="flex items-start gap-1">
@@ -1385,7 +1528,7 @@ const PDFManagement = () => {
                                 onClick={() => openRenameFolderDialog(folder)}
                               >
                                 <Edit2 className="mr-2 h-4 w-4" />
-                                Rename folder
+                                {t('pdfManagement.renameFolderAction')}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
@@ -1393,7 +1536,7 @@ const PDFManagement = () => {
                                 className="text-red-600 focus:text-red-600"
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
-                                Delete folder
+                                {t('pdfManagement.deleteFolderAction')}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -1402,17 +1545,20 @@ const PDFManagement = () => {
                       <div className="mt-5 flex items-end justify-between gap-3">
                         <div>
                           <p className={`text-2xl font-semibold ${isActive ? 'text-white' : 'text-stone-900'}`}>{stats.pdfCount}</p>
-                          <p className={`text-xs ${isActive ? 'text-emerald-100/80' : 'text-stone-500'}`}>PDFs</p>
+                          <p className={`text-xs ${isActive ? 'text-emerald-100/80' : 'text-stone-500'}`}>{t('pdfManagement.pdfsCountLabel')}</p>
                         </div>
                         <div className={`text-right text-xs ${isActive ? 'text-emerald-100/80' : 'text-stone-500'}`}>
-                          <p>{stats.activeLinks} active links</p>
-                          <p>{stats.totalViews} views</p>
+                          <p>{t('pdfManagement.activeLinksCount', { count: stats.activeLinks })}</p>
+                          <p>{t('pdfManagement.totalViewsCount', { count: stats.totalViews })}</p>
                         </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
+              <p className="text-xs text-stone-500">
+                {t('pdfManagement.dragHint')}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -1447,16 +1593,43 @@ const PDFManagement = () => {
         </Card>
       ) : (
         <>
+          {selectedPdfIds.length > 0 && (
+            <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-stone-900">
+                  {t('pdfManagement.selectedCount', { count: selectedPdfIds.length })}
+                </p>
+                <p className="text-sm text-stone-600">
+                  {t('pdfManagement.selectedDescription')}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {!allVisibleSelected && filteredPdfs.length > 0 && (
+                  <Button variant="outline" onClick={handleSelectAllVisible}>
+                    {t('pdfManagement.selectVisible')}
+                  </Button>
+                )}
+                <Button variant="outline" onClick={() => setBulkMoveOpen(true)}>
+                  <FolderOpen className="mr-2 h-4 w-4" />
+                  {t('pdfManagement.moveSelected')}
+                </Button>
+                <Button variant="ghost" onClick={clearSelectedPdfs}>
+                  {t('pdfManagement.clearSelection')}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {folderFilter !== 'all' && (
             <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-stone-200 bg-white p-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-sm font-semibold text-stone-900">{folderFilterMeta.title}</p>
                 <p className="text-sm text-stone-500">
-                  Showing {filteredPdfs.length} PDF{filteredPdfs.length === 1 ? '' : 's'} in this view.
+                  {t('pdfManagement.showingCount', { count: filteredPdfs.length })}
                 </p>
               </div>
               <Button variant="outline" onClick={() => setFolderFilter('all')}>
-                Show All PDFs
+                {t('pdfManagement.showAllPdfs')}
               </Button>
             </div>
           )}
@@ -1474,16 +1647,16 @@ const PDFManagement = () => {
       <Dialog open={!!editLinkTarget} onOpenChange={() => setEditLinkTarget(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Edit Link Settings</DialogTitle>
+            <DialogTitle>{t('pdfManagement.editLinkSettingsTitle')}</DialogTitle>
             <DialogDescription>
-              Update the existing link rules without changing its secure URL.
+              {t('pdfManagement.editLinkSettingsDescription')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6 py-2">
             <div className="space-y-4 rounded-xl border border-stone-200 p-4">
               <div>
-                <Label className="mb-2 block">Link title</Label>
+                <Label className="mb-2 block">{t('pdfManagement.linkTitle')}</Label>
                 <Input
                   value={editLinkForm.internal_title}
                   onChange={(e) => updateEditLinkField('internal_title', e.target.value)}
@@ -1491,7 +1664,7 @@ const PDFManagement = () => {
                 />
               </div>
               <div>
-                <Label className="mb-2 block">Internal note</Label>
+                <Label className="mb-2 block">{t('pdfManagement.internalNote')}</Label>
                 <Textarea
                   value={editLinkForm.internal_note}
                   onChange={(e) => updateEditLinkField('internal_note', e.target.value)}
@@ -1503,7 +1676,7 @@ const PDFManagement = () => {
 
             <div className="space-y-4 rounded-xl border border-stone-200 p-4">
               <div>
-                <Label className="mb-2 block">Custom expired redirect URL</Label>
+                <Label className="mb-2 block">{t('pdfManagement.customExpiredUrl')}</Label>
                 <Input
                   value={editLinkForm.custom_expired_url}
                   onChange={(e) => updateEditLinkField('custom_expired_url', e.target.value)}
@@ -1511,7 +1684,7 @@ const PDFManagement = () => {
                 />
               </div>
               <div>
-                <Label className="mb-2 block">Custom expired message</Label>
+                <Label className="mb-2 block">{t('pdfManagement.customExpiredMessage')}</Label>
                 <Textarea
                   value={editLinkForm.custom_expired_message}
                   onChange={(e) => updateEditLinkField('custom_expired_message', e.target.value)}
@@ -1523,9 +1696,9 @@ const PDFManagement = () => {
             <div className="space-y-4 rounded-xl border border-stone-200 p-4">
               <div className="flex items-center justify-between gap-4 rounded-xl border border-stone-200 p-4">
                 <div>
-                  <p className="font-semibold text-stone-900">Focus lock on tab change</p>
+                  <p className="font-semibold text-stone-900">{t('pdfManagement.focusLockTitle')}</p>
                   <p className="mt-1 text-sm text-stone-500">
-                    Black out the viewer when the recipient switches tabs or leaves the window.
+                    {t('pdfManagement.focusLockDescription')}
                   </p>
                 </div>
                 <Switch
@@ -1535,7 +1708,7 @@ const PDFManagement = () => {
               </div>
 
               <div>
-                <Label className="mb-2 block">Idle timeout (seconds)</Label>
+                <Label className="mb-2 block">{t('pdfManagement.idleTimeout')}</Label>
                 <Input
                   type="number"
                   min="0"
@@ -1543,14 +1716,14 @@ const PDFManagement = () => {
                   value={editLinkForm.idle_timeout_seconds}
                   onChange={(e) => updateEditLinkField('idle_timeout_seconds', Number.parseInt(e.target.value || '0', 10) || 0)}
                 />
-                <p className="mt-2 text-xs text-stone-500">Use `0` to disable. Minimum active timeout is 15 seconds.</p>
+                <p className="mt-2 text-xs text-stone-500">{t('pdfManagement.idleTimeoutHelp')}</p>
               </div>
 
               <div className="flex items-center justify-between gap-4 rounded-xl border border-stone-200 p-4">
                 <div>
-                  <p className="font-semibold text-stone-900">Require NDA acknowledgement</p>
+                  <p className="font-semibold text-stone-900">{t('pdfManagement.ndaRequiredTitle')}</p>
                   <p className="mt-1 text-sm text-stone-500">
-                    Show a confidentiality agreement before the document becomes visible.
+                    {t('pdfManagement.ndaRequiredDescription')}
                   </p>
                 </div>
                 <Switch
@@ -1559,10 +1732,10 @@ const PDFManagement = () => {
                 />
               </div>
 
-              {editLinkForm.nda_required && (
+                {editLinkForm.nda_required && (
                 <div className="grid gap-4">
                   <div>
-                    <Label className="mb-2 block">NDA title</Label>
+                    <Label className="mb-2 block">{t('pdfManagement.ndaTitle')}</Label>
                     <Input
                       value={editLinkForm.nda_title}
                       onChange={(e) => updateEditLinkField('nda_title', e.target.value)}
@@ -1570,7 +1743,7 @@ const PDFManagement = () => {
                     />
                   </div>
                   <div>
-                    <Label className="mb-2 block">NDA text</Label>
+                    <Label className="mb-2 block">{t('pdfManagement.ndaText')}</Label>
                     <Textarea
                       value={editLinkForm.nda_text}
                       onChange={(e) => updateEditLinkField('nda_text', e.target.value)}
@@ -1579,7 +1752,7 @@ const PDFManagement = () => {
                     />
                   </div>
                   <div>
-                    <Label className="mb-2 block">Accept button label</Label>
+                    <Label className="mb-2 block">{t('pdfManagement.ndaAcceptLabel')}</Label>
                     <Input
                       value={editLinkForm.nda_accept_label}
                       onChange={(e) => updateEditLinkField('nda_accept_label', e.target.value)}
@@ -1591,9 +1764,9 @@ const PDFManagement = () => {
 
               <div className="flex items-center justify-between gap-4 rounded-xl border border-stone-200 p-4">
                 <div>
-                  <p className="font-semibold text-stone-900">Lock to first approved IP</p>
+                  <p className="font-semibold text-stone-900">{t('pdfManagement.lockToFirstIpTitle')}</p>
                   <p className="mt-1 text-sm text-stone-500">
-                    Best when you do not know the recipient IP in advance.
+                    {t('pdfManagement.lockToFirstIpDescription')}
                   </p>
                 </div>
                 <Switch
@@ -1605,9 +1778,9 @@ const PDFManagement = () => {
               <div className="rounded-xl border border-stone-200 bg-stone-50/60 p-4">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="font-semibold text-stone-900">Restrict to specific IP addresses</p>
+                    <p className="font-semibold text-stone-900">{t('pdfManagement.restrictIpsTitle')}</p>
                     <p className="mt-1 text-sm text-stone-500">
-                      Only use this when the recipient has a fixed office or server IP.
+                      {t('pdfManagement.restrictIpsDescription')}
                     </p>
                   </div>
                   <Switch
@@ -1623,7 +1796,7 @@ const PDFManagement = () => {
 
                 {editLinkForm.restrict_to_specific_ips && (
                   <div className="mt-4">
-                    <Label className="mb-2 block">Allowed IP addresses</Label>
+                    <Label className="mb-2 block">{t('pdfManagement.allowedIps')}</Label>
                     <Textarea
                       value={editLinkForm.allowed_ip_addresses}
                       onChange={(e) => updateEditLinkField('allowed_ip_addresses', e.target.value)}
@@ -1631,7 +1804,7 @@ const PDFManagement = () => {
                       className="min-h-[100px]"
                     />
                     <p className="mt-2 text-xs text-stone-500">
-                      Enter exact IPv4 or IPv6 addresses, one per line or separated by commas.
+                      {t('pdfManagement.allowedIpsHelp')}
                     </p>
                   </div>
                 )}
@@ -1640,9 +1813,9 @@ const PDFManagement = () => {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditLinkTarget(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setEditLinkTarget(null)}>{t('common.cancel')}</Button>
             <Button onClick={handleSaveLinkSettings} className="bg-emerald-900 hover:bg-emerald-800" disabled={savingLinkSettings}>
-              {savingLinkSettings ? 'Saving...' : 'Save Link Settings'}
+              {savingLinkSettings ? t('adminSettingsPlans.saving') : t('pdfManagement.saveLinkSettings')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1651,15 +1824,15 @@ const PDFManagement = () => {
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete PDF</AlertDialogTitle>
+            <AlertDialogTitle>{t('pdfs.deleteTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will delete "{deleteTarget?.filename}" and revoke all associated links.
+              {t('pdfs.deleteDesc', { filename: deleteTarget?.filename || '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeletePdf} className="bg-red-600 hover:bg-red-700">
-              Delete
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1668,15 +1841,15 @@ const PDFManagement = () => {
       <AlertDialog open={!!revokeLinkTarget} onOpenChange={() => setRevokeLinkTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Revoke link</AlertDialogTitle>
+            <AlertDialogTitle>{t('links.revokeTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              The link will stop opening immediately.
+              {t('links.revokeDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleRevokeLink} className="bg-amber-600 hover:bg-amber-700">
-              Revoke
+              {t('links.revokeAccess')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1685,15 +1858,15 @@ const PDFManagement = () => {
       <AlertDialog open={!!deleteLinkTarget} onOpenChange={() => setDeleteLinkTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete link</AlertDialogTitle>
+            <AlertDialogTitle>{t('links.deleteTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This link will be permanently removed from your account.
+              {t('links.deleteDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteLink} className="bg-red-600 hover:bg-red-700">
-              Delete
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1702,17 +1875,18 @@ const PDFManagement = () => {
       <AlertDialog open={!!deleteFolderTarget} onOpenChange={() => setDeleteFolderTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete folder</AlertDialogTitle>
+            <AlertDialogTitle>{t('pdfManagement.deleteFolderTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will delete "{deleteFolderTarget?.name}" and move{' '}
-              {deleteFolderTarget ? (folderStats.byFolder[deleteFolderTarget.folder_id]?.pdfCount || 0) : 0}{' '}
-              PDF{deleteFolderTarget && (folderStats.byFolder[deleteFolderTarget.folder_id]?.pdfCount || 0) === 1 ? '' : 's'} to Root.
+              {t('pdfManagement.deleteFolderDescription', {
+                name: deleteFolderTarget?.name || '',
+                count: deleteFolderTarget ? (folderStats.byFolder[deleteFolderTarget.folder_id]?.pdfCount || 0) : 0,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteFolder} className="bg-red-600 hover:bg-red-700">
-              Delete Folder
+              {t('pdfManagement.deleteFolderAction')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1721,21 +1895,21 @@ const PDFManagement = () => {
       <Dialog open={!!renameTarget} onOpenChange={() => setRenameTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Rename PDF</DialogTitle>
-            <DialogDescription>Enter a new file name.</DialogDescription>
+            <DialogTitle>{t('pdfManagement.renamePdfTitle')}</DialogTitle>
+            <DialogDescription>{t('pdfManagement.renamePdfDescription')}</DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <Label>Filename</Label>
+            <Label>{t('pdfManagement.filename')}</Label>
             <Input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="Enter filename"
+              placeholder={t('pdfManagement.filenamePlaceholder')}
               className="mt-2"
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRenameTarget(null)}>Cancel</Button>
-            <Button onClick={handleRename} className="bg-emerald-900 hover:bg-emerald-800">Save</Button>
+            <Button variant="outline" onClick={() => setRenameTarget(null)}>{t('common.cancel')}</Button>
+            <Button onClick={handleRename} className="bg-emerald-900 hover:bg-emerald-800">{t('common.save')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1751,15 +1925,15 @@ const PDFManagement = () => {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Rename Folder</DialogTitle>
-            <DialogDescription>Use a clear name so this folder stays easy to find in My PDFs.</DialogDescription>
+            <DialogTitle>{t('pdfManagement.renameFolderTitle')}</DialogTitle>
+            <DialogDescription>{t('pdfManagement.renameFolderDescription')}</DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <Label>Folder Name</Label>
+            <Label>{t('pdfManagement.folderName')}</Label>
             <Input
               value={renameFolderName}
               onChange={(e) => setRenameFolderName(e.target.value)}
-              placeholder="Enter folder name"
+              placeholder={t('pdfManagement.folderNamePlaceholder')}
               className="mt-2"
               maxLength={120}
             />
@@ -1772,9 +1946,9 @@ const PDFManagement = () => {
                 setRenameFolderName('');
               }}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
-            <Button onClick={handleRenameFolder} className="bg-emerald-900 hover:bg-emerald-800">Save</Button>
+            <Button onClick={handleRenameFolder} className="bg-emerald-900 hover:bg-emerald-800">{t('common.save')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1782,21 +1956,21 @@ const PDFManagement = () => {
       <Dialog open={showNewFolder} onOpenChange={setShowNewFolder}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create New Folder</DialogTitle>
-            <DialogDescription>Use folders to organize your PDFs.</DialogDescription>
+            <DialogTitle>{t('pdfManagement.createFolderTitle')}</DialogTitle>
+            <DialogDescription>{t('pdfManagement.createFolderDescription')}</DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <Label>Folder Name</Label>
+            <Label>{t('pdfManagement.folderName')}</Label>
             <Input
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
-              placeholder="Enter folder name"
+              placeholder={t('pdfManagement.folderNamePlaceholder')}
               className="mt-2"
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewFolder(false)}>Cancel</Button>
-            <Button onClick={handleCreateFolder} className="bg-emerald-900 hover:bg-emerald-800">Create</Button>
+            <Button variant="outline" onClick={() => setShowNewFolder(false)}>{t('common.cancel')}</Button>
+            <Button onClick={handleCreateFolder} className="bg-emerald-900 hover:bg-emerald-800">{t('pdfManagement.createFolderAction')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1804,8 +1978,8 @@ const PDFManagement = () => {
       <Dialog open={!!moveTarget} onOpenChange={() => setMoveTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Move PDF</DialogTitle>
-            <DialogDescription>Select destination for "{moveTarget?.filename}"</DialogDescription>
+            <DialogTitle>{t('pdfManagement.movePdfTitle')}</DialogTitle>
+            <DialogDescription>{t('pdfManagement.movePdfDescription', { name: moveTarget?.filename || '' })}</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-2">
             <button
@@ -1813,12 +1987,42 @@ const PDFManagement = () => {
               className="w-full flex items-center space-x-3 p-3 rounded-lg hover:bg-stone-100 transition-colors"
             >
               <Folder className="w-5 h-5 text-stone-400" />
-              <span>Root (no folder)</span>
+              <span>{t('pdfManagement.rootNoFolder')}</span>
             </button>
             {sortedFolders.map((folder) => (
               <button
                 key={folder.folder_id}
                 onClick={() => handleMovePdf(folder.folder_id)}
+                className="w-full flex items-center space-x-3 p-3 rounded-lg hover:bg-stone-100 transition-colors"
+              >
+                <Folder className="w-5 h-5 text-amber-500" />
+                <span>{folder.name}</span>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bulkMoveOpen} onOpenChange={setBulkMoveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('pdfManagement.moveSelectedPdfsTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('pdfManagement.moveSelectedPdfsDescription', { count: selectedPdfIds.length })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2">
+            <button
+              onClick={() => handleBulkMove(null)}
+              className="w-full flex items-center space-x-3 p-3 rounded-lg hover:bg-stone-100 transition-colors"
+            >
+              <Folder className="w-5 h-5 text-stone-400" />
+              <span>{t('pdfManagement.rootNoFolder')}</span>
+            </button>
+            {sortedFolders.map((folder) => (
+              <button
+                key={folder.folder_id}
+                onClick={() => handleBulkMove(folder.folder_id)}
                 className="w-full flex items-center space-x-3 p-3 rounded-lg hover:bg-stone-100 transition-colors"
               >
                 <Folder className="w-5 h-5 text-amber-500" />

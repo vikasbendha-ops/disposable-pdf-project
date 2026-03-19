@@ -64,6 +64,8 @@ const DEFAULT_SUBSCRIPTION_PLANS = Object.freeze({
     links_per_month: 50,
     featured: false,
     active: true,
+    public_visible: true,
+    sort_order: 10,
     features: ['500 MB storage', '50 links per month'],
   },
   pro: {
@@ -78,6 +80,8 @@ const DEFAULT_SUBSCRIPTION_PLANS = Object.freeze({
     links_per_month: 200,
     featured: true,
     active: true,
+    public_visible: true,
+    sort_order: 20,
     features: ['2 GB storage', '200 links per month'],
   },
   enterprise: {
@@ -92,9 +96,47 @@ const DEFAULT_SUBSCRIPTION_PLANS = Object.freeze({
     links_per_month: 1000,
     featured: false,
     active: true,
+    public_visible: true,
+    sort_order: 30,
     features: ['10 GB storage', '1000 links per month'],
   },
 });
+
+const DEFAULT_PLAN_ID_RE = /^[a-z0-9][a-z0-9_-]{1,39}$/;
+
+const toDefaultPlanName = (planId) =>
+  String(planId || '')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase()) || 'Custom Plan';
+
+const createGenericPlanDefaults = (planId, index = 0) => ({
+  plan_id: planId,
+  name: toDefaultPlanName(planId),
+  description: '',
+  badge: '',
+  price: 0,
+  currency: 'eur',
+  interval: 'month',
+  storage_mb: 0,
+  links_per_month: 0,
+  featured: false,
+  active: true,
+  public_visible: false,
+  sort_order: 100 + index,
+  features: [],
+});
+
+export const getOrderedPlanEntries = (plans = {}) =>
+  Object.entries(plans || {}).sort((left, right) => {
+    const leftPlan = left[1] || {};
+    const rightPlan = right[1] || {};
+    const orderDelta = Number(leftPlan.sort_order || 0) - Number(rightPlan.sort_order || 0);
+    if (orderDelta !== 0) return orderDelta;
+    const featuredDelta = Number(Boolean(rightPlan.featured)) - Number(Boolean(leftPlan.featured));
+    if (featuredDelta !== 0) return featuredDelta;
+    return String(leftPlan.name || left[0]).localeCompare(String(rightPlan.name || right[0]));
+  });
 
 // Auth Context
 const AuthContext = createContext(null);
@@ -187,25 +229,12 @@ const normalizeSubscriptionPlans = (payload) => {
   const source = payload && typeof payload === 'object' ? payload : {};
   const planIds = Array.from(new Set([
     ...Object.keys(DEFAULT_SUBSCRIPTION_PLANS),
-    ...Object.keys(source),
+    ...Object.keys(source).filter((planId) => DEFAULT_PLAN_ID_RE.test(String(planId || '').trim())),
   ]));
   const normalized = {};
 
-  for (const planId of planIds) {
-    const defaults = DEFAULT_SUBSCRIPTION_PLANS[planId] || {
-      plan_id: planId,
-      name: planId,
-      description: '',
-      badge: '',
-      price: 0,
-      currency: 'eur',
-      interval: 'month',
-      storage_mb: 0,
-      links_per_month: 0,
-      featured: false,
-      active: true,
-      features: [],
-    };
+  for (const [index, planId] of planIds.entries()) {
+    const defaults = DEFAULT_SUBSCRIPTION_PLANS[planId] || createGenericPlanDefaults(planId, index);
     const candidate = source[planId] && typeof source[planId] === 'object' ? source[planId] : {};
     normalized[planId] = {
       plan_id: String(candidate.plan_id || defaults.plan_id || planId),
@@ -223,6 +252,13 @@ const normalizeSubscriptionPlans = (payload) => {
         : Number(defaults.links_per_month || 0),
       featured: candidate.featured !== undefined ? Boolean(candidate.featured) : Boolean(defaults.featured),
       active: candidate.active !== undefined ? Boolean(candidate.active) : Boolean(defaults.active),
+      public_visible:
+        candidate.public_visible !== undefined
+          ? Boolean(candidate.public_visible)
+          : Boolean(defaults.public_visible),
+      sort_order: Number.isFinite(Number(candidate.sort_order))
+        ? Number(candidate.sort_order)
+        : Number(defaults.sort_order || 0),
       features: Array.isArray(candidate.features) && candidate.features.length > 0
         ? candidate.features.map((item) => String(item || '').trim()).filter(Boolean)
         : defaults.features,
