@@ -576,6 +576,13 @@ const AuthProvider = ({ children }) => {
     return response.data;
   };
 
+  const requestOwnPasswordReset = async () => {
+    const response = await api.post('/auth/password-reset/self', {
+      origin_url: typeof window !== 'undefined' ? window.location.origin : '',
+    });
+    return response.data;
+  };
+
   const requestEmailChange = async (newEmail) => {
     const response = await api.post('/auth/email-change/request', {
       new_email: newEmail,
@@ -664,9 +671,10 @@ const AuthProvider = ({ children }) => {
       logout,
       loading,
       refreshUser,
-      updateUserLanguage,
-      requestPasswordReset,
-      requestEmailChange,
+        updateUserLanguage,
+        requestPasswordReset,
+        requestOwnPasswordReset,
+        requestEmailChange,
       validatePasswordResetToken,
       confirmPasswordReset,
       confirmEmailVerification,

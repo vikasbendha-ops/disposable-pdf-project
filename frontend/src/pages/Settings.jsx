@@ -16,7 +16,7 @@ import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 
 const Settings = () => {
-  const { user, updateUserLanguage, refreshUser, requestPasswordReset, requestEmailChange } = useAuth();
+  const { user, updateUserLanguage, refreshUser, requestOwnPasswordReset, requestEmailChange } = useAuth();
   const { plans } = useSubscriptionPlans();
   const { language, setLanguage, languages, t } = useLanguage();
   const [activeTab, setActiveTab] = useState('account');
@@ -315,7 +315,7 @@ const Settings = () => {
 
     setSendingResetEmail(true);
     try {
-      await requestPasswordReset(user.email);
+      await requestOwnPasswordReset();
       toast.success('Password reset email sent');
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to send password reset email');
