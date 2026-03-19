@@ -58,13 +58,19 @@ import { Switch } from '../components/ui/switch';
 import { api, useAuth } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
 
 const PDF_WORKER_SRC = 'https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
 const MAX_INITIAL_THUMBNAILS = 8;
 const MAX_IDLE_THUMBNAILS = 8;
 const MAX_THUMBNAIL_CONCURRENCY = 2;
 let pdfJsLibPromise = null;
+
+const formatLocalizedDate = (value, formatter) => {
+  if (!value) return '';
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return formatter.format(parsed);
+};
 
 async function loadPdfJsLib() {
   if (!pdfJsLibPromise) {
@@ -131,7 +137,16 @@ const PDFManagement = () => {
   const thumbnailQueuedRef = useRef(new Set());
 
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+
+  const shortDateFormatter = useMemo(
+    () => new Intl.DateTimeFormat(language || 'en', { dateStyle: 'medium' }),
+    [language],
+  );
+  const dateTimeFormatter = useMemo(
+    () => new Intl.DateTimeFormat(language || 'en', { dateStyle: 'medium', timeStyle: 'short' }),
+    [language],
+  );
 
   const fetchData = useCallback(async () => {
     try {
@@ -898,7 +913,7 @@ const PDFManagement = () => {
                 <div className="text-xs text-stone-500 mt-1 flex flex-wrap items-center gap-3">
                   <span>{t('pdfManagement.linkViews', { count: Number(link.open_count || 0) })}</span>
                   <span>{getExpiryModeLabel(link.expiry_mode)}</span>
-                  <span>{format(new Date(link.created_at), 'MMM d, yyyy')}</span>
+                  <span>{formatLocalizedDate(link.created_at, shortDateFormatter)}</span>
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -1060,7 +1075,7 @@ const PDFManagement = () => {
                     <span>{formatBytes(pdf.file_size)}</span>
                     <span className="flex items-center">
                       <Clock className="w-3 h-3 mr-1" />
-                      {format(new Date(pdf.created_at), 'MMM d, yyyy h:mm a')}
+                      {formatLocalizedDate(pdf.created_at, dateTimeFormatter)}
                     </span>
                     <span className="text-stone-600">
                       {t('pdfManagement.folderLabel')}: {getFolderName(pdf.folder)}
@@ -1171,7 +1186,7 @@ const PDFManagement = () => {
             {renderPdfPreview(pdf, true)}
             <h3 className="font-semibold text-stone-900 mt-3 truncate">{pdf.filename}</h3>
             <p className="text-xs text-stone-500 mt-1">
-              {formatBytes(pdf.file_size)} • {format(new Date(pdf.created_at), 'MMM d, yyyy')} • {getFolderName(pdf.folder)}
+              {formatBytes(pdf.file_size)} • {formatLocalizedDate(pdf.created_at, shortDateFormatter)} • {getFolderName(pdf.folder)}
             </p>
 
             <div className="mt-3 grid grid-cols-3 gap-2 text-center">
