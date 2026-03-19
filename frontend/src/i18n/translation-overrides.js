@@ -1469,6 +1469,18 @@ const EMAIL_CHANGE_TRANSLATION_OVERRIDES = {
   },
 };
 
+function cloneTranslationOverrideValue(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => cloneTranslationOverrideValue(item));
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [key, cloneTranslationOverrideValue(nestedValue)]),
+    );
+  }
+  return value;
+}
+
 function deepMergeTranslationOverrides(target, source) {
   for (const [key, value] of Object.entries(source)) {
     if (
@@ -1482,7 +1494,7 @@ function deepMergeTranslationOverrides(target, source) {
       deepMergeTranslationOverrides(target[key], value);
       continue;
     }
-    target[key] = value;
+    target[key] = cloneTranslationOverrideValue(value);
   }
 }
 
