@@ -21,7 +21,6 @@ import {
   Search,
   Trash2,
   Upload,
-  X,
 } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
@@ -94,6 +93,9 @@ const PDFManagement = () => {
   const [moveTarget, setMoveTarget] = useState(null);
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+  const [renameFolderTarget, setRenameFolderTarget] = useState(null);
+  const [renameFolderName, setRenameFolderName] = useState('');
+  const [deleteFolderTarget, setDeleteFolderTarget] = useState(null);
   const [deleteLinkTarget, setDeleteLinkTarget] = useState(null);
   const [revokeLinkTarget, setRevokeLinkTarget] = useState(null);
   const [editLinkTarget, setEditLinkTarget] = useState(null);
@@ -309,25 +311,74 @@ const PDFManagement = () => {
       const response = await api.post('/folders', { name: newFolderName.trim() });
       setFolders((prev) => [...prev, response.data]);
       toast.success('Folder created');
-    } catch {
-      toast.error('Failed to create folder');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to create folder');
     } finally {
       setShowNewFolder(false);
       setNewFolderName('');
     }
   };
 
-  const handleDeleteFolder = async (folderId) => {
+  const openRenameFolderDialog = (folder) => {
+    setRenameFolderTarget(folder);
+    setRenameFolderName(folder?.name || '');
+  };
+
+  const handleRenameFolder = async () => {
+    if (!renameFolderTarget || !renameFolderName.trim()) return;
+    const nextName = renameFolderName.trim();
+    if (nextName === renameFolderTarget.name) {
+      setRenameFolderTarget(null);
+      setRenameFolderName('');
+      return;
+    }
+
+    try {
+      const response = await api.put(`/folders/${renameFolderTarget.folder_id}`, { name: nextName });
+      const updatedFolder = response.data || { ...renameFolderTarget, name: nextName };
+      setFolders((prev) =>
+        prev.map((folder) =>
+          folder.folder_id === renameFolderTarget.folder_id
+            ? { ...folder, ...updatedFolder }
+            : folder,
+        ),
+      );
+      toast.success('Folder renamed');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to rename folder');
+    } finally {
+      setRenameFolderTarget(null);
+      setRenameFolderName('');
+    }
+  };
+
+  const handleDeleteFolder = async () => {
+    if (!deleteFolderTarget) return;
+    const folderId = deleteFolderTarget.folder_id;
+    const movedCount = pdfs.filter((item) => item.folder === folderId).length;
+
     try {
       await api.delete(`/folders/${folderId}`);
       setFolders((prev) => prev.filter((folder) => folder.folder_id !== folderId));
+      setPdfs((prev) =>
+        prev.map((item) =>
+          item.folder === folderId
+            ? { ...item, folder: null }
+            : item,
+        ),
+      );
       if (folderFilter === folderId) {
         setFolderFilter('all');
       }
-      await fetchData();
-      toast.success('Folder deleted');
-    } catch {
-      toast.error('Failed to delete folder');
+      toast.success(
+        movedCount > 0
+          ? `Folder deleted. ${movedCount} PDF${movedCount === 1 ? '' : 's'} moved to Root`
+          : 'Folder deleted',
+      );
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to delete folder');
+    } finally {
+      setDeleteFolderTarget(null);
     }
   };
 
@@ -486,6 +537,72 @@ const PDFManagement = () => {
     activeLinks: links.filter((item) => item.status === 'active').length,
     totalViews: links.reduce((sum, item) => sum + Number(item.open_count || 0), 0),
   }), [pdfs, links]);
+
+  const sortedFolders = useMemo(
+    () => [...folders].sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''))),
+    [folders],
+  );
+
+  const folderLookup = useMemo(
+    () => Object.fromEntries(folders.map((folder) => [folder.folder_id, folder])),
+    [folders],
+  );
+
+  const folderStats = useMemo(() => {
+    const byFolder = {};
+    for (const folder of folders) {
+      byFolder[folder.folder_id] = {
+        pdfCount: 0,
+        activeLinks: 0,
+        totalViews: 0,
+      };
+    }
+
+    const root = {
+      pdfCount: 0,
+      activeLinks: 0,
+      totalViews: 0,
+    };
+
+    for (const pdf of pdfs) {
+      const metrics = pdfMetrics[pdf.pdf_id] || { activeLinks: 0, totalViews: 0 };
+      const bucket = pdf.folder ? (byFolder[pdf.folder] ||= { pdfCount: 0, activeLinks: 0, totalViews: 0 }) : root;
+      bucket.pdfCount += 1;
+      bucket.activeLinks += metrics.activeLinks;
+      bucket.totalViews += metrics.totalViews;
+    }
+
+    return {
+      all: {
+        pdfCount: pdfs.length,
+        activeLinks: totals.activeLinks,
+        totalViews: totals.totalViews,
+      },
+      root,
+      byFolder,
+    };
+  }, [folders, pdfMetrics, pdfs, totals.activeLinks, totals.totalViews]);
+
+  const folderFilterMeta = useMemo(() => {
+    if (folderFilter === 'all') {
+      return {
+        title: 'All PDFs',
+        description: `${folderStats.all.pdfCount} PDFs across your full workspace`,
+      };
+    }
+    if (folderFilter === 'root') {
+      return {
+        title: 'Root',
+        description: `${folderStats.root.pdfCount} PDFs without a folder`,
+      };
+    }
+    const folder = folderLookup[folderFilter];
+    const stats = folderStats.byFolder[folderFilter] || { pdfCount: 0 };
+    return {
+      title: folder?.name || 'Folder',
+      description: `${stats.pdfCount} PDFs in this folder`,
+    };
+  }, [folderFilter, folderLookup, folderStats]);
 
   const filteredPdfs = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -842,7 +959,7 @@ const PDFManagement = () => {
                       {format(new Date(pdf.created_at), 'MMM d, yyyy h:mm a')}
                     </span>
                     <span className="text-stone-600">
-                      Folder: {pdf.folder ? (folders.find((item) => item.folder_id === pdf.folder)?.name || 'Unknown') : 'Root'}
+                      Folder: {pdf.folder ? (folderLookup[pdf.folder]?.name || 'Unknown') : 'Root'}
                     </span>
                   </div>
 
@@ -932,7 +1049,9 @@ const PDFManagement = () => {
           <CardContent className="p-4 h-full flex flex-col">
             {renderPdfPreview(pdf, true)}
             <h3 className="font-semibold text-stone-900 mt-3 truncate">{pdf.filename}</h3>
-            <p className="text-xs text-stone-500 mt-1">{formatBytes(pdf.file_size)} • {format(new Date(pdf.created_at), 'MMM d, yyyy')}</p>
+            <p className="text-xs text-stone-500 mt-1">
+              {formatBytes(pdf.file_size)} • {format(new Date(pdf.created_at), 'MMM d, yyyy')} • {pdf.folder ? (folderLookup[pdf.folder]?.name || 'Unknown') : 'Root'}
+            </p>
 
             <div className="mt-3 grid grid-cols-3 gap-2 text-center">
               <div className="rounded-lg bg-emerald-50 text-emerald-700 py-2">
@@ -1090,19 +1209,6 @@ const PDFManagement = () => {
         <div className="flex flex-col lg:flex-row lg:items-center gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <select
-              value={folderFilter}
-              onChange={(e) => setFolderFilter(e.target.value)}
-              className="h-10 rounded-md border border-stone-200 bg-white px-3 text-sm text-stone-700"
-            >
-              <option value="all">All folders</option>
-              <option value="root">Root only</option>
-              {folders.map((folder) => (
-                <option key={folder.folder_id} value={folder.folder_id}>
-                  {folder.name}
-                </option>
-              ))}
-            </select>
-            <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
               className="h-10 rounded-md border border-stone-200 bg-white px-3 text-sm text-stone-700"
@@ -1139,25 +1245,177 @@ const PDFManagement = () => {
         </div>
       </div>
 
-      {!loading && folders.length > 0 && (
-        <div className="mb-5">
-          <p className="text-xs uppercase tracking-wider text-stone-500 font-semibold mb-2">Folders</p>
-          <div className="flex flex-wrap gap-2">
-            {folders.map((folder) => (
-              <div key={folder.folder_id} className="inline-flex items-center rounded-full border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-700">
-                <Folder className="w-3.5 h-3.5 mr-2 text-amber-500" />
-                {folder.name}
-                <button
-                  onClick={() => handleDeleteFolder(folder.folder_id)}
-                  className="ml-2 text-stone-400 hover:text-red-600"
-                  title="Delete folder"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
+      {!loading && (
+        <Card className="mb-6 border-stone-200 bg-gradient-to-br from-white via-stone-50 to-emerald-50/40">
+          <CardContent className="p-4 md:p-5">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">Folders</p>
+                  <h2 className="mt-1 text-lg font-semibold text-stone-900">Browse folders without risky one-click actions</h2>
+                  <p className="mt-1 text-sm text-stone-500">
+                    Select a folder to filter your PDFs. Rename or delete folders from the menu only.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-emerald-100 bg-white/80 px-4 py-3 text-sm text-stone-600">
+                  <span className="font-semibold text-stone-900">{folderFilterMeta.title}</span>
+                  <span className="mx-2 text-stone-300">•</span>
+                  <span>{folderFilterMeta.description}</span>
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
+
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setFolderFilter('all')}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      setFolderFilter('all');
+                    }
+                  }}
+                  className={`rounded-2xl border p-4 transition-all cursor-pointer ${
+                    folderFilter === 'all'
+                      ? 'border-emerald-900 bg-emerald-900 text-white shadow-md'
+                      : 'border-stone-200 bg-white hover:border-stone-300 hover:shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className={`text-sm font-semibold ${folderFilter === 'all' ? 'text-emerald-50' : 'text-stone-900'}`}>All PDFs</p>
+                      <p className={`mt-1 text-xs ${folderFilter === 'all' ? 'text-emerald-100/80' : 'text-stone-500'}`}>
+                        Everything in your workspace
+                      </p>
+                    </div>
+                    <FolderOpen className={`h-5 w-5 ${folderFilter === 'all' ? 'text-emerald-100' : 'text-emerald-700'}`} />
+                  </div>
+                  <div className="mt-5 flex items-end justify-between gap-3">
+                    <div>
+                      <p className={`text-2xl font-semibold ${folderFilter === 'all' ? 'text-white' : 'text-stone-900'}`}>{folderStats.all.pdfCount}</p>
+                      <p className={`text-xs ${folderFilter === 'all' ? 'text-emerald-100/80' : 'text-stone-500'}`}>PDFs</p>
+                    </div>
+                    <div className={`text-right text-xs ${folderFilter === 'all' ? 'text-emerald-100/80' : 'text-stone-500'}`}>
+                      <p>{folderStats.all.activeLinks} active links</p>
+                      <p>{folderStats.all.totalViews} views</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setFolderFilter('root')}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      setFolderFilter('root');
+                    }
+                  }}
+                  className={`rounded-2xl border p-4 transition-all cursor-pointer ${
+                    folderFilter === 'root'
+                      ? 'border-emerald-900 bg-emerald-900 text-white shadow-md'
+                      : 'border-stone-200 bg-white hover:border-stone-300 hover:shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className={`text-sm font-semibold ${folderFilter === 'root' ? 'text-emerald-50' : 'text-stone-900'}`}>Root</p>
+                      <p className={`mt-1 text-xs ${folderFilter === 'root' ? 'text-emerald-100/80' : 'text-stone-500'}`}>
+                        PDFs not assigned to any folder
+                      </p>
+                    </div>
+                    <Folder className={`h-5 w-5 ${folderFilter === 'root' ? 'text-emerald-100' : 'text-amber-600'}`} />
+                  </div>
+                  <div className="mt-5 flex items-end justify-between gap-3">
+                    <div>
+                      <p className={`text-2xl font-semibold ${folderFilter === 'root' ? 'text-white' : 'text-stone-900'}`}>{folderStats.root.pdfCount}</p>
+                      <p className={`text-xs ${folderFilter === 'root' ? 'text-emerald-100/80' : 'text-stone-500'}`}>PDFs</p>
+                    </div>
+                    <div className={`text-right text-xs ${folderFilter === 'root' ? 'text-emerald-100/80' : 'text-stone-500'}`}>
+                      <p>{folderStats.root.activeLinks} active links</p>
+                      <p>{folderStats.root.totalViews} views</p>
+                    </div>
+                  </div>
+                </div>
+
+                {sortedFolders.map((folder) => {
+                  const stats = folderStats.byFolder[folder.folder_id] || { pdfCount: 0, activeLinks: 0, totalViews: 0 };
+                  const isActive = folderFilter === folder.folder_id;
+                  return (
+                    <div
+                      key={folder.folder_id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setFolderFilter(folder.folder_id)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setFolderFilter(folder.folder_id);
+                        }
+                      }}
+                      className={`rounded-2xl border p-4 transition-all cursor-pointer ${
+                        isActive
+                          ? 'border-emerald-900 bg-emerald-900 text-white shadow-md'
+                          : 'border-stone-200 bg-white hover:border-stone-300 hover:shadow-sm'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className={`truncate text-sm font-semibold ${isActive ? 'text-emerald-50' : 'text-stone-900'}`}>{folder.name}</p>
+                          <p className={`mt-1 text-xs ${isActive ? 'text-emerald-100/80' : 'text-stone-500'}`}>
+                            Managed folder
+                          </p>
+                        </div>
+                        <div className="flex items-start gap-1">
+                          <Folder className={`mt-0.5 h-5 w-5 flex-shrink-0 ${isActive ? 'text-emerald-100' : 'text-amber-600'}`} />
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className={`h-8 w-8 ${isActive ? 'text-emerald-100 hover:bg-emerald-800 hover:text-white' : 'text-stone-500 hover:bg-stone-100 hover:text-stone-900'}`}
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => openRenameFolderDialog(folder)}
+                              >
+                                <Edit2 className="mr-2 h-4 w-4" />
+                                Rename folder
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setDeleteFolderTarget(folder)}
+                                className="text-red-600 focus:text-red-600"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete folder
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                      <div className="mt-5 flex items-end justify-between gap-3">
+                        <div>
+                          <p className={`text-2xl font-semibold ${isActive ? 'text-white' : 'text-stone-900'}`}>{stats.pdfCount}</p>
+                          <p className={`text-xs ${isActive ? 'text-emerald-100/80' : 'text-stone-500'}`}>PDFs</p>
+                        </div>
+                        <div className={`text-right text-xs ${isActive ? 'text-emerald-100/80' : 'text-stone-500'}`}>
+                          <p>{stats.activeLinks} active links</p>
+                          <p>{stats.totalViews} views</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {loading ? (
@@ -1188,13 +1446,29 @@ const PDFManagement = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className={viewMode === 'grid' ? 'grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-4' : 'space-y-4'}>
-          {filteredPdfs.map((pdf, index) =>
-            viewMode === 'grid'
-              ? renderGridCard(pdf, index)
-              : renderListCard(pdf, index),
+        <>
+          {folderFilter !== 'all' && (
+            <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-stone-200 bg-white p-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-stone-900">{folderFilterMeta.title}</p>
+                <p className="text-sm text-stone-500">
+                  Showing {filteredPdfs.length} PDF{filteredPdfs.length === 1 ? '' : 's'} in this view.
+                </p>
+              </div>
+              <Button variant="outline" onClick={() => setFolderFilter('all')}>
+                Show All PDFs
+              </Button>
+            </div>
           )}
-        </div>
+
+          <div className={viewMode === 'grid' ? 'grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-4' : 'space-y-4'}>
+            {filteredPdfs.map((pdf, index) =>
+              viewMode === 'grid'
+                ? renderGridCard(pdf, index)
+                : renderListCard(pdf, index),
+            )}
+          </div>
+        </>
       )}
 
       <Dialog open={!!editLinkTarget} onOpenChange={() => setEditLinkTarget(null)}>
@@ -1425,6 +1699,25 @@ const PDFManagement = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={!!deleteFolderTarget} onOpenChange={() => setDeleteFolderTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete folder</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete "{deleteFolderTarget?.name}" and move{' '}
+              {deleteFolderTarget ? (folderStats.byFolder[deleteFolderTarget.folder_id]?.pdfCount || 0) : 0}{' '}
+              PDF{deleteFolderTarget && (folderStats.byFolder[deleteFolderTarget.folder_id]?.pdfCount || 0) === 1 ? '' : 's'} to Root.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteFolder} className="bg-red-600 hover:bg-red-700">
+              Delete Folder
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={!!renameTarget} onOpenChange={() => setRenameTarget(null)}>
         <DialogContent>
           <DialogHeader>
@@ -1443,6 +1736,45 @@ const PDFManagement = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setRenameTarget(null)}>Cancel</Button>
             <Button onClick={handleRename} className="bg-emerald-900 hover:bg-emerald-800">Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!renameFolderTarget}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRenameFolderTarget(null);
+            setRenameFolderName('');
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Folder</DialogTitle>
+            <DialogDescription>Use a clear name so this folder stays easy to find in My PDFs.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label>Folder Name</Label>
+            <Input
+              value={renameFolderName}
+              onChange={(e) => setRenameFolderName(e.target.value)}
+              placeholder="Enter folder name"
+              className="mt-2"
+              maxLength={120}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRenameFolderTarget(null);
+                setRenameFolderName('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleRenameFolder} className="bg-emerald-900 hover:bg-emerald-800">Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1483,7 +1815,7 @@ const PDFManagement = () => {
               <Folder className="w-5 h-5 text-stone-400" />
               <span>Root (no folder)</span>
             </button>
-            {folders.map((folder) => (
+            {sortedFolders.map((folder) => (
               <button
                 key={folder.folder_id}
                 onClick={() => handleMovePdf(folder.folder_id)}
