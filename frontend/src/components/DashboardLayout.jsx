@@ -30,8 +30,8 @@ const DashboardLayout = ({ children, title, subtitle }) => {
     { icon: BarChart3, label: t('admin.dashboard'), path: '/admin' },
     { icon: Users, label: t('admin.manageUsers'), path: '/admin/users' },
     { icon: Link2, label: t('admin.allLinks'), path: '/admin/links' },
-    { icon: ClipboardList, label: 'Audit Logs', path: '/admin/audit-events' },
-    { icon: Settings, label: 'Platform Settings', path: '/admin/settings' },
+    { icon: ClipboardList, label: t('adminAudit.title'), path: '/admin/audit-events' },
+    { icon: Settings, label: t('admin.platformSettings'), path: '/admin/settings' },
   ];
 
   const handleLogout = async () => {
@@ -98,7 +98,7 @@ const DashboardLayout = ({ children, title, subtitle }) => {
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
             <div className="mb-6">
-              <span className="px-4 text-xs font-semibold text-stone-400 uppercase tracking-wider">Main</span>
+              <span className="px-4 text-xs font-semibold text-stone-400 uppercase tracking-wider">{t('dashboardLayout.mainSection')}</span>
               <div className="mt-2 space-y-1">
                 {mainNavItems.map((item) => (
                   <NavItem key={item.path} item={item} />
@@ -108,7 +108,7 @@ const DashboardLayout = ({ children, title, subtitle }) => {
 
             {isAdmin && (
               <div className="mb-6">
-                <span className="px-4 text-xs font-semibold text-stone-400 uppercase tracking-wider">Admin</span>
+                <span className="px-4 text-xs font-semibold text-stone-400 uppercase tracking-wider">{t('dashboardLayout.adminSection')}</span>
                 <div className="mt-2 space-y-1">
                   {adminNavItems.map((item) => (
                     <NavItem key={item.path} item={item} />
@@ -135,7 +135,7 @@ const DashboardLayout = ({ children, title, subtitle }) => {
             {/* Subscription Status */}
             <div className="mb-4 p-3 bg-stone-50 rounded-lg">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-stone-500">Plan</span>
+                <span className="text-xs text-stone-500">{t('settings.plan')}</span>
                 <span className={cn(
                   "text-xs font-semibold px-2 py-0.5 rounded-full",
                   user?.subscription_status === 'active' 
@@ -148,7 +148,7 @@ const DashboardLayout = ({ children, title, subtitle }) => {
               {user?.subscription_status !== 'active' && (
                 <Link to="/pricing">
                   <Button size="sm" className="w-full mt-2 bg-emerald-900 hover:bg-emerald-800 h-8 text-xs">
-                    Upgrade
+                    {t('settings.upgrade')}
                     <ChevronRight className="w-3 h-3 ml-1" />
                   </Button>
                 </Link>

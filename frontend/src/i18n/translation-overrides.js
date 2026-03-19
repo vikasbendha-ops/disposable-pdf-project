@@ -1490,3 +1490,95 @@ for (const [languageCode, override] of Object.entries(EMAIL_CHANGE_TRANSLATION_O
   TRANSLATION_OVERRIDES[languageCode] = TRANSLATION_OVERRIDES[languageCode] || {};
   deepMergeTranslationOverrides(TRANSLATION_OVERRIDES[languageCode], override);
 }
+
+const ADMIN_UI_TRANSLATION_OVERRIDES = {
+  en: {
+    admin: {
+      platformSettings: 'Platform Settings',
+    },
+    adminUsers: {
+      selectSubscriptionType: 'Select a subscription type before saving access',
+    },
+    dashboardLayout: {
+      mainSection: 'Main',
+      adminSection: 'Admin',
+    },
+  },
+  es: {
+    admin: {
+      platformSettings: 'Configuración de la plataforma',
+    },
+    adminUsers: {
+      selectSubscriptionType: 'Selecciona un tipo de suscripción antes de guardar el acceso',
+    },
+    dashboardLayout: {
+      mainSection: 'Principal',
+      adminSection: 'Admin',
+    },
+  },
+  fr: {
+    admin: {
+      platformSettings: 'Paramètres de la plateforme',
+    },
+    adminUsers: {
+      selectSubscriptionType: "Sélectionnez un type d'abonnement avant d'enregistrer l'accès",
+    },
+    dashboardLayout: {
+      mainSection: 'Principal',
+      adminSection: 'Admin',
+    },
+  },
+  de: {
+    admin: {
+      platformSettings: 'Plattform-Einstellungen',
+    },
+    adminUsers: {
+      selectSubscriptionType: 'Wählen Sie vor dem Speichern des Zugriffs einen Abotyp aus',
+    },
+    dashboardLayout: {
+      mainSection: 'Hauptbereich',
+      adminSection: 'Admin',
+    },
+  },
+  it: {
+    admin: {
+      platformSettings: 'Impostazioni piattaforma',
+    },
+    adminUsers: {
+      selectSubscriptionType: "Seleziona un tipo di abbonamento prima di salvare l'accesso",
+    },
+    dashboardLayout: {
+      mainSection: 'Principale',
+      adminSection: 'Admin',
+    },
+  },
+  hi: {
+    admin: {
+      platformSettings: 'प्लेटफ़ॉर्म सेटिंग्स',
+    },
+    adminUsers: {
+      selectSubscriptionType: 'एक्सेस सेव करने से पहले सदस्यता प्रकार चुनें',
+    },
+    dashboardLayout: {
+      mainSection: 'मुख्य',
+      adminSection: 'एडमिन',
+    },
+  },
+  sl: {
+    admin: {
+      platformSettings: 'Nastavitve platforme',
+    },
+    adminUsers: {
+      selectSubscriptionType: 'Pred shranjevanjem dostopa izberite vrsto naročnine',
+    },
+    dashboardLayout: {
+      mainSection: 'Glavno',
+      adminSection: 'Admin',
+    },
+  },
+};
+
+for (const [languageCode, override] of Object.entries(ADMIN_UI_TRANSLATION_OVERRIDES)) {
+  TRANSLATION_OVERRIDES[languageCode] = TRANSLATION_OVERRIDES[languageCode] || {};
+  deepMergeTranslationOverrides(TRANSLATION_OVERRIDES[languageCode], override);
+}

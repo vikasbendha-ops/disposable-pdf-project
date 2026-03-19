@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, Search, Shield, Trash2, Check, X, MoreVertical, CreditCard } from 'lucide-react';
+import { Users, Search, Shield, Trash2, X, MoreVertical, CreditCard } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -208,6 +208,10 @@ const AdminUsers = () => {
 
   const handleSaveSubscriptionAccess = async () => {
     if (!billingTarget) return;
+    if (subscriptionForm.plan === 'none' && billingDetails?.user?.subscription_status !== 'active') {
+      toast.error(t('adminUsers.selectSubscriptionType'));
+      return;
+    }
     setSavingSubscription(true);
     try {
       await api.put(`/admin/users/${billingTarget.user_id}`, {
@@ -467,9 +471,9 @@ const AdminUsers = () => {
                           <DropdownMenuContent align="end">
                             {user.subscription_status !== 'active' ? (
                               <DropdownMenuItem
-                                onClick={() => handleUpdateUser(user.user_id, { subscription_status: 'active' })}
+                                onClick={() => handleOpenBilling(user)}
                               >
-                                <Check className="w-4 h-4 mr-2 text-emerald-600" />
+                                <CreditCard className="w-4 h-4 mr-2 text-emerald-600" />
                                 {t('admin.activateSubscription')}
                               </DropdownMenuItem>
                             ) : (

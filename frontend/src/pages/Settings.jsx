@@ -377,10 +377,10 @@ const Settings = () => {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <div className="overflow-x-auto pb-1">
           <TabsList className="h-auto w-max min-w-full justify-start gap-2 rounded-xl bg-stone-100 p-1">
-            <TabsTrigger value="account" className="px-4 py-2">Account</TabsTrigger>
-            <TabsTrigger value="billing" className="px-4 py-2">Billing</TabsTrigger>
-            <TabsTrigger value="security" className="px-4 py-2">Security</TabsTrigger>
-            <TabsTrigger value="domains" className="px-4 py-2">Domains</TabsTrigger>
+            <TabsTrigger value="account" className="px-4 py-2">{t('settings.profileInfo')}</TabsTrigger>
+            <TabsTrigger value="billing" className="px-4 py-2">{t('settings.subscription')}</TabsTrigger>
+            <TabsTrigger value="security" className="px-4 py-2">{t('settings.changePassword')}</TabsTrigger>
+            <TabsTrigger value="domains" className="px-4 py-2">{t('settings.customDomains')}</TabsTrigger>
           </TabsList>
         </div>
 
@@ -409,7 +409,7 @@ const Settings = () => {
                   ))}
                 </SelectContent>
               </Select>
-              {savingLanguage && <p className="text-sm text-emerald-600 mt-2">Saving...</p>}
+              {savingLanguage && <p className="text-sm text-emerald-600 mt-2">{t('adminUsers.saving')}</p>}
             </CardContent>
           </Card>
 
@@ -444,7 +444,7 @@ const Settings = () => {
                   </div>
                 </div>
                 <Button type="submit" className="bg-emerald-900 hover:bg-emerald-800" disabled={savingAccount}>
-                  {savingAccount ? 'Saving...' : 'Save Account'}
+                  {savingAccount ? t('adminUsers.saving') : t('common.save')}
                 </Button>
               </form>
             </CardContent>
@@ -510,7 +510,7 @@ const Settings = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               {billingLoading && !billingOverview ? (
-                <p className="text-sm text-stone-500">Loading billing details...</p>
+                <p className="text-sm text-stone-500">{t('common.loading')}</p>
               ) : (
                 <>
                   <div className="flex items-center justify-between p-4 bg-stone-50 rounded-xl">
@@ -726,7 +726,7 @@ const Settings = () => {
                 </div>
 
                 <Button type="submit" className="bg-emerald-900 hover:bg-emerald-800" disabled={savingBillingProfile}>
-                  {savingBillingProfile ? 'Saving...' : 'Save Billing Profile'}
+                  {savingBillingProfile ? t('adminUsers.saving') : t('common.save')}
                 </Button>
               </form>
             </CardContent>
