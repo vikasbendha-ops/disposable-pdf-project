@@ -1,11 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, useAuth } from '../App';
 import { toast } from 'sonner';
 
 const AuthCallback = () => {
   const navigate = useNavigate();
   const { setUser } = useAuth();
+  const [searchParams] = useSearchParams();
   const hasProcessed = useRef(false);
 
   useEffect(() => {
@@ -14,29 +15,41 @@ const AuthCallback = () => {
     hasProcessed.current = true;
 
     const processCallback = async () => {
-      // Extract session_id from URL hash
       const hash = window.location.hash;
-      const sessionIdMatch = hash.match(/session_id=([^&]+)/);
-      
-      if (!sessionIdMatch) {
-        toast.error('Invalid authentication callback');
-        navigate('/login', { replace: true });
-        return;
-      }
-
-      const sessionId = sessionIdMatch[1];
+      const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
+      const sessionId = hashParams.get('session_id') || '';
+      const supabaseAccessToken = hashParams.get('access_token') || '';
+      const nextPath = searchParams.get('next') || '/dashboard';
 
       try {
-        // Exchange session_id for user data
-        const response = await api.post('/auth/google/session', { session_id: sessionId });
+        let response;
+        if (supabaseAccessToken) {
+          response = await api.post('/auth/google/exchange', {
+            access_token: supabaseAccessToken,
+            refresh_token: hashParams.get('refresh_token') || '',
+          });
+        } else if (sessionId) {
+          response = await api.post('/auth/google/session', { session_id: sessionId });
+        } else {
+          toast.error('Invalid authentication callback');
+          navigate('/login', { replace: true });
+          return;
+        }
+
         const userData = response.data.user;
+        const localAccessToken = response.data.access_token;
         
         setUser(userData);
+        if (localAccessToken) {
+          localStorage.setItem('token', localAccessToken);
+        }
+        if (userData?.language) {
+          localStorage.setItem('preferredLanguage', userData.language);
+        }
         toast.success(`Welcome, ${userData.name}!`);
         
-        // Clear the hash and navigate to dashboard
         window.history.replaceState(null, '', window.location.pathname);
-        navigate('/dashboard', { replace: true, state: { user: userData } });
+        navigate(nextPath.startsWith('/') ? nextPath : '/dashboard', { replace: true, state: { user: userData } });
       } catch (error) {
         console.error('Auth callback error:', error);
         toast.error('Authentication failed. Please try again.');
@@ -45,7 +58,7 @@ const AuthCallback = () => {
     };
 
     processCallback();
-  }, [navigate, setUser]);
+  }, [navigate, searchParams, setUser]);
 
   return (
     <div className="min-h-screen bg-stone-50 flex items-center justify-center">

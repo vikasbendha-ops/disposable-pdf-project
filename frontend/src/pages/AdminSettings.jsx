@@ -187,6 +187,13 @@ const AdminSettings = () => {
   const [authEmailTemplate, setAuthEmailTemplate] = useState(null);
   const [authEmailLoading, setAuthEmailLoading] = useState(false);
   const [authEmailSaving, setAuthEmailSaving] = useState(false);
+  const [verifyEmailSubject, setVerifyEmailSubject] = useState('Verify your email address');
+  const [verifyEmailPreview, setVerifyEmailPreview] = useState('Use the secure link below to verify your email and activate your account.');
+  const [verifyEmailHeading, setVerifyEmailHeading] = useState('Verify your email address');
+  const [verifyEmailBody, setVerifyEmailBody] = useState('Welcome to {{app_name}}.\n\nUse the secure button below to verify your email address and activate your account.');
+  const [verifyEmailButtonLabel, setVerifyEmailButtonLabel] = useState('Verify email');
+  const [verifyEmailExpiryNotice, setVerifyEmailExpiryNotice] = useState('This secure link expires in {{expiry_hours}} hours.');
+  const [verifyEmailFooter, setVerifyEmailFooter] = useState('If you did not create this account, you can safely ignore this email.');
   const [passwordResetEmailSubject, setPasswordResetEmailSubject] = useState('Reset your password');
   const [passwordResetEmailPreview, setPasswordResetEmailPreview] = useState('Use the secure link below to choose a new password for your account.');
   const [passwordResetEmailHeading, setPasswordResetEmailHeading] = useState('Reset your password');
@@ -425,6 +432,21 @@ const AdminSettings = () => {
 
   const applyAuthEmailTemplateState = (config) => {
     setAuthEmailTemplate(config);
+    setVerifyEmailSubject(config?.verify_email_subject || 'Verify your email address');
+    setVerifyEmailPreview(
+      config?.verify_email_preview_text || 'Use the secure link below to verify your email and activate your account.',
+    );
+    setVerifyEmailHeading(config?.verify_email_heading || 'Verify your email address');
+    setVerifyEmailBody(
+      config?.verify_email_body || 'Welcome to {{app_name}}.\n\nUse the secure button below to verify your email address and activate your account.',
+    );
+    setVerifyEmailButtonLabel(config?.verify_email_button_label || 'Verify email');
+    setVerifyEmailExpiryNotice(
+      config?.verify_email_expiry_notice || 'This secure link expires in {{expiry_hours}} hours.',
+    );
+    setVerifyEmailFooter(
+      config?.verify_email_footer || 'If you did not create this account, you can safely ignore this email.',
+    );
     setPasswordResetEmailSubject(config?.password_reset_subject || 'Reset your password');
     setPasswordResetEmailPreview(
       config?.password_reset_preview_text || 'Use the secure link below to choose a new password for your account.',
@@ -1028,6 +1050,13 @@ const AdminSettings = () => {
     }
 
     const payload = {
+      verify_email_subject: verifyEmailSubject.trim(),
+      verify_email_preview_text: verifyEmailPreview.trim(),
+      verify_email_heading: verifyEmailHeading.trim(),
+      verify_email_body: verifyEmailBody.trim(),
+      verify_email_button_label: verifyEmailButtonLabel.trim(),
+      verify_email_expiry_notice: verifyEmailExpiryNotice.trim(),
+      verify_email_footer: verifyEmailFooter.trim(),
       password_reset_subject: passwordResetEmailSubject.trim(),
       password_reset_preview_text: passwordResetEmailPreview.trim(),
       password_reset_heading: passwordResetEmailHeading.trim(),
@@ -1041,7 +1070,7 @@ const AdminSettings = () => {
     try {
       const res = await api.put('/admin/settings/auth-email-template', payload);
       applyAuthEmailTemplateState(res.data);
-      toast.success('Password reset email template saved');
+      toast.success('Auth email templates saved');
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to save auth email template settings');
     } finally {
@@ -1853,6 +1882,98 @@ const AdminSettings = () => {
 
           <Card className="border-stone-200 mt-6">
             <CardHeader>
+              <CardTitle>Verification Email</CardTitle>
+              <CardDescription>
+                Customize the email sent after account registration and verification resend. Supported placeholders:
+                {' '}
+                <span className="font-mono">{'{{app_name}}'}</span>,{' '}
+                <span className="font-mono">{'{{verify_url}}'}</span>,{' '}
+                <span className="font-mono">{'{{expiry_hours}}'}</span>,{' '}
+                <span className="font-mono">{'{{recipient_email}}'}</span>.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {authEmailLoading ? (
+                <p className="text-sm text-stone-500">Loading verification email template...</p>
+              ) : (
+                <>
+                  <div className="grid md:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>Subject</Label>
+                      <Input
+                        value={verifyEmailSubject}
+                        onChange={(e) => setVerifyEmailSubject(e.target.value)}
+                        placeholder="Verify your email address"
+                        maxLength={160}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Preview Text</Label>
+                      <Input
+                        value={verifyEmailPreview}
+                        onChange={(e) => setVerifyEmailPreview(e.target.value)}
+                        placeholder="Use the secure link below to verify your email and activate your account."
+                        maxLength={220}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>Heading</Label>
+                      <Input
+                        value={verifyEmailHeading}
+                        onChange={(e) => setVerifyEmailHeading(e.target.value)}
+                        placeholder="Verify your email address"
+                        maxLength={120}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Button Label</Label>
+                      <Input
+                        value={verifyEmailButtonLabel}
+                        onChange={(e) => setVerifyEmailButtonLabel(e.target.value)}
+                        placeholder="Verify email"
+                        maxLength={60}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Body</Label>
+                    <Textarea
+                      value={verifyEmailBody}
+                      onChange={(e) => setVerifyEmailBody(e.target.value)}
+                      rows={5}
+                      maxLength={1200}
+                      placeholder="Welcome to {{app_name}}. Use the secure button below to verify your email address and activate your account."
+                    />
+                    <p className="text-xs text-stone-500">Use a blank line to create a new paragraph.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Expiry Notice</Label>
+                    <Input
+                      value={verifyEmailExpiryNotice}
+                      onChange={(e) => setVerifyEmailExpiryNotice(e.target.value)}
+                      placeholder="This secure link expires in {{expiry_hours}} hours."
+                      maxLength={200}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Footer</Label>
+                    <Textarea
+                      value={verifyEmailFooter}
+                      onChange={(e) => setVerifyEmailFooter(e.target.value)}
+                      rows={3}
+                      maxLength={320}
+                      placeholder="If you did not create this account, you can safely ignore this email."
+                    />
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-stone-200 mt-6">
+            <CardHeader>
               <CardTitle>Password Reset Email</CardTitle>
               <CardDescription>
                 Customize the email users receive when they request a password reset. Supported placeholders:
@@ -1947,7 +2068,7 @@ const AdminSettings = () => {
                     </p>
                   </div>
                   <Button onClick={handleSaveAuthEmailTemplate} disabled={authEmailSaving} className="bg-emerald-900 hover:bg-emerald-800">
-                    {authEmailSaving ? 'Saving...' : 'Save Password Reset Email'}
+                    {authEmailSaving ? 'Saving...' : 'Save Auth Emails'}
                   </Button>
                 </>
               )}
@@ -2047,10 +2168,10 @@ const AdminSettings = () => {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label>Auth Portal URL</Label>
+                        <Label>Legacy Auth Portal URL</Label>
                         <Input value={authPortalUrl} onChange={(e) => setAuthPortalUrl(e.target.value)} placeholder="https://auth.example.com" />
                         <p className="text-xs text-stone-500">
-                          Used by login/register social auth redirects. Must be an absolute URL.
+                          Optional legacy setting. Native Google sign-in now uses the built-in Supabase OAuth flow instead.
                         </p>
                       </div>
                       <Button

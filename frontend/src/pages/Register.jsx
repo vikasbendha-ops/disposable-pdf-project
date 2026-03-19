@@ -6,7 +6,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { useAuth, useBranding, usePublicSite } from '../App';
+import { API, useAuth, useBranding } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 
@@ -21,7 +21,6 @@ const Register = () => {
   
   const { register, user } = useAuth();
   const { branding } = useBranding();
-  const { publicSite } = usePublicSite();
   const brandName = branding?.app_name || 'Autodestroy';
   const { language, setLanguage, languages, t } = useLanguage();
   const navigate = useNavigate();
@@ -74,12 +73,8 @@ const Register = () => {
   };
 
   const handleGoogleSignup = () => {
-    if (!publicSite?.auth_portal_url) {
-      toast.error('Authentication portal URL is not configured');
-      return;
-    }
-    const redirectUrl = window.location.origin + '/dashboard';
-    window.location.href = `${publicSite.auth_portal_url}?redirect=${encodeURIComponent(redirectUrl)}`;
+    const originUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    window.location.href = `${API}/auth/google/start?origin_url=${encodeURIComponent(originUrl)}&next=${encodeURIComponent('/dashboard')}`;
   };
 
   return (

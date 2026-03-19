@@ -727,6 +727,7 @@ function AppRouter() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/verify-email-change" element={<VerifyEmailChange />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/view/:token" element={<SecureViewer />} />
       <Route path="/expired" element={<ExpiredPage />} />
