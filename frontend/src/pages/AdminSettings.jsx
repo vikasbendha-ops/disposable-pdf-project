@@ -1261,17 +1261,6 @@ const AdminSettings = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <DashboardLayout title={t('admin.stripeSettings')}>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-emerald-900" />
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  const isLive = stripeConfig?.mode === 'live';
   const orderedPlanEntries = useMemo(
     () => getOrderedPlanEntries(
       Object.fromEntries(
@@ -1287,6 +1276,18 @@ const AdminSettings = () => {
     ),
     [planEditors],
   );
+
+  if (loading) {
+    return (
+      <DashboardLayout title={t('admin.stripeSettings')}>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-emerald-900" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const isLive = stripeConfig?.mode === 'live';
   const gmailDraftClientId = getDraftFieldValue(gmailClientId, gmailClientIdRef);
   const gmailDraftClientSecret = getDraftFieldValue(gmailClientSecret, gmailClientSecretRef);
   const outlookDraftClientId = getDraftFieldValue(outlookClientId, outlookClientIdRef);
