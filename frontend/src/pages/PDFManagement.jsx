@@ -115,6 +115,10 @@ const PDFManagement = () => {
     custom_expired_message: '',
     focus_lock_enabled: true,
     idle_timeout_seconds: 0,
+    strict_security_mode: false,
+    require_fullscreen: false,
+    enhanced_watermark: false,
+    single_viewer_session: false,
     nda_required: false,
     nda_title: 'Confidentiality agreement',
     nda_text: 'This document contains confidential information. By continuing, you agree not to copy, share, capture, or distribute any part of this material without authorization.',
@@ -184,6 +188,10 @@ const PDFManagement = () => {
       custom_expired_message: link?.custom_expired_message || '',
       focus_lock_enabled: security.focus_lock_enabled !== false,
       idle_timeout_seconds: Number(security.idle_timeout_seconds || 0) || 0,
+      strict_security_mode: Boolean(security.strict_security_mode),
+      require_fullscreen: Boolean(security.require_fullscreen),
+      enhanced_watermark: Boolean(security.enhanced_watermark),
+      single_viewer_session: Boolean(security.single_viewer_session),
       nda_required: Boolean(security.nda_required),
       nda_title: security.nda_title || t('pdfManagement.defaultNdaTitle'),
       nda_text: security.nda_text || t('pdfManagement.defaultNdaText'),
@@ -238,6 +246,10 @@ const PDFManagement = () => {
         security_options: {
           focus_lock_enabled: editLinkForm.focus_lock_enabled,
           idle_timeout_seconds: editLinkForm.idle_timeout_seconds > 0 ? editLinkForm.idle_timeout_seconds : null,
+          strict_security_mode: editLinkForm.strict_security_mode,
+          require_fullscreen: editLinkForm.require_fullscreen,
+          enhanced_watermark: editLinkForm.enhanced_watermark,
+          single_viewer_session: editLinkForm.single_viewer_session,
           nda_required: editLinkForm.nda_required,
           nda_title: editLinkForm.nda_title || null,
           nda_text: editLinkForm.nda_text || null,
@@ -1709,6 +1721,19 @@ const PDFManagement = () => {
             </div>
 
             <div className="space-y-4 rounded-xl border border-stone-200 p-4">
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4">
+                <div>
+                  <p className="font-semibold text-stone-900">Strict security mode</p>
+                  <p className="mt-1 text-sm text-stone-500">
+                    Add fullscreen enforcement, stronger watermarking, and one active viewer session on top of the existing viewer protections.
+                  </p>
+                </div>
+                <Switch
+                  checked={editLinkForm.strict_security_mode}
+                  onCheckedChange={(checked) => updateEditLinkField('strict_security_mode', checked)}
+                />
+              </div>
+
               <div className="flex items-center justify-between gap-4 rounded-xl border border-stone-200 p-4">
                 <div>
                   <p className="font-semibold text-stone-900">{t('pdfManagement.focusLockTitle')}</p>
@@ -1732,6 +1757,47 @@ const PDFManagement = () => {
                   onChange={(e) => updateEditLinkField('idle_timeout_seconds', Number.parseInt(e.target.value || '0', 10) || 0)}
                 />
                 <p className="mt-2 text-xs text-stone-500">{t('pdfManagement.idleTimeoutHelp')}</p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="flex items-center justify-between gap-4 rounded-xl border border-stone-200 p-4">
+                  <div>
+                    <p className="font-semibold text-stone-900">Require fullscreen</p>
+                    <p className="mt-1 text-sm text-stone-500">
+                      Force the viewer back into fullscreen before the PDF becomes visible again.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={editLinkForm.require_fullscreen}
+                    onCheckedChange={(checked) => updateEditLinkField('require_fullscreen', checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-4 rounded-xl border border-stone-200 p-4">
+                  <div>
+                    <p className="font-semibold text-stone-900">Enhanced watermark</p>
+                    <p className="mt-1 text-sm text-stone-500">
+                      Increase repeated watermark coverage with session and access details.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={editLinkForm.enhanced_watermark}
+                    onCheckedChange={(checked) => updateEditLinkField('enhanced_watermark', checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-4 rounded-xl border border-stone-200 p-4">
+                  <div>
+                    <p className="font-semibold text-stone-900">Single active viewer session</p>
+                    <p className="mt-1 text-sm text-stone-500">
+                      Keep only one active secure viewer session open for this link at a time.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={editLinkForm.single_viewer_session}
+                    onCheckedChange={(checked) => updateEditLinkField('single_viewer_session', checked)}
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-between gap-4 rounded-xl border border-stone-200 p-4">

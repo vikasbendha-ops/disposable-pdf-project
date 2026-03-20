@@ -12,6 +12,7 @@ const DEFAULT_BACKEND_URL =
 const ENV_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || '';
 const BACKEND_URL = (DEFAULT_BACKEND_URL || ENV_BACKEND_URL).replace(/\/$/, '');
 const API = `${BACKEND_URL}/api`;
+const VIEWER_HEARTBEAT_INTERVAL_MS = 20000;
 
 // Use a CDN worker so the migration does not depend on legacy CRA public asset placement.
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
@@ -20,6 +21,23 @@ const isSafeAnnotationUrl = (value) => {
   if (!value) return false;
   return !/^javascript:/i.test(String(value).trim());
 };
+
+const createViewerSessionId = (token) => {
+  if (typeof window === 'undefined') return null;
+  const storageKey = `securepdf-viewer-session:${token}`;
+  const existing = window.sessionStorage.getItem(storageKey);
+  if (existing && /^[a-zA-Z0-9_-]{8,120}$/.test(existing)) {
+    return existing;
+  }
+  const generated = window.crypto?.randomUUID
+    ? window.crypto.randomUUID().replace(/[^a-zA-Z0-9_-]/g, '')
+    : `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 14)}`;
+  window.sessionStorage.setItem(storageKey, generated);
+  return generated;
+};
+
+const isFullscreenActive = () =>
+  Boolean(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
 
 const SecureViewer = () => {
   const { token } = useParams();
@@ -37,14 +55,67 @@ const SecureViewer = () => {
   const [captureShieldActive, setCaptureShieldActive] = useState(false);
   const [viewerLock, setViewerLock] = useState(null);
   const [acceptingNda, setAcceptingNda] = useState(false);
+  const [printShieldActive, setPrintShieldActive] = useState(false);
   const timerRef = useRef(null);
   const shieldTimeoutRef = useRef(null);
   const idleTimeoutRef = useRef(null);
+  const heartbeatRef = useRef(null);
   const canvasRefs = useRef([]);
   const fetchedRef = useRef(false);
+  const viewerRootRef = useRef(null);
+  const viewerSessionIdRef = useRef(null);
 
   const pdfUrl = linkData?.pdf_url ? `${BACKEND_URL}${linkData.pdf_url}` : null;
   const securityOptions = linkData?.security_options || {};
+  const focusLockEnabled =
+    securityOptions.focus_lock_enabled !== false || Boolean(securityOptions.strict_security_mode);
+  const requireFullscreen =
+    Boolean(securityOptions.require_fullscreen) || Boolean(securityOptions.strict_security_mode);
+  const enhancedWatermark =
+    Boolean(securityOptions.enhanced_watermark) || Boolean(securityOptions.strict_security_mode);
+  const singleViewerSession =
+    Boolean(securityOptions.single_viewer_session) || Boolean(securityOptions.strict_security_mode);
+
+  const ensureViewerSessionId = useCallback(() => {
+    if (!viewerSessionIdRef.current) {
+      viewerSessionIdRef.current = createViewerSessionId(token);
+    }
+    return viewerSessionIdRef.current;
+  }, [token]);
+
+  const getViewerRequestHeaders = useCallback(() => {
+    const viewerSessionId = ensureViewerSessionId();
+    return viewerSessionId ? { 'X-Viewer-Session': viewerSessionId } : {};
+  }, [ensureViewerSessionId]);
+
+  const requestFullscreen = useCallback(async () => {
+    const element = viewerRootRef.current;
+    if (!element) return false;
+    try {
+      if (element.requestFullscreen) {
+        await element.requestFullscreen();
+        return true;
+      }
+      if (element.webkitRequestFullscreen) {
+        element.webkitRequestFullscreen();
+        return true;
+      }
+      if (element.msRequestFullscreen) {
+        element.msRequestFullscreen();
+        return true;
+      }
+    } catch (error) {
+      console.error('Fullscreen request failed', error);
+    }
+    return false;
+  }, []);
+
+  const canRequestFullscreen = useCallback(() => {
+    const element = viewerRootRef.current;
+    return Boolean(
+      element && (element.requestFullscreen || element.webkitRequestFullscreen || element.msRequestFullscreen),
+    );
+  }, []);
 
   const triggerCaptureShield = useCallback((durationMs = 1800) => {
     setCaptureShieldActive(true);
@@ -54,6 +125,33 @@ const SecureViewer = () => {
     shieldTimeoutRef.current = setTimeout(() => {
       setCaptureShieldActive(false);
     }, durationMs);
+  }, []);
+
+  const generateWatermarks = useCallback((data) => {
+    const positions = [];
+    const watermarkText = [
+      `Host ${window.location.host}`,
+      `IP ${data.ip}`,
+      `Link ${String(data.link_id || '').slice(-10)}`,
+      `Viewer ${String(data.viewer_session_id || '').slice(0, 12)}`,
+      new Date(data.timestamp).toLocaleString(),
+    ]
+      .filter(Boolean)
+      .join(' • ');
+    const rowCount = data.enhanced ? 5 : 4;
+    const colCount = data.enhanced ? 4 : 3;
+    for (let row = 0; row < rowCount; row++) {
+      for (let col = 0; col < colCount; col++) {
+        positions.push({
+          id: row * colCount + col,
+          top: `${10 + row * (data.enhanced ? 18 : 22)}%`,
+          left: `${5 + col * (data.enhanced ? 28 : 40)}%`,
+          opacity: data.enhanced ? 0.12 : 0.08,
+          text: watermarkText,
+        });
+      }
+    }
+    setWatermarks(positions);
   }, []);
 
   const clearIdleTimer = useCallback(() => {
@@ -67,6 +165,24 @@ const SecureViewer = () => {
     setViewerLock((current) => {
       if (current?.reason === reason) {
         return current;
+      }
+      if (reason === 'fullscreen') {
+        return {
+          reason,
+          title: 'Fullscreen required',
+          message:
+            detail || 'This protected link requires fullscreen mode. Re-enter fullscreen to continue viewing.',
+          actionLabel: 'Enter fullscreen',
+        };
+      }
+      if (reason === 'print') {
+        return {
+          reason,
+          title: 'Printing blocked',
+          message:
+            detail || 'Printing is disabled for this protected document. Continue inside the secure viewer only.',
+          actionLabel: 'Continue viewing',
+        };
       }
       if (reason === 'idle') {
         return {
@@ -101,7 +217,11 @@ const SecureViewer = () => {
     fetchedRef.current = true;
 
     try {
-      const response = await axios.get(`${API}/view/${token}`);
+      ensureViewerSessionId();
+      const response = await axios.get(`${API}/view/${token}`, {
+        headers: getViewerRequestHeaders(),
+        withCredentials: true,
+      });
       const data = response.data;
       
       if (data.status === 'expired' || data.status === 'revoked') {
@@ -153,17 +273,35 @@ const SecureViewer = () => {
     } finally {
       setLoading(false);
     }
-  }, [clearIdleTimer, token, navigate]);
+  }, [clearIdleTimer, ensureViewerSessionId, generateWatermarks, getViewerRequestHeaders, token, navigate]);
 
-  const handleResumeViewer = useCallback(() => {
+  const handleResumeViewer = useCallback(async () => {
+    if (viewerLock?.reason === 'fullscreen') {
+      const enteredFullscreen = await requestFullscreen();
+      if (!enteredFullscreen) {
+        activateViewerLock(
+          'fullscreen',
+          'This browser could not enter fullscreen mode. Open the link in a modern desktop browser or turn off fullscreen for this link.',
+        );
+        return;
+      }
+    }
     setViewerLock(null);
+    setPrintShieldActive(false);
     scheduleIdleTimer();
-  }, [scheduleIdleTimer]);
+  }, [activateViewerLock, requestFullscreen, scheduleIdleTimer, viewerLock?.reason]);
 
   const handleAcceptNda = useCallback(async () => {
     setAcceptingNda(true);
     try {
-      await axios.post(`${API}/view/${token}/nda-accept`);
+      await axios.post(
+        `${API}/view/${token}/nda-accept`,
+        {},
+        {
+          headers: getViewerRequestHeaders(),
+          withCredentials: true,
+        },
+      );
       await fetchLinkData({ force: true });
       setViewerLock(null);
     } catch (err) {
@@ -171,9 +309,34 @@ const SecureViewer = () => {
     } finally {
       setAcceptingNda(false);
     }
-  }, [fetchLinkData, token]);
+  }, [fetchLinkData, getViewerRequestHeaders, token]);
+
+  const sendViewerHeartbeat = useCallback(async ({ silent = false } = {}) => {
+    if (!singleViewerSession || !token) return;
+    try {
+      await axios.post(
+        `${API}/view/${token}/heartbeat`,
+        {},
+        {
+          headers: getViewerRequestHeaders(),
+          withCredentials: true,
+        },
+      );
+    } catch (err) {
+      const status = err.response?.status;
+      const message = err.response?.data?.detail || 'The secure viewing session is no longer available';
+      if ([403, 404, 409, 410].includes(status)) {
+        setError(message);
+        return;
+      }
+      if (!silent) {
+        console.error('Viewer heartbeat failed', err);
+      }
+    }
+  }, [getViewerRequestHeaders, singleViewerSession, token]);
 
   useEffect(() => {
+    ensureViewerSessionId();
     fetchLinkData();
     
     // Prevent right-click
@@ -185,6 +348,10 @@ const SecureViewer = () => {
       const key = e.key.toLowerCase();
       if ((e.ctrlKey || e.metaKey) && (key === 's' || key === 'c' || key === 'p' || key === 'a')) {
         e.preventDefault();
+        if (key === 'p') {
+          setPrintShieldActive(true);
+          activateViewerLock('print');
+        }
       }
       const isScreenshotShortcut =
         e.key === 'PrintScreen' ||
@@ -205,8 +372,16 @@ const SecureViewer = () => {
     document.addEventListener('dragstart', preventEvent);
 
     // Prevent print dialog for this page.
-    const handleBeforePrint = (e) => e.preventDefault();
+    const handleBeforePrint = () => {
+      setPrintShieldActive(true);
+      activateViewerLock('print');
+      triggerCaptureShield(2500);
+    };
+    const handleAfterPrint = () => {
+      setPrintShieldActive(false);
+    };
     window.addEventListener('beforeprint', handleBeforePrint);
+    window.addEventListener('afterprint', handleAfterPrint);
     
     return () => {
       document.removeEventListener('contextmenu', handleContextMenu);
@@ -216,15 +391,20 @@ const SecureViewer = () => {
       document.removeEventListener('selectstart', preventEvent);
       document.removeEventListener('dragstart', preventEvent);
       window.removeEventListener('beforeprint', handleBeforePrint);
+      window.removeEventListener('afterprint', handleAfterPrint);
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
       if (shieldTimeoutRef.current) {
         clearTimeout(shieldTimeoutRef.current);
       }
+      if (heartbeatRef.current) {
+        clearInterval(heartbeatRef.current);
+        heartbeatRef.current = null;
+      }
       clearIdleTimer();
     };
-  }, [clearIdleTimer, fetchLinkData, triggerCaptureShield]);
+  }, [activateViewerLock, clearIdleTimer, ensureViewerSessionId, fetchLinkData, triggerCaptureShield]);
 
   useEffect(() => {
     if (linkData?.status !== 'active') {
@@ -232,7 +412,6 @@ const SecureViewer = () => {
       return undefined;
     }
 
-    const focusLockEnabled = securityOptions.focus_lock_enabled !== false;
     const idleSeconds = Number(securityOptions.idle_timeout_seconds || 0);
 
     const handleVisibilityChange = () => {
@@ -279,13 +458,76 @@ const SecureViewer = () => {
   }, [
     activateViewerLock,
     clearIdleTimer,
+    focusLockEnabled,
     linkData?.status,
     scheduleIdleTimer,
-    securityOptions.focus_lock_enabled,
     securityOptions.idle_timeout_seconds,
     triggerCaptureShield,
     viewerLock,
   ]);
+
+  useEffect(() => {
+    if (linkData?.status !== 'active' || !requireFullscreen || !canRequestFullscreen()) {
+      return undefined;
+    }
+
+    const handleFullscreenChange = () => {
+      if (!isFullscreenActive()) {
+        activateViewerLock('fullscreen');
+        clearIdleTimer();
+        triggerCaptureShield(2500);
+        return;
+      }
+
+      if (viewerLock?.reason === 'fullscreen') {
+        setViewerLock(null);
+        scheduleIdleTimer();
+      }
+    };
+
+    handleFullscreenChange();
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('msfullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('msfullscreenchange', handleFullscreenChange);
+    };
+  }, [
+    activateViewerLock,
+    canRequestFullscreen,
+    clearIdleTimer,
+    linkData?.status,
+    requireFullscreen,
+    scheduleIdleTimer,
+    triggerCaptureShield,
+    viewerLock?.reason,
+  ]);
+
+  useEffect(() => {
+    if (!singleViewerSession || !['active', 'nda_required'].includes(linkData?.status)) {
+      if (heartbeatRef.current) {
+        clearInterval(heartbeatRef.current);
+        heartbeatRef.current = null;
+      }
+      return undefined;
+    }
+
+    void sendViewerHeartbeat({ silent: true });
+    heartbeatRef.current = setInterval(() => {
+      if (document.hidden) return;
+      void sendViewerHeartbeat({ silent: true });
+    }, VIEWER_HEARTBEAT_INTERVAL_MS);
+
+    return () => {
+      if (heartbeatRef.current) {
+        clearInterval(heartbeatRef.current);
+        heartbeatRef.current = null;
+      }
+    };
+  }, [linkData?.status, sendViewerHeartbeat, singleViewerSession]);
 
   // Countdown timer
   useEffect(() => {
@@ -308,23 +550,6 @@ const SecureViewer = () => {
       }
     };
   }, [remainingTime !== null, navigate]);
-
-  const generateWatermarks = (data) => {
-    const positions = [];
-    const text = `${data.ip} | ${new Date(data.timestamp).toLocaleString()}`;
-    // Create a grid of watermarks
-    for (let row = 0; row < 4; row++) {
-      for (let col = 0; col < 2; col++) {
-        positions.push({
-          id: row * 2 + col,
-          top: `${15 + row * 25}%`,
-          left: `${10 + col * 55}%`,
-          text: text
-        });
-      }
-    }
-    setWatermarks(positions);
-  };
 
   const formatTime = (seconds) => {
     const d = Math.floor(seconds / 86400);
@@ -358,7 +583,8 @@ const SecureViewer = () => {
       try {
         const loadingTask = pdfjsLib.getDocument({
           url: pdfUrl,
-          withCredentials: true
+          withCredentials: true,
+          httpHeaders: getViewerRequestHeaders(),
         });
         const doc = await loadingTask.promise;
         if (cancelled) return;
@@ -388,7 +614,7 @@ const SecureViewer = () => {
       setPageLinks([]);
       canvasRefs.current = [];
     };
-  }, [pdfUrl]);
+  }, [getViewerRequestHeaders, pdfUrl]);
 
   useEffect(() => {
     if (!pdfDoc || !pdfPageCount) return;
@@ -573,11 +799,27 @@ const SecureViewer = () => {
   const time = remainingTime !== null ? formatTime(remainingTime) : null;
 
   return (
-    <div className="min-h-screen bg-stone-900 secure-viewer flex flex-col" data-testid="secure-viewer">
-      {captureShieldActive && (
+    <>
+      <div className="secure-viewer-print-blocker">
+        <div className="secure-viewer-print-blocker__panel">
+          <Shield className="h-10 w-10 text-white" />
+          <h1 className="mt-4 text-2xl font-bold text-white">Printing is disabled</h1>
+          <p className="mt-3 max-w-xl text-center text-sm leading-6 text-stone-300">
+            This protected document can only be viewed inside the secure viewer. Print preview and paper output are blocked.
+          </p>
+        </div>
+      </div>
+      <div
+        ref={viewerRootRef}
+        className="min-h-screen bg-stone-900 secure-viewer flex flex-col"
+        data-testid="secure-viewer"
+      >
+      {(captureShieldActive || printShieldActive) && (
         <div className="fixed inset-0 z-[120] bg-black/95 flex items-center justify-center pointer-events-none">
           <p className="text-red-200 text-sm font-medium tracking-wide">
-            Protected content hidden during screen capture attempt
+            {printShieldActive
+              ? 'Protected content hidden while printing is blocked'
+              : 'Protected content hidden during screen capture attempt'}
           </p>
         </div>
       )}
@@ -597,7 +839,11 @@ const SecureViewer = () => {
               >
                 {viewerLock.actionLabel || 'Resume viewing'}
               </Button>
-              <p className="text-sm text-stone-500">The document stays hidden until you resume the secure session.</p>
+              <p className="text-sm text-stone-500">
+                {viewerLock?.reason === 'fullscreen'
+                  ? 'Fullscreen stays required while this secure session is active.'
+                  : 'The document stays hidden until you resume the secure session.'}
+              </p>
             </div>
           </div>
         </div>
@@ -699,9 +945,10 @@ const SecureViewer = () => {
               style={{ 
                 top: wm.top, 
                 left: wm.left,
-                color: 'rgba(255, 255, 255, 0.08)',
+                color: 'rgba(255, 255, 255, 1)',
+                opacity: wm.opacity,
                 transform: 'rotate(-25deg)',
-                fontSize: '12px',
+                fontSize: enhancedWatermark ? '12px' : '11px',
                 letterSpacing: '1px'
               }}
             >
@@ -786,9 +1033,22 @@ const SecureViewer = () => {
             <FileText className="w-4 h-4 mr-2" />
             Print Restricted
           </span>
+          {requireFullscreen && (
+            <span className="flex items-center">
+              <Shield className="w-4 h-4 mr-2" />
+              Fullscreen Required
+            </span>
+          )}
+          {singleViewerSession && (
+            <span className="flex items-center">
+              <Shield className="w-4 h-4 mr-2" />
+              Single Active Session
+            </span>
+          )}
         </div>
       </footer>
-    </div>
+      </div>
+    </>
   );
 };
 

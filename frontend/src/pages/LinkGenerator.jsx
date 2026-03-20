@@ -45,6 +45,10 @@ const LinkGenerator = () => {
   const [advancedSecurityOpen, setAdvancedSecurityOpen] = useState(false);
   const [focusLockEnabled, setFocusLockEnabled] = useState(true);
   const [idleTimeoutSeconds, setIdleTimeoutSeconds] = useState(0);
+  const [strictSecurityMode, setStrictSecurityMode] = useState(false);
+  const [requireFullscreen, setRequireFullscreen] = useState(false);
+  const [enhancedWatermark, setEnhancedWatermark] = useState(false);
+  const [singleViewerSession, setSingleViewerSession] = useState(false);
   const [ndaRequired, setNdaRequired] = useState(false);
   const [ndaTitle, setNdaTitle] = useState('Confidentiality agreement');
   const [ndaText, setNdaText] = useState('This document contains confidential information. By continuing, you agree not to copy, share, capture, or distribute any part of this material without authorization.');
@@ -71,6 +75,10 @@ const LinkGenerator = () => {
     if (!user) return;
     setFocusLockEnabled(user?.secure_link_defaults?.focus_lock_enabled !== false);
     setIdleTimeoutSeconds(Number(user?.secure_link_defaults?.idle_timeout_seconds || 0) || 0);
+    setStrictSecurityMode(Boolean(user?.secure_link_defaults?.strict_security_mode));
+    setRequireFullscreen(Boolean(user?.secure_link_defaults?.require_fullscreen));
+    setEnhancedWatermark(Boolean(user?.secure_link_defaults?.enhanced_watermark));
+    setSingleViewerSession(Boolean(user?.secure_link_defaults?.single_viewer_session));
     setNdaRequired(Boolean(user?.secure_link_defaults?.nda_required));
     setNdaTitle(user?.secure_link_defaults?.nda_title || 'Confidentiality agreement');
     setNdaText(user?.secure_link_defaults?.nda_text || 'This document contains confidential information. By continuing, you agree not to copy, share, capture, or distribute any part of this material without authorization.');
@@ -184,6 +192,10 @@ const LinkGenerator = () => {
         security_options: {
           focus_lock_enabled: focusLockEnabled,
           idle_timeout_seconds: idleTimeoutSeconds > 0 ? idleTimeoutSeconds : null,
+          strict_security_mode: strictSecurityMode,
+          require_fullscreen: requireFullscreen,
+          enhanced_watermark: enhancedWatermark,
+          single_viewer_session: singleViewerSession,
           nda_required: ndaRequired,
           nda_title: ndaTitle || null,
           nda_text: ndaText || null,
@@ -627,6 +639,18 @@ const LinkGenerator = () => {
             </CardHeader>
             {advancedSecurityOpen && (
               <CardContent className="space-y-6">
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="font-semibold text-stone-900">Strict security mode</p>
+                      <p className="mt-1 text-sm text-stone-600">
+                        Adds fullscreen enforcement, stronger watermarks, and single-session locking on top of the existing secure viewer protections.
+                      </p>
+                    </div>
+                    <Switch checked={strictSecurityMode} onCheckedChange={setStrictSecurityMode} />
+                  </div>
+                </div>
+
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-xl border border-stone-200 p-4">
                     <div className="flex items-center justify-between gap-4">
@@ -654,6 +678,44 @@ const LinkGenerator = () => {
                     <p className="mt-2 text-sm text-stone-500">
                       Use `0` to disable. When enabled, the viewer pauses after inactivity and needs a manual resume.
                     </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-xl border border-stone-200 p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="font-semibold text-stone-900">Require fullscreen</p>
+                        <p className="mt-1 text-sm text-stone-500">
+                          Force the viewer back into fullscreen before the PDF becomes visible again.
+                        </p>
+                      </div>
+                      <Switch checked={requireFullscreen} onCheckedChange={setRequireFullscreen} />
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-stone-200 p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="font-semibold text-stone-900">Enhanced watermark</p>
+                        <p className="mt-1 text-sm text-stone-500">
+                          Increase repeated watermark coverage with session, IP, host, and timestamp details.
+                        </p>
+                      </div>
+                      <Switch checked={enhancedWatermark} onCheckedChange={setEnhancedWatermark} />
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-stone-200 p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="font-semibold text-stone-900">Single active viewer session</p>
+                        <p className="mt-1 text-sm text-stone-500">
+                          Allow only one active secure viewer session for this link at a time.
+                        </p>
+                      </div>
+                      <Switch checked={singleViewerSession} onCheckedChange={setSingleViewerSession} />
+                    </div>
                   </div>
                 </div>
 

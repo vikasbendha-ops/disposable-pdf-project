@@ -56,6 +56,10 @@ const Settings = () => {
   const [secureLinkDefaults, setSecureLinkDefaults] = useState({
     focus_lock_enabled: true,
     idle_timeout_seconds: null,
+    strict_security_mode: false,
+    require_fullscreen: false,
+    enhanced_watermark: false,
+    single_viewer_session: false,
     nda_required: false,
     nda_title: 'Confidentiality agreement',
     nda_text: 'This document contains confidential information. By continuing, you agree not to copy, share, capture, or distribute any part of this material without authorization.',
@@ -84,6 +88,10 @@ const Settings = () => {
       setSecureLinkDefaults({
         focus_lock_enabled: user?.secure_link_defaults?.focus_lock_enabled !== false,
         idle_timeout_seconds: Number(user?.secure_link_defaults?.idle_timeout_seconds || 0) || null,
+        strict_security_mode: Boolean(user?.secure_link_defaults?.strict_security_mode),
+        require_fullscreen: Boolean(user?.secure_link_defaults?.require_fullscreen),
+        enhanced_watermark: Boolean(user?.secure_link_defaults?.enhanced_watermark),
+        single_viewer_session: Boolean(user?.secure_link_defaults?.single_viewer_session),
         nda_required: Boolean(user?.secure_link_defaults?.nda_required),
         nda_title: user?.secure_link_defaults?.nda_title || 'Confidentiality agreement',
         nda_text: user?.secure_link_defaults?.nda_text || 'This document contains confidential information. By continuing, you agree not to copy, share, capture, or distribute any part of this material without authorization.',
@@ -773,6 +781,17 @@ const Settings = () => {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSaveSecureLinkDefaults} className="space-y-5">
+                <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50/70 p-4">
+                  <div>
+                    <p className="font-medium text-stone-900">Default strict security mode</p>
+                    <p className="text-sm text-stone-500">Automatically layer fullscreen, stronger watermarking, and one active viewer session on top of the normal secure viewer rules.</p>
+                  </div>
+                  <Switch
+                    checked={secureLinkDefaults.strict_security_mode}
+                    onCheckedChange={(checked) => updateSecureLinkDefault('strict_security_mode', checked)}
+                  />
+                </div>
+
                 <div className="flex items-center justify-between rounded-lg border border-stone-200 p-4">
                   <div>
                     <p className="font-medium text-stone-900">Focus lock on tab blur</p>
@@ -795,6 +814,41 @@ const Settings = () => {
                     className="h-12"
                   />
                   <p className="text-xs text-stone-500">Use `0` to disable. Minimum active timeout is 15 seconds when enabled.</p>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="flex items-center justify-between rounded-lg border border-stone-200 p-4">
+                    <div>
+                      <p className="font-medium text-stone-900">Require fullscreen</p>
+                      <p className="text-sm text-stone-500">Make viewers re-enter fullscreen before they can continue reading.</p>
+                    </div>
+                    <Switch
+                      checked={secureLinkDefaults.require_fullscreen}
+                      onCheckedChange={(checked) => updateSecureLinkDefault('require_fullscreen', checked)}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg border border-stone-200 p-4">
+                    <div>
+                      <p className="font-medium text-stone-900">Enhanced watermark</p>
+                      <p className="text-sm text-stone-500">Increase repeated watermark coverage with session and device details.</p>
+                    </div>
+                    <Switch
+                      checked={secureLinkDefaults.enhanced_watermark}
+                      onCheckedChange={(checked) => updateSecureLinkDefault('enhanced_watermark', checked)}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg border border-stone-200 p-4">
+                    <div>
+                      <p className="font-medium text-stone-900">Single active session</p>
+                      <p className="text-sm text-stone-500">Keep one active secure viewer session per link by default.</p>
+                    </div>
+                    <Switch
+                      checked={secureLinkDefaults.single_viewer_session}
+                      onCheckedChange={(checked) => updateSecureLinkDefault('single_viewer_session', checked)}
+                    />
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between rounded-lg border border-stone-200 p-4">
