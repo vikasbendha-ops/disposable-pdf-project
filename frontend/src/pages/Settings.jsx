@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Lock, Globe, CreditCard, ChevronRight, RefreshCw, Download, ExternalLink, Mail, Shield } from 'lucide-react';
+import QRCode from 'qrcode';
 import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -54,6 +55,7 @@ const Settings = () => {
   const [sendingEmailChange, setSendingEmailChange] = useState(false);
   const [twoFactorStatus, setTwoFactorStatus] = useState(null);
   const [twoFactorSetupData, setTwoFactorSetupData] = useState(null);
+  const [twoFactorQrCodeUrl, setTwoFactorQrCodeUrl] = useState('');
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [twoFactorDisableCode, setTwoFactorDisableCode] = useState('');
   const [twoFactorLoading, setTwoFactorLoading] = useState(false);
@@ -106,6 +108,43 @@ const Settings = () => {
       });
     }
   }, [user]);
+
+  useEffect(() => {
+    let active = true;
+
+    const generateQr = async () => {
+      const otpAuthUri = String(twoFactorSetupData?.otp_auth_uri || '').trim();
+      if (!otpAuthUri) {
+        if (active) setTwoFactorQrCodeUrl('');
+        return;
+      }
+
+      try {
+        const dataUrl = await QRCode.toDataURL(otpAuthUri, {
+          width: 240,
+          margin: 2,
+          errorCorrectionLevel: 'M',
+          color: {
+            dark: '#111827',
+            light: '#ffffff',
+          },
+        });
+        if (active) {
+          setTwoFactorQrCodeUrl(dataUrl);
+        }
+      } catch (error) {
+        if (active) {
+          setTwoFactorQrCodeUrl('');
+        }
+      }
+    };
+
+    generateQr();
+
+    return () => {
+      active = false;
+    };
+  }, [twoFactorSetupData]);
 
   useEffect(() => {
     const ensureTabLoaded = async () => {
@@ -469,7 +508,8 @@ const Settings = () => {
           <TabsList className="h-auto w-max min-w-full justify-start gap-2 rounded-xl bg-stone-100 p-1">
             <TabsTrigger value="account" className="px-4 py-2">{t('settings.profileInfo')}</TabsTrigger>
             <TabsTrigger value="billing" className="px-4 py-2">{t('settings.subscription')}</TabsTrigger>
-            <TabsTrigger value="security" className="px-4 py-2">{t('settings.changePassword')}</TabsTrigger>
+            <TabsTrigger value="security" className="px-4 py-2">{t('settings.accountSecurity')}</TabsTrigger>
+            <TabsTrigger value="linkSecurity" className="px-4 py-2">{t('settings.linkSecurity')}</TabsTrigger>
             <TabsTrigger value="domains" className="px-4 py-2">{t('settings.customDomains')}</TabsTrigger>
           </TabsList>
         </div>
@@ -859,6 +899,18 @@ const Settings = () => {
 
                     {twoFactorSetupData?.manual_entry_key ? (
                       <form onSubmit={handleEnableTwoFactor} className="space-y-4">
+                        {twoFactorQrCodeUrl && (
+                          <div className="rounded-lg border border-stone-200 bg-white p-4">
+                            <p className="font-medium text-stone-900 mb-3">{t('settings.twoFactorScanQr')}</p>
+                            <div className="flex justify-center">
+                              <img
+                                src={twoFactorQrCodeUrl}
+                                alt={t('settings.twoFactorQrAlt')}
+                                className="h-56 w-56 rounded-lg border border-stone-200 bg-white p-3"
+                              />
+                            </div>
+                          </div>
+                        )}
                         <div className="space-y-2">
                           <Label>{t('settings.twoFactorManualKey')}</Label>
                           <Input value={twoFactorSetupData.manual_entry_key} readOnly className="h-12 font-mono" />
@@ -967,23 +1019,25 @@ const Settings = () => {
               </Button>
             </CardContent>
           </Card>
+        </TabsContent>
 
+        <TabsContent value="linkSecurity" className="max-w-3xl space-y-6">
           <Card className="border-stone-200">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Lock className="w-5 h-5 text-emerald-700" />
-                <span>Secure Link Defaults</span>
+                <span>{t('settings.secureLinkDefaultsTitle')}</span>
               </CardTitle>
               <CardDescription>
-                Set your default NDA and advanced viewer protection options for new secure links. You can still override them per link.
+                {t('settings.secureLinkDefaultsDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSaveSecureLinkDefaults} className="space-y-5">
                 <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50/70 p-4">
                   <div>
-                    <p className="font-medium text-stone-900">Default strict security mode</p>
-                    <p className="text-sm text-stone-500">Automatically layer fullscreen, stronger watermarking, and one active viewer session on top of the normal secure viewer rules.</p>
+                    <p className="font-medium text-stone-900">{t('settings.strictSecurityDefaultTitle')}</p>
+                    <p className="text-sm text-stone-500">{t('settings.strictSecurityDefaultDesc')}</p>
                   </div>
                   <Switch
                     checked={secureLinkDefaults.strict_security_mode}
@@ -993,8 +1047,8 @@ const Settings = () => {
 
                 <div className="flex items-center justify-between rounded-lg border border-stone-200 p-4">
                   <div>
-                    <p className="font-medium text-stone-900">Focus lock on tab blur</p>
-                    <p className="text-sm text-stone-500">Black out the viewer when the tab or window loses focus until the viewer is resumed manually.</p>
+                    <p className="font-medium text-stone-900">{t('settings.focusLockTitle')}</p>
+                    <p className="text-sm text-stone-500">{t('settings.focusLockDesc')}</p>
                   </div>
                   <Switch
                     checked={secureLinkDefaults.focus_lock_enabled}
@@ -1003,7 +1057,7 @@ const Settings = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Default idle timeout (seconds)</Label>
+                  <Label>{t('settings.idleTimeoutTitle')}</Label>
                   <Input
                     type="number"
                     min="0"
@@ -1012,14 +1066,14 @@ const Settings = () => {
                     onChange={(e) => updateSecureLinkDefault('idle_timeout_seconds', Number.parseInt(e.target.value || '0', 10) || null)}
                     className="h-12"
                   />
-                  <p className="text-xs text-stone-500">Use `0` to disable. Minimum active timeout is 15 seconds when enabled.</p>
+                  <p className="text-xs text-stone-500">{t('settings.idleTimeoutHelp')}</p>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="flex items-center justify-between rounded-lg border border-stone-200 p-4">
                     <div>
-                      <p className="font-medium text-stone-900">Require fullscreen</p>
-                      <p className="text-sm text-stone-500">Make viewers re-enter fullscreen before they can continue reading.</p>
+                      <p className="font-medium text-stone-900">{t('settings.requireFullscreenTitle')}</p>
+                      <p className="text-sm text-stone-500">{t('settings.requireFullscreenDesc')}</p>
                     </div>
                     <Switch
                       checked={secureLinkDefaults.require_fullscreen}
@@ -1029,8 +1083,8 @@ const Settings = () => {
 
                   <div className="flex items-center justify-between rounded-lg border border-stone-200 p-4">
                     <div>
-                      <p className="font-medium text-stone-900">Enhanced watermark</p>
-                      <p className="text-sm text-stone-500">Increase repeated watermark coverage with session and device details.</p>
+                      <p className="font-medium text-stone-900">{t('settings.enhancedWatermarkTitle')}</p>
+                      <p className="text-sm text-stone-500">{t('settings.enhancedWatermarkDesc')}</p>
                     </div>
                     <Switch
                       checked={secureLinkDefaults.enhanced_watermark}
@@ -1040,8 +1094,8 @@ const Settings = () => {
 
                   <div className="flex items-center justify-between rounded-lg border border-stone-200 p-4">
                     <div>
-                      <p className="font-medium text-stone-900">Single active session</p>
-                      <p className="text-sm text-stone-500">Keep one active secure viewer session per link by default.</p>
+                      <p className="font-medium text-stone-900">{t('settings.singleSessionTitle')}</p>
+                      <p className="text-sm text-stone-500">{t('settings.singleSessionDesc')}</p>
                     </div>
                     <Switch
                       checked={secureLinkDefaults.single_viewer_session}
@@ -1052,8 +1106,8 @@ const Settings = () => {
 
                 <div className="flex items-center justify-between rounded-lg border border-stone-200 p-4">
                   <div>
-                    <p className="font-medium text-stone-900">Lock new links to the first viewer IP</p>
-                    <p className="text-sm text-stone-500">After the first approved viewer opens the link, any other IP address is blocked.</p>
+                    <p className="font-medium text-stone-900">{t('settings.lockFirstIpTitle')}</p>
+                    <p className="text-sm text-stone-500">{t('settings.lockFirstIpDesc')}</p>
                   </div>
                   <Switch
                     checked={secureLinkDefaults.lock_to_first_ip}
@@ -1063,8 +1117,8 @@ const Settings = () => {
 
                 <div className="flex items-center justify-between rounded-lg border border-stone-200 p-4">
                   <div>
-                    <p className="font-medium text-stone-900">Require NDA by default</p>
-                    <p className="text-sm text-stone-500">Show a confidentiality acknowledgement before the PDF is displayed.</p>
+                    <p className="font-medium text-stone-900">{t('settings.ndaDefaultTitle')}</p>
+                    <p className="text-sm text-stone-500">{t('settings.ndaDefaultDesc')}</p>
                   </div>
                   <Switch
                     checked={secureLinkDefaults.nda_required}
@@ -1073,7 +1127,7 @@ const Settings = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Default NDA title</Label>
+                  <Label>{t('settings.ndaTitleLabel')}</Label>
                   <Input
                     value={secureLinkDefaults.nda_title}
                     onChange={(e) => updateSecureLinkDefault('nda_title', e.target.value)}
@@ -1083,7 +1137,7 @@ const Settings = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Default NDA text</Label>
+                  <Label>{t('settings.ndaTextLabel')}</Label>
                   <Textarea
                     value={secureLinkDefaults.nda_text}
                     onChange={(e) => updateSecureLinkDefault('nda_text', e.target.value)}
@@ -1093,7 +1147,7 @@ const Settings = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Default NDA button label</Label>
+                  <Label>{t('settings.ndaButtonLabel')}</Label>
                   <Input
                     value={secureLinkDefaults.nda_accept_label}
                     onChange={(e) => updateSecureLinkDefault('nda_accept_label', e.target.value)}
@@ -1103,7 +1157,7 @@ const Settings = () => {
                 </div>
 
                 <Button type="submit" className="bg-emerald-900 hover:bg-emerald-800" disabled={savingSecureLinkDefaults}>
-                  {savingSecureLinkDefaults ? 'Saving...' : 'Save Secure Link Defaults'}
+                  {savingSecureLinkDefaults ? t('adminUsers.saving') : t('settings.secureLinkDefaultsSave')}
                 </Button>
               </form>
             </CardContent>

@@ -63,6 +63,7 @@
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^4.10.38",
     "pg": "^8.16.3",
+    "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-day-picker": "^9.14.0",
     "react-dom": "^19.0.0",
