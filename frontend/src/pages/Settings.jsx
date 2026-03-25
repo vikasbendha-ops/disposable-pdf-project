@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Lock, Globe, CreditCard, ChevronRight, RefreshCw, Download, ExternalLink, Mail } from 'lucide-react';
+import { User, Lock, Globe, CreditCard, ChevronRight, RefreshCw, Download, ExternalLink, Mail, Shield } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -52,6 +52,11 @@ const Settings = () => {
   const [sendingResetEmail, setSendingResetEmail] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [sendingEmailChange, setSendingEmailChange] = useState(false);
+  const [twoFactorStatus, setTwoFactorStatus] = useState(null);
+  const [twoFactorSetupData, setTwoFactorSetupData] = useState(null);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [twoFactorDisableCode, setTwoFactorDisableCode] = useState('');
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
   const [savingSecureLinkDefaults, setSavingSecureLinkDefaults] = useState(false);
   const [secureLinkDefaults, setSecureLinkDefaults] = useState({
     focus_lock_enabled: true,
@@ -66,6 +71,7 @@ const Settings = () => {
     nda_accept_label: 'I agree and continue',
     lock_to_first_ip: false,
   });
+  const isPrivilegedAccount = user?.role === 'admin' || user?.role === 'super_admin';
 
   useEffect(() => {
     if (user) {
@@ -108,12 +114,14 @@ const Settings = () => {
         await fetchBillingOverview();
       } else if (activeTab === 'domains' && user) {
         await fetchDomains();
+      } else if (activeTab === 'security' && user && isPrivilegedAccount) {
+        await fetchTwoFactorStatus();
       }
       setLoadedTabs((prev) => (prev[activeTab] ? prev : { ...prev, [activeTab]: true }));
     };
 
     ensureTabLoaded();
-  }, [activeTab, loadedTabs, user]);
+  }, [activeTab, loadedTabs, user, isPrivilegedAccount]);
 
   const fetchDomains = async () => {
     try {
@@ -329,6 +337,80 @@ const Settings = () => {
       toast.error(error.response?.data?.detail || 'Failed to send password reset email');
     } finally {
       setSendingResetEmail(false);
+    }
+  };
+
+  const fetchTwoFactorStatus = async () => {
+    if (!isPrivilegedAccount) {
+      setTwoFactorStatus(null);
+      setTwoFactorSetupData(null);
+      return;
+    }
+    try {
+      const response = await api.get('/auth/2fa');
+      setTwoFactorStatus(response.data?.two_factor || null);
+      if (!response.data?.two_factor?.setup_pending) {
+        setTwoFactorSetupData(null);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to load two-factor authentication status');
+    }
+  };
+
+  const handleStartTwoFactorSetup = async () => {
+    setTwoFactorLoading(true);
+    try {
+      const response = await api.post('/auth/2fa/setup');
+      setTwoFactorStatus(response.data?.two_factor || null);
+      setTwoFactorSetupData({
+        manual_entry_key: response.data?.manual_entry_key || response.data?.secret || '',
+        otp_auth_uri: response.data?.otp_auth_uri || '',
+      });
+      setTwoFactorCode('');
+      toast.success('Two-factor setup started');
+      await refreshUser();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to start two-factor setup');
+    } finally {
+      setTwoFactorLoading(false);
+    }
+  };
+
+  const handleEnableTwoFactor = async (e) => {
+    e.preventDefault();
+    setTwoFactorLoading(true);
+    try {
+      const response = await api.post('/auth/2fa/enable', {
+        code: twoFactorCode,
+      });
+      setTwoFactorStatus(response.data?.two_factor || null);
+      setTwoFactorSetupData(null);
+      setTwoFactorCode('');
+      toast.success(response.data?.message || 'Two-factor authentication enabled');
+      await refreshUser();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to enable two-factor authentication');
+    } finally {
+      setTwoFactorLoading(false);
+    }
+  };
+
+  const handleDisableTwoFactor = async (e) => {
+    e.preventDefault();
+    setTwoFactorLoading(true);
+    try {
+      const response = await api.post('/auth/2fa/disable', {
+        code: twoFactorDisableCode,
+      });
+      setTwoFactorStatus(response.data?.two_factor || null);
+      setTwoFactorDisableCode('');
+      setTwoFactorSetupData(null);
+      toast.success(response.data?.message || 'Two-factor authentication disabled');
+      await refreshUser();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to disable two-factor authentication');
+    } finally {
+      setTwoFactorLoading(false);
     }
   };
 
@@ -742,6 +824,123 @@ const Settings = () => {
         </TabsContent>
 
         <TabsContent value="security" className="max-w-3xl space-y-6">
+          {isPrivilegedAccount && (
+            <Card className="border-stone-200">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Shield className="w-5 h-5 text-emerald-700" />
+                  <span>{t('settings.twoFactorTitle')}</span>
+                </CardTitle>
+                <CardDescription>{t('settings.twoFactorDesc')}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="rounded-lg border border-stone-200 bg-stone-50 p-4">
+                  <p className="font-medium text-stone-900">
+                    {t('settings.twoFactorStatusLabel')}: {twoFactorStatus?.enabled ? t('settings.twoFactorEnabled') : t('settings.twoFactorDisabled')}
+                  </p>
+                  {twoFactorStatus?.configured_at && (
+                    <p className="text-sm text-stone-500 mt-1">
+                      {t('settings.twoFactorConfiguredAt')}: {format(new Date(twoFactorStatus.configured_at), 'MMM d, yyyy HH:mm')}
+                    </p>
+                  )}
+                  {twoFactorStatus?.last_verified_at && (
+                    <p className="text-sm text-stone-500 mt-1">
+                      {t('settings.twoFactorLastVerifiedAt')}: {format(new Date(twoFactorStatus.last_verified_at), 'MMM d, yyyy HH:mm')}
+                    </p>
+                  )}
+                </div>
+
+                {!twoFactorStatus?.enabled && (
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-4 space-y-4">
+                    <div>
+                      <p className="font-medium text-stone-900">{t('settings.twoFactorSetupTitle')}</p>
+                      <p className="text-sm text-stone-600 mt-1">{t('settings.twoFactorSetupHelp')}</p>
+                    </div>
+
+                    {twoFactorSetupData?.manual_entry_key ? (
+                      <form onSubmit={handleEnableTwoFactor} className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>{t('settings.twoFactorManualKey')}</Label>
+                          <Input value={twoFactorSetupData.manual_entry_key} readOnly className="h-12 font-mono" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>{t('settings.twoFactorOtpUri')}</Label>
+                          <Textarea value={twoFactorSetupData.otp_auth_uri || ''} readOnly rows={3} className="font-mono text-xs" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>{t('settings.twoFactorCodeLabel')}</Label>
+                          <Input
+                            value={twoFactorCode}
+                            onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            placeholder="123456"
+                            maxLength={6}
+                            className="h-12 font-mono tracking-[0.35em] text-center"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                          <Button
+                            type="submit"
+                            className="bg-emerald-900 hover:bg-emerald-800"
+                            disabled={twoFactorLoading || twoFactorCode.length !== 6}
+                          >
+                            {twoFactorLoading ? t('settings.twoFactorVerifying') : t('settings.twoFactorEnable')}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleStartTwoFactorSetup}
+                            disabled={twoFactorLoading}
+                          >
+                            {t('settings.twoFactorRegenerate')}
+                          </Button>
+                        </div>
+                      </form>
+                    ) : (
+                      <Button
+                        onClick={handleStartTwoFactorSetup}
+                        className="bg-emerald-900 hover:bg-emerald-800"
+                        disabled={twoFactorLoading}
+                      >
+                        {twoFactorLoading ? t('settings.twoFactorStarting') : t('settings.twoFactorStart')}
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {twoFactorStatus?.enabled && (
+                  <form onSubmit={handleDisableTwoFactor} className="space-y-4 rounded-lg border border-red-200 bg-red-50/40 p-4">
+                    <div>
+                      <p className="font-medium text-stone-900">{t('settings.twoFactorDisableTitle')}</p>
+                      <p className="text-sm text-stone-600 mt-1">{t('settings.twoFactorDisableHelp')}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t('settings.twoFactorCodeLabel')}</Label>
+                      <Input
+                        value={twoFactorDisableCode}
+                        onChange={(e) => setTwoFactorDisableCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        placeholder="123456"
+                        maxLength={6}
+                        className="h-12 font-mono tracking-[0.35em] text-center"
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      variant="outline"
+                      className="border-red-300 text-red-700 hover:bg-red-50"
+                      disabled={twoFactorLoading || twoFactorDisableCode.length !== 6}
+                    >
+                      {twoFactorLoading ? t('settings.twoFactorVerifying') : t('settings.twoFactorDisable')}
+                    </Button>
+                  </form>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="border-stone-200">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">

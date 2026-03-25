@@ -503,7 +503,11 @@ const AuthProvider = ({ children }) => {
     // CRITICAL: If returning from OAuth callback, skip the /me check.
     // AuthCallback will exchange the session_id and establish the session first.
     // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    if (window.location.hash?.includes('session_id=')) {
+    const isAuthCallbackPath = typeof window !== 'undefined' && window.location.pathname === '/auth/callback';
+    const hasOAuthHash =
+      typeof window !== 'undefined' &&
+      (window.location.hash?.includes('session_id=') || window.location.hash?.includes('access_token='));
+    if (isAuthCallbackPath || hasOAuthHash) {
       setLoading(false);
       return;
     }
@@ -529,14 +533,38 @@ const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const response = await api.post('/auth/login', { email, password });
-    const { access_token, user: userData } = response.data;
-    localStorage.setItem('token', access_token);
+    const { access_token, user: userData, requires_2fa: requiresTwoFactor } = response.data || {};
+    if (requiresTwoFactor) {
+      localStorage.removeItem('token');
+      setUser(null);
+      return response.data;
+    }
+    if (access_token) {
+      localStorage.setItem('token', access_token);
+    }
     if (userData?.language) {
       localStorage.setItem('preferredLanguage', userData.language);
       setLanguage(userData.language);
     }
-    setUser(userData);
-    return userData;
+    setUser(userData || null);
+    return response.data;
+  };
+
+  const verifyTwoFactorChallenge = async (challengeToken, code) => {
+    const response = await api.post('/auth/login/2fa', {
+      challenge_token: challengeToken,
+      code,
+    });
+    const { access_token, user: userData } = response.data || {};
+    if (access_token) {
+      localStorage.setItem('token', access_token);
+    }
+    if (userData?.language) {
+      localStorage.setItem('preferredLanguage', userData.language);
+      setLanguage(userData.language);
+    }
+    setUser(userData || null);
+    return response.data;
   };
 
   const register = async (name, email, password, language = 'en') => {
@@ -707,10 +735,11 @@ const AuthProvider = ({ children }) => {
       logout,
       loading,
       refreshUser,
-        updateUserLanguage,
-        requestPasswordReset,
-        requestOwnPasswordReset,
-        requestEmailChange,
+      updateUserLanguage,
+      verifyTwoFactorChallenge,
+      requestPasswordReset,
+      requestOwnPasswordReset,
+      requestEmailChange,
       validatePasswordResetToken,
       confirmPasswordReset,
       confirmEmailVerification,

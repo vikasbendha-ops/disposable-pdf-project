@@ -36,6 +36,21 @@ const AuthCallback = () => {
           return;
         }
 
+        if (response.data?.requires_2fa) {
+          localStorage.removeItem('token');
+          setUser(null);
+          window.history.replaceState(null, '', window.location.pathname);
+          navigate('/login', {
+            replace: true,
+            state: {
+              from: { pathname: nextPath.startsWith('/') ? nextPath : '/dashboard' },
+              twoFactorPending: response.data,
+              prefilledEmail: response.data?.email || '',
+            },
+          });
+          return;
+        }
+
         const userData = response.data.user;
         const localAccessToken = response.data.access_token;
         
