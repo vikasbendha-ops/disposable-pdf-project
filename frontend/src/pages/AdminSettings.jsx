@@ -39,6 +39,18 @@ import { useLocation } from 'react-router-dom';
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 const PLAN_ID_RE = /^[a-z0-9][a-z0-9_-]{1,39}$/;
 const SETTINGS_ACCESS_ROLES = ['admin', 'super_admin'];
+const SETTINGS_SECTION_KEYS = [
+  'payments',
+  'localization',
+  'email',
+  'public_site',
+  'plans',
+  'storage',
+  'domains',
+  'branding',
+  'seo',
+  'invoice',
+];
 const STORAGE_PROVIDER_LABELS = {
   supabase_db: 'Supabase (database)',
   wasabi_s3: 'Wasabi (S3 compatible)',
