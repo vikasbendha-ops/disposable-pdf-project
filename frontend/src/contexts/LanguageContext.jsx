@@ -1,11 +1,73 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import translations, {
-  getPrimaryLanguages,
+  getRawTranslation,
+  getSupportedLanguages,
   getTranslation,
   isSupportedLanguage,
 } from '../i18n/translations';
 
 const LanguageContext = createContext(null);
+
+const DEFAULT_LOCALIZATION_CONFIG = Object.freeze({
+  default_language: 'en',
+  enabled_languages: ['en'],
+  available_languages: ['en', 'es', 'fr', 'de', 'it', 'hi', 'sl'],
+  automatic_detection: false,
+  site_timezone: 'UTC',
+  site_currency: 'EUR',
+  manual_overrides: {},
+});
+
+const normalizeLocalizationConfig = (config) => {
+  const source = config || {};
+  const defaultLanguage = isSupportedLanguage(source.default_language)
+    ? source.default_language
+    : 'en';
+  const enabledLanguages = Array.isArray(source.enabled_languages)
+    ? source.enabled_languages.filter((code, index, array) =>
+      isSupportedLanguage(code) && array.indexOf(code) === index)
+    : [];
+  const safeEnabledLanguages = enabledLanguages.length
+    ? Array.from(new Set([defaultLanguage, ...enabledLanguages]))
+    : [defaultLanguage];
+
+  return {
+    default_language: defaultLanguage,
+    enabled_languages: safeEnabledLanguages,
+    available_languages: Array.isArray(source.available_languages) && source.available_languages.length
+      ? source.available_languages.filter((code, index, array) =>
+        isSupportedLanguage(code) && array.indexOf(code) === index)
+      : DEFAULT_LOCALIZATION_CONFIG.available_languages,
+    automatic_detection: Boolean(source.automatic_detection),
+    site_timezone: String(source.site_timezone || DEFAULT_LOCALIZATION_CONFIG.site_timezone).trim() || DEFAULT_LOCALIZATION_CONFIG.site_timezone,
+    site_currency: String(source.site_currency || DEFAULT_LOCALIZATION_CONFIG.site_currency).trim().toUpperCase() || DEFAULT_LOCALIZATION_CONFIG.site_currency,
+    manual_overrides: source.manual_overrides && typeof source.manual_overrides === 'object' && !Array.isArray(source.manual_overrides)
+      ? source.manual_overrides
+      : {},
+  };
+};
+
+const buildVisibleLanguages = (enabledLanguageCodes) => {
+  const allLanguages = getSupportedLanguages();
+  const enabledSet = new Set(enabledLanguageCodes);
+  return allLanguages.filter((language) => enabledSet.has(language.code));
+};
+
+const applyDocumentLanguage = (langCode) => {
+  document.documentElement.lang = langCode;
+  if (langCode === 'ar' || langCode === 'he') {
+    document.documentElement.dir = 'rtl';
+  } else {
+    document.documentElement.dir = 'ltr';
+  }
+};
 
 export const useLanguage = () => {
   const context = useContext(LanguageContext);
@@ -16,104 +78,159 @@ export const useLanguage = () => {
 };
 
 export const LanguageProvider = ({ children }) => {
-  const [language, setLanguageState] = useState(() => {
-    const saved = localStorage.getItem('preferredLanguage');
-    if (saved && isSupportedLanguage(saved) && translations[saved]) {
-      return saved;
-    }
-    return 'en';
-  });
+  const [localizationConfig, setLocalizationConfig] = useState(DEFAULT_LOCALIZATION_CONFIG);
+  const [language, setLanguageState] = useState('en');
 
-  const setLanguage = useCallback((langCode) => {
-    if (isSupportedLanguage(langCode) && translations[langCode]) {
-      setLanguageState(langCode);
-      localStorage.setItem('preferredLanguage', langCode);
-      document.documentElement.lang = langCode;
-      // Set RTL for Arabic and Hebrew
-      if (langCode === 'ar' || langCode === 'he') {
-        document.documentElement.dir = 'rtl';
-      } else {
-        document.documentElement.dir = 'ltr';
-      }
+  const refreshLocalization = useCallback(async () => {
+    const response = await fetch('/api/localization', {
+      credentials: 'same-origin',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to load localization');
     }
+    const payload = await response.json();
+    const normalized = normalizeLocalizationConfig(payload);
+    setLocalizationConfig(normalized);
+    return normalized;
   }, []);
 
-  // Translation function
+  const enabledLanguageCodes = useMemo(
+    () => localizationConfig.enabled_languages?.length
+      ? localizationConfig.enabled_languages
+      : [localizationConfig.default_language || 'en'],
+    [localizationConfig],
+  );
+
+  const setLanguage = useCallback((langCode) => {
+    const requested = String(langCode || '').trim();
+    const nextLanguage =
+      isSupportedLanguage(requested) && enabledLanguageCodes.includes(requested)
+        ? requested
+        : localizationConfig.default_language || 'en';
+
+    setLanguageState(nextLanguage);
+    localStorage.setItem('preferredLanguage', nextLanguage);
+    applyDocumentLanguage(nextLanguage);
+  }, [enabledLanguageCodes, localizationConfig.default_language]);
+
+  const resolveRuntimeTranslation = useCallback((langCode, path) => {
+    const primaryLanguage = localizationConfig.default_language || 'en';
+    const manualOverrides = localizationConfig.manual_overrides || {};
+
+    const overrideFromSelectedLanguage = manualOverrides?.[langCode]?.[path];
+    if (overrideFromSelectedLanguage !== undefined) {
+      return overrideFromSelectedLanguage;
+    }
+
+    const ownValue = getRawTranslation(langCode, path);
+    if (ownValue !== undefined) {
+      return ownValue;
+    }
+
+    const overrideFromPrimaryLanguage = manualOverrides?.[primaryLanguage]?.[path];
+    if (overrideFromPrimaryLanguage !== undefined) {
+      return overrideFromPrimaryLanguage;
+    }
+
+    return getTranslation(langCode, path, primaryLanguage);
+  }, [localizationConfig.default_language, localizationConfig.manual_overrides]);
+
   const t = useCallback((path, params = {}) => {
-    let text = getTranslation(language, path);
-    
-    // Replace params like {name} with actual values
+    let text = resolveRuntimeTranslation(language, path);
+
     if (typeof text === 'string' && params) {
-      Object.keys(params).forEach(key => {
+      Object.keys(params).forEach((key) => {
         text = text.replace(new RegExp(`{${key}}`, 'g'), params[key]);
       });
     }
-    
-    return text;
-  }, [language]);
 
-  // Get current language info
-  const currentLanguage = translations[language] || translations.en;
-  const languages = getPrimaryLanguages();
+    return text;
+  }, [language, resolveRuntimeTranslation]);
+
+  const currentLanguage = translations[language] || translations[localizationConfig.default_language] || translations.en;
+  const languages = useMemo(
+    () => buildVisibleLanguages(enabledLanguageCodes),
+    [enabledLanguageCodes],
+  );
+  const allLanguages = useMemo(
+    () => getSupportedLanguages(),
+    [],
+  );
 
   useEffect(() => {
     let active = true;
 
-    const applyPlatformLanguage = async () => {
-      const saved = localStorage.getItem('preferredLanguage');
-      if (saved && isSupportedLanguage(saved) && translations[saved]) {
-        setLanguage(saved);
+    const bootstrapLocalization = async () => {
+      const savedLanguage = localStorage.getItem('preferredLanguage');
+
+      let config = DEFAULT_LOCALIZATION_CONFIG;
+      try {
+        config = await refreshLocalization();
+      } catch {
+        config = DEFAULT_LOCALIZATION_CONFIG;
+      }
+
+      if (!active) return;
+
+      if (
+        savedLanguage &&
+        isSupportedLanguage(savedLanguage) &&
+        config.enabled_languages.includes(savedLanguage)
+      ) {
+        setLanguage(savedLanguage);
         return;
       }
 
-      try {
-        const response = await fetch('/api/localization', {
-          credentials: 'same-origin',
-        });
-        if (!response.ok) {
-          throw new Error('Failed to load localization');
-        }
-        const payload = await response.json();
-        const platformDefault = String(payload?.default_language || '').trim();
-        if (active && isSupportedLanguage(platformDefault) && translations[platformDefault]) {
-          setLanguage(platformDefault);
+      if (config.automatic_detection) {
+        const browserLanguage = navigator.language?.split('-')[0];
+        if (
+          browserLanguage &&
+          isSupportedLanguage(browserLanguage) &&
+          config.enabled_languages.includes(browserLanguage)
+        ) {
+          setLanguage(browserLanguage);
           return;
         }
-      } catch (error) {
-        // Ignore localization bootstrap failures and fall back to browser language.
       }
 
-      const browserLang = navigator.language?.split('-')[0];
-      if (active && browserLang && isSupportedLanguage(browserLang) && translations[browserLang]) {
-        setLanguage(browserLang);
-      }
+      setLanguage(config.default_language || 'en');
     };
 
-    applyPlatformLanguage();
+    bootstrapLocalization();
 
     return () => {
       active = false;
     };
-  }, [setLanguage]);
+  }, [refreshLocalization, setLanguage]);
 
   useEffect(() => {
-    document.documentElement.lang = language;
-    if (language === 'ar' || language === 'he') {
-      document.documentElement.dir = 'rtl';
-    } else {
-      document.documentElement.dir = 'ltr';
+    const nextLanguage =
+      isSupportedLanguage(language) && enabledLanguageCodes.includes(language)
+        ? language
+        : localizationConfig.default_language || 'en';
+
+    if (nextLanguage !== language) {
+      setLanguage(nextLanguage);
+      return;
     }
-  }, [language]);
+
+    applyDocumentLanguage(nextLanguage);
+  }, [enabledLanguageCodes, language, localizationConfig.default_language, setLanguage]);
 
   return (
-    <LanguageContext.Provider value={{ 
-      language, 
-      setLanguage, 
-      t, 
-      currentLanguage,
-      languages,
-      isRTL: language === 'ar' || language === 'he'
-    }}>
+    <LanguageContext.Provider
+      value={{
+        language,
+        setLanguage,
+        t,
+        currentLanguage,
+        languages,
+        allLanguages,
+        isRTL: language === 'ar' || language === 'he',
+        localizationConfig,
+        refreshLocalization,
+      }}
+    >
       {children}
     </LanguageContext.Provider>
   );

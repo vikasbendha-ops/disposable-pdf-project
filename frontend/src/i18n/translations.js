@@ -895,6 +895,46 @@ const localizedTranslations = Object.fromEntries(
   ]),
 );
 
+const LANGUAGE_META_KEYS = new Set(['code', 'name', 'nativeName']);
+
+const getValueAtPath = (source, path) => {
+  if (!source || !path) return undefined;
+  return String(path)
+    .split('.')
+    .reduce((value, key) => value?.[key], source);
+};
+
+const flattenTranslationTree = (value, prefix = '', entries = []) => {
+  if (typeof value === 'string') {
+    if (prefix) {
+      entries.push({ path: prefix, value });
+    }
+    return entries;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => {
+      const nextPrefix = prefix ? `${prefix}.${index}` : String(index);
+      flattenTranslationTree(item, nextPrefix, entries);
+    });
+    return entries;
+  }
+
+  if (!isPlainObject(value)) {
+    return entries;
+  }
+
+  Object.entries(value).forEach(([key, childValue]) => {
+    if (!prefix && LANGUAGE_META_KEYS.has(key)) {
+      return;
+    }
+    const nextPrefix = prefix ? `${prefix}.${key}` : key;
+    flattenTranslationTree(childValue, nextPrefix, entries);
+  });
+
+  return entries;
+};
+
 // Get available languages list
 export const getAvailableLanguages = () => {
   return SUPPORTED_LANGUAGE_CODES
@@ -921,25 +961,30 @@ export const getPrimaryLanguages = () => {
     }));
 };
 
-// Get translation with fallback to English
-export const getTranslation = (langCode, path) => {
-  const keys = path.split('.');
-  let result = localizedTranslations[langCode] || localizedTranslations.en;
-  
-  for (const key of keys) {
-    result = result?.[key];
-    if (result === undefined) {
-      // Fallback to English
-      result = localizedTranslations.en;
-      for (const k of keys) {
-        result = result?.[k];
-        if (result === undefined) break;
-      }
-      break;
+export const getSupportedLanguages = () => getAvailableLanguages();
+
+export const getRawTranslation = (langCode, path) => {
+  return getValueAtPath(localizedTranslations[langCode], path);
+};
+
+export const getTranslation = (langCode, path, fallbackLanguage = 'en') => {
+  const ownValue = getRawTranslation(langCode, path);
+  if (ownValue !== undefined) {
+    return ownValue;
+  }
+
+  if (fallbackLanguage && fallbackLanguage !== langCode) {
+    const fallbackValue = getRawTranslation(fallbackLanguage, path);
+    if (fallbackValue !== undefined) {
+      return fallbackValue;
     }
   }
-  
-  return result || path;
+
+  const englishValue = getRawTranslation('en', path);
+  return englishValue !== undefined ? englishValue : path;
 };
+
+export const getTranslationEntries = (langCode = 'en') =>
+  flattenTranslationTree(localizedTranslations[langCode] || localizedTranslations.en);
 
 export default localizedTranslations;

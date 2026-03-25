@@ -31,6 +31,7 @@ import {
   useSubscriptionPlans,
 } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getRawTranslation, getTranslationEntries } from '../i18n/translations';
 import { DEFAULT_SEO_SETTINGS } from '../../../lib/seo';
 import { toast } from 'sonner';
 import { useLocation } from 'react-router-dom';
@@ -100,6 +101,48 @@ const getDraftFieldValue = (stateValue, inputRef) => {
   return String(inputRef?.current?.value || '').trim();
 };
 
+const COMMON_CURRENCY_OPTIONS = ['EUR', 'USD', 'GBP', 'INR', 'AUD', 'CAD', 'SGD', 'AED'];
+
+const getTimezoneOptions = () => {
+  if (typeof Intl !== 'undefined' && typeof Intl.supportedValuesOf === 'function') {
+    try {
+      return Intl.supportedValuesOf('timeZone');
+    } catch {
+      return ['UTC', 'Europe/Rome', 'Europe/London', 'Asia/Kolkata', 'America/New_York'];
+    }
+  }
+  return ['UTC', 'Europe/Rome', 'Europe/London', 'Asia/Kolkata', 'America/New_York'];
+};
+
+const resolveTranslationPreviewValue = ({
+  languageCode,
+  path,
+  fallbackLanguage,
+  manualOverrides,
+}) => {
+  const ownOverride = manualOverrides?.[languageCode]?.[path];
+  if (ownOverride !== undefined) {
+    return ownOverride;
+  }
+
+  const ownValue = getRawTranslation(languageCode, path);
+  if (ownValue !== undefined) {
+    return ownValue;
+  }
+
+  const fallbackOverride = manualOverrides?.[fallbackLanguage]?.[path];
+  if (fallbackOverride !== undefined) {
+    return fallbackOverride;
+  }
+
+  const fallbackValue = getRawTranslation(fallbackLanguage, path);
+  if (fallbackValue !== undefined) {
+    return fallbackValue;
+  }
+
+  return getRawTranslation('en', path);
+};
+
 const AdminSettings = () => {
   const location = useLocation();
   const { user } = useAuth();
@@ -107,7 +150,12 @@ const AdminSettings = () => {
   const { refreshPublicSite } = usePublicSite();
   const { refreshSeo } = useSeo();
   const { refreshPlans } = useSubscriptionPlans();
-  const { t, languages } = useLanguage();
+  const {
+    t,
+    languages,
+    allLanguages,
+    refreshLocalization,
+  } = useLanguage();
   const isSuperAdmin = user?.role === 'super_admin';
   const [activeTab, setActiveTab] = useState('payments');
   const [loadedTabs, setLoadedTabs] = useState({});
@@ -244,6 +292,20 @@ const AdminSettings = () => {
   const [localizationLoading, setLocalizationLoading] = useState(false);
   const [localizationSaving, setLocalizationSaving] = useState(false);
   const [platformLanguage, setPlatformLanguage] = useState('en');
+  const [enabledLanguages, setEnabledLanguages] = useState(['en']);
+  const [automaticLanguageRecognition, setAutomaticLanguageRecognition] = useState(false);
+  const [siteTimezone, setSiteTimezone] = useState('UTC');
+  const [siteCurrency, setSiteCurrency] = useState('EUR');
+  const [manualTranslationOverrides, setManualTranslationOverrides] = useState({});
+  const [localizationSectionTab, setLocalizationSectionTab] = useState('languages');
+  const [translationTargetLanguage, setTranslationTargetLanguage] = useState('en');
+  const [translationSearch, setTranslationSearch] = useState('');
+  const [translationShowUntranslatedOnly, setTranslationShowUntranslatedOnly] = useState(false);
+  const [translationRowsPerPage, setTranslationRowsPerPage] = useState('25');
+  const [translationPage, setTranslationPage] = useState(1);
+  const [translationSaving, setTranslationSaving] = useState(false);
+  const [advancedLanguage, setAdvancedLanguage] = useState('en');
+  const [advancedOverridesJson, setAdvancedOverridesJson] = useState('{}');
   const [publicSiteConfig, setPublicSiteConfig] = useState(null);
   const [publicSiteLoading, setPublicSiteLoading] = useState(false);
   const [publicSiteSaving, setPublicSiteSaving] = useState(false);
@@ -278,6 +340,15 @@ const AdminSettings = () => {
 
   const applyLocalizationState = (config) => {
     setPlatformLanguage(config?.default_language || 'en');
+    setEnabledLanguages(
+      Array.isArray(config?.enabled_languages) && config.enabled_languages.length
+        ? config.enabled_languages
+        : [config?.default_language || 'en'],
+    );
+    setAutomaticLanguageRecognition(Boolean(config?.automatic_detection));
+    setSiteTimezone(config?.site_timezone || 'UTC');
+    setSiteCurrency((config?.site_currency || 'EUR').toUpperCase());
+    setManualTranslationOverrides(config?.manual_overrides || {});
   };
 
   const fetchLocalizationConfig = async () => {
@@ -694,6 +765,25 @@ const AdminSettings = () => {
     outlookClientId,
     outlookClientSecret,
   ]);
+
+  useEffect(() => {
+    if (!enabledLanguages.length) return;
+    if (!enabledLanguages.includes(translationTargetLanguage)) {
+      setTranslationTargetLanguage(platformLanguage || enabledLanguages[0]);
+    }
+    if (!enabledLanguages.includes(advancedLanguage)) {
+      setAdvancedLanguage(platformLanguage || enabledLanguages[0]);
+    }
+  }, [advancedLanguage, enabledLanguages, platformLanguage, translationTargetLanguage]);
+
+  useEffect(() => {
+    setTranslationPage(1);
+  }, [translationSearch, translationTargetLanguage, translationRowsPerPage, translationShowUntranslatedOnly]);
+
+  useEffect(() => {
+    const nextOverrides = manualTranslationOverrides?.[advancedLanguage] || {};
+    setAdvancedOverridesJson(JSON.stringify(nextOverrides, null, 2));
+  }, [advancedLanguage, manualTranslationOverrides]);
 
   const handleSaveLiveKey = async () => {
     if (!liveKey.trim()) {
@@ -1123,17 +1213,150 @@ const AdminSettings = () => {
   };
 
   const handleSaveLocalizationConfig = async () => {
+    const normalizedEnabledLanguages = Array.from(
+      new Set(
+        [platformLanguage, ...enabledLanguages]
+          .map((code) => String(code || '').trim())
+          .filter(Boolean),
+      ),
+    );
+
     setLocalizationSaving(true);
     try {
       const res = await api.put('/admin/settings/localization', {
         default_language: platformLanguage,
+        enabled_languages: normalizedEnabledLanguages,
+        automatic_detection: automaticLanguageRecognition,
+        site_timezone: siteTimezone,
+        site_currency: siteCurrency,
       });
       applyLocalizationState(res.data);
+      await refreshLocalization().catch(() => {});
       toast.success(t('adminSettingsLocalization.saveSuccess'));
     } catch (err) {
       toast.error(err.response?.data?.detail || t('adminSettingsLocalization.saveFailed'));
     } finally {
       setLocalizationSaving(false);
+    }
+  };
+
+  const handleToggleEnabledLanguage = (languageCode) => {
+    setEnabledLanguages((prev) => {
+      const next = new Set(prev);
+      if (next.has(languageCode)) {
+        if (languageCode === platformLanguage) {
+          toast.error('Set another primary language before disabling this one');
+          return prev;
+        }
+        if (next.size === 1) {
+          toast.error('At least one language must stay enabled');
+          return prev;
+        }
+        next.delete(languageCode);
+      } else {
+        next.add(languageCode);
+      }
+      return Array.from(next);
+    });
+  };
+
+  const handleSetPrimaryLanguage = (languageCode) => {
+    setPlatformLanguage(languageCode);
+    setEnabledLanguages((prev) => Array.from(new Set([languageCode, ...prev])));
+    setTranslationTargetLanguage(languageCode);
+    setAdvancedLanguage(languageCode);
+  };
+
+  const handleTranslationValueChange = (languageCode, path, value) => {
+    setManualTranslationOverrides((prev) => {
+      const next = { ...(prev || {}) };
+      const nextLanguageOverrides = { ...(next[languageCode] || {}) };
+      const text = String(value || '');
+
+      if (text.trim()) {
+        nextLanguageOverrides[path] = text;
+      } else {
+        delete nextLanguageOverrides[path];
+      }
+
+      if (Object.keys(nextLanguageOverrides).length) {
+        next[languageCode] = nextLanguageOverrides;
+      } else {
+        delete next[languageCode];
+      }
+      return next;
+    });
+  };
+
+  const handleSaveLocalizationOverrides = async () => {
+    setTranslationSaving(true);
+    try {
+      const res = await api.put('/admin/settings/localization', {
+        manual_overrides: manualTranslationOverrides,
+      });
+      applyLocalizationState(res.data);
+      await refreshLocalization().catch(() => {});
+      toast.success('Manual translations saved');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to save manual translations');
+    } finally {
+      setTranslationSaving(false);
+    }
+  };
+
+  const handleResetLanguageOverrides = async (languageCode) => {
+    const nextOverrides = { ...(manualTranslationOverrides || {}) };
+    delete nextOverrides[languageCode];
+    setTranslationSaving(true);
+    try {
+      const res = await api.put('/admin/settings/localization', {
+        manual_overrides: nextOverrides,
+      });
+      applyLocalizationState(res.data);
+      await refreshLocalization().catch(() => {});
+      toast.success('Language overrides cleared');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to clear language overrides');
+    } finally {
+      setTranslationSaving(false);
+    }
+  };
+
+  const handleImportAdvancedOverrides = async () => {
+    let parsed;
+    try {
+      parsed = JSON.parse(advancedOverridesJson || '{}');
+    } catch {
+      toast.error('Advanced overrides JSON is not valid');
+      return;
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      toast.error('Advanced overrides JSON must be an object of path to translation');
+      return;
+    }
+
+    const nextOverrides = {
+      ...(manualTranslationOverrides || {}),
+      [advancedLanguage]: Object.fromEntries(
+        Object.entries(parsed)
+          .map(([path, value]) => [String(path || '').trim(), String(value ?? '').trim()])
+          .filter(([path, value]) => path && value),
+      ),
+    };
+
+    setManualTranslationOverrides(nextOverrides);
+    setTranslationSaving(true);
+    try {
+      const res = await api.put('/admin/settings/localization', {
+        manual_overrides: nextOverrides,
+      });
+      applyLocalizationState(res.data);
+      await refreshLocalization().catch(() => {});
+      toast.success('Advanced translations imported');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to import advanced translations');
+    } finally {
+      setTranslationSaving(false);
     }
   };
 
@@ -1284,6 +1507,78 @@ const AdminSettings = () => {
     ),
     [planEditors],
   );
+
+  const timezoneOptions = useMemo(() => getTimezoneOptions(), []);
+  const timezoneSelectOptions = useMemo(
+    () => Array.from(new Set([siteTimezone, ...timezoneOptions].filter(Boolean))),
+    [siteTimezone, timezoneOptions],
+  );
+  const currencyOptions = useMemo(
+    () => Array.from(new Set([siteCurrency, ...COMMON_CURRENCY_OPTIONS].filter(Boolean))),
+    [siteCurrency],
+  );
+  const availableAdminLanguages = useMemo(
+    () => (allLanguages && allLanguages.length ? allLanguages : languages),
+    [allLanguages, languages],
+  );
+  const enabledLanguageSet = useMemo(() => new Set(enabledLanguages), [enabledLanguages]);
+  const localizationSourceEntries = useMemo(
+    () => getTranslationEntries(platformLanguage || 'en'),
+    [platformLanguage],
+  );
+  const localizationFilteredEntries = useMemo(() => {
+    const searchValue = String(translationSearch || '').trim().toLowerCase();
+    return localizationSourceEntries.filter((entry) => {
+      const originalValue = resolveTranslationPreviewValue({
+        languageCode: platformLanguage,
+        path: entry.path,
+        fallbackLanguage: platformLanguage || 'en',
+        manualOverrides: manualTranslationOverrides,
+      });
+      const targetValue = resolveTranslationPreviewValue({
+        languageCode: translationTargetLanguage,
+        path: entry.path,
+        fallbackLanguage: platformLanguage || 'en',
+        manualOverrides: manualTranslationOverrides,
+      });
+      const targetOverride = manualTranslationOverrides?.[translationTargetLanguage]?.[entry.path] || '';
+      const isUntranslated = !String(targetOverride || '').trim();
+
+      if (translationShowUntranslatedOnly && !isUntranslated) {
+        return false;
+      }
+
+      if (!searchValue) {
+        return true;
+      }
+
+      return [
+        entry.path,
+        String(originalValue || ''),
+        String(targetValue || ''),
+      ].some((value) => value.toLowerCase().includes(searchValue));
+    });
+  }, [
+    localizationSourceEntries,
+    manualTranslationOverrides,
+    platformLanguage,
+    translationSearch,
+    translationShowUntranslatedOnly,
+    translationTargetLanguage,
+  ]);
+  const translationPageSize = Math.max(10, Number.parseInt(translationRowsPerPage || '25', 10) || 25);
+  const translationTotalPages = Math.max(1, Math.ceil(localizationFilteredEntries.length / translationPageSize));
+  const translationVisibleEntries = useMemo(() => {
+    const safePage = Math.min(Math.max(translationPage, 1), translationTotalPages);
+    const start = (safePage - 1) * translationPageSize;
+    return localizationFilteredEntries.slice(start, start + translationPageSize);
+  }, [localizationFilteredEntries, translationPage, translationPageSize, translationTotalPages]);
+
+  useEffect(() => {
+    if (translationPage > translationTotalPages) {
+      setTranslationPage(translationTotalPages);
+    }
+  }, [translationPage, translationTotalPages]);
 
   if (loading) {
     return (
@@ -2189,7 +2484,7 @@ const AdminSettings = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="localization" className="max-w-3xl">
+        <TabsContent value="localization" className="max-w-6xl">
           <Card className="border-stone-200">
             <CardHeader>
               <div className="flex items-center space-x-3">
@@ -2202,34 +2497,446 @@ const AdminSettings = () => {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               {localizationLoading ? (
                 <p className="text-sm text-stone-500">Loading localization settings...</p>
               ) : (
-                <>
-                  <div className="space-y-2">
-                    <Label>{t('adminSettingsLocalization.defaultLanguage')}</Label>
-                    <Select value={platformLanguage} onValueChange={setPlatformLanguage}>
-                      <SelectTrigger className="h-12">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {languages.map((language) => (
-                          <SelectItem key={language.code} value={language.code}>
-                            {language.nativeName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button
-                    className="bg-emerald-900 hover:bg-emerald-800"
-                    onClick={handleSaveLocalizationConfig}
-                    disabled={localizationSaving}
-                  >
-                    {localizationSaving ? t('adminSettingsLocalization.saving') : t('adminSettingsLocalization.save')}
-                  </Button>
-                </>
+                <Tabs value={localizationSectionTab} onValueChange={setLocalizationSectionTab} className="space-y-6">
+                  <TabsList className="h-auto w-full justify-start gap-2 rounded-xl bg-stone-100 p-1">
+                    <TabsTrigger value="languages" className="px-4 py-2">Languages</TabsTrigger>
+                    <TabsTrigger value="strings" className="px-4 py-2">String Translation</TabsTrigger>
+                    <TabsTrigger value="advanced" className="px-4 py-2">Advanced Translation</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="languages" className="space-y-6">
+                    <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+                      <ol className="space-y-2 list-decimal pl-5">
+                        <li>Untranslated strings fall back to the primary language, then to English if the primary language does not contain that key.</li>
+                        <li>Turning a language off removes it from sign-up and profile selectors, but keeps its saved manual overrides for later reuse.</li>
+                        <li>Manual overrides are applied at runtime and do not require a code deploy.</li>
+                      </ol>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                      <Card className="border-stone-200">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-base">Automatic Recognition</CardTitle>
+                          <CardDescription>Allow browser language auto-detection for first-time visitors.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center justify-between gap-3 rounded-xl border border-stone-200 p-3">
+                            <span className="text-sm font-medium text-stone-700">Enable automatic recognition</span>
+                            <Switch
+                              checked={automaticLanguageRecognition}
+                              onCheckedChange={setAutomaticLanguageRecognition}
+                            />
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="border-stone-200">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-base">Website Timezone</CardTitle>
+                          <CardDescription>Used as the platform timezone reference in admin-controlled settings.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          <Select value={siteTimezone} onValueChange={setSiteTimezone}>
+                            <SelectTrigger className="h-12">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-[320px]">
+                              {timezoneSelectOptions.map((timezone) => (
+                                <SelectItem key={timezone} value={timezone}>{timezone}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="border-stone-200">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-base">Website Currency</CardTitle>
+                          <CardDescription>Reference currency for public pricing and platform defaults.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          <Select value={siteCurrency} onValueChange={setSiteCurrency}>
+                            <SelectTrigger className="h-12">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {currencyOptions.map((currencyCode) => (
+                                <SelectItem key={currencyCode} value={currencyCode}>{currencyCode}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="border-stone-200">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-base">Primary Language</CardTitle>
+                          <CardDescription>Default fallback language across the whole platform.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          <Select value={platformLanguage} onValueChange={handleSetPrimaryLanguage}>
+                            <SelectTrigger className="h-12">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableAdminLanguages.map((language) => (
+                                <SelectItem key={language.code} value={language.code}>
+                                  {language.nativeName} ({language.name})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    <Card className="border-stone-200">
+                      <CardHeader>
+                        <CardTitle>Select Languages</CardTitle>
+                        <CardDescription>Choose which languages are active, then save the localization configuration.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="grid gap-4">
+                        {availableAdminLanguages.map((language) => {
+                          const isEnabled = enabledLanguageSet.has(language.code);
+                          const isPrimary = platformLanguage === language.code;
+                          const overrideCount = Object.keys(manualTranslationOverrides?.[language.code] || {}).length;
+                          return (
+                            <div
+                              key={language.code}
+                              className={`rounded-2xl border p-4 ${
+                                isPrimary
+                                  ? 'border-emerald-300 bg-emerald-50/60'
+                                  : 'border-stone-200 bg-white'
+                              }`}
+                            >
+                              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                                <div>
+                                  <div className="flex items-center gap-3">
+                                    <p className="text-lg font-semibold text-stone-900">
+                                      {language.nativeName}
+                                    </p>
+                                    <Badge variant="outline" className="uppercase">{language.code}</Badge>
+                                    {isPrimary && (
+                                      <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">
+                                        Primary
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="mt-1 text-sm text-stone-500">
+                                    {language.name} • {overrideCount} manual override{overrideCount === 1 ? '' : 's'}
+                                  </p>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Button
+                                    type="button"
+                                    variant={isPrimary ? 'default' : 'outline'}
+                                    className={isPrimary ? 'bg-emerald-900 hover:bg-emerald-800' : ''}
+                                    onClick={() => handleSetPrimaryLanguage(language.code)}
+                                  >
+                                    {isPrimary ? 'Primary Language' : 'Set as Primary'}
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant={isEnabled ? 'outline' : 'default'}
+                                    className={!isEnabled ? 'bg-sky-700 hover:bg-sky-600' : ''}
+                                    onClick={() => handleToggleEnabledLanguage(language.code)}
+                                  >
+                                    {isEnabled ? 'Turn Off' : 'Activate'}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </CardContent>
+                    </Card>
+
+                    <div className="flex justify-end">
+                      <Button
+                        className="bg-emerald-900 hover:bg-emerald-800"
+                        onClick={handleSaveLocalizationConfig}
+                        disabled={localizationSaving}
+                      >
+                        {localizationSaving ? t('adminSettingsLocalization.saving') : 'Save Language Configuration'}
+                      </Button>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="strings" className="space-y-6">
+                    <Card className="border-stone-200">
+                      <CardHeader>
+                        <CardTitle>String Translation</CardTitle>
+                        <CardDescription>Search platform strings and set manual overrides for the selected language.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)_180px_160px]">
+                          <div className="space-y-2">
+                            <Label>Target Language</Label>
+                            <Select value={translationTargetLanguage} onValueChange={setTranslationTargetLanguage}>
+                              <SelectTrigger className="h-12">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableAdminLanguages
+                                  .filter((language) => enabledLanguageSet.has(language.code))
+                                  .map((language) => (
+                                    <SelectItem key={language.code} value={language.code}>
+                                      {language.nativeName}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Search</Label>
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+                              <Input
+                                value={translationSearch}
+                                onChange={(e) => setTranslationSearch(e.target.value)}
+                                className="h-12 pl-10"
+                                placeholder="Search by key or text"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Show</Label>
+                            <Select value={translationRowsPerPage} onValueChange={setTranslationRowsPerPage}>
+                              <SelectTrigger className="h-12">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="10">10 entries</SelectItem>
+                                <SelectItem value="25">25 entries</SelectItem>
+                                <SelectItem value="50">50 entries</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex items-end">
+                            <div className="flex items-center justify-between gap-3 rounded-xl border border-stone-200 px-4 py-3 w-full">
+                              <span className="text-sm font-medium text-stone-700">Only untranslated</span>
+                              <Switch
+                                checked={translationShowUntranslatedOnly}
+                                onCheckedChange={setTranslationShowUntranslatedOnly}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="overflow-hidden rounded-2xl border border-stone-200">
+                          <div className="grid grid-cols-[220px_minmax(0,1fr)_minmax(0,1fr)] gap-0 border-b border-stone-200 bg-stone-50 text-sm font-semibold text-stone-900">
+                            <div className="px-4 py-3">Translation Key</div>
+                            <div className="px-4 py-3">Original String ({platformLanguage.toUpperCase()})</div>
+                            <div className="px-4 py-3">Translated String ({translationTargetLanguage.toUpperCase()})</div>
+                          </div>
+                          <div className="divide-y divide-stone-200">
+                            {translationVisibleEntries.length ? (
+                              translationVisibleEntries.map((entry) => {
+                                const sourceValue = resolveTranslationPreviewValue({
+                                  languageCode: platformLanguage,
+                                  path: entry.path,
+                                  fallbackLanguage: platformLanguage || 'en',
+                                  manualOverrides: manualTranslationOverrides,
+                                });
+                                const targetValue =
+                                  manualTranslationOverrides?.[translationTargetLanguage]?.[entry.path] ??
+                                  (translationTargetLanguage === platformLanguage
+                                    ? String(sourceValue || '')
+                                    : '');
+
+                                return (
+                                  <div
+                                    key={entry.path}
+                                    className="grid grid-cols-[220px_minmax(0,1fr)_minmax(0,1fr)] gap-0 bg-white"
+                                  >
+                                    <div className="px-4 py-3 text-xs text-stone-500 font-mono break-all">
+                                      {entry.path}
+                                    </div>
+                                    <div className="px-4 py-3 text-sm text-stone-700 whitespace-pre-wrap">
+                                      {String(sourceValue || '')}
+                                    </div>
+                                    <div className="px-4 py-3">
+                                      <Textarea
+                                        rows={2}
+                                        value={targetValue}
+                                        onChange={(e) => handleTranslationValueChange(
+                                          translationTargetLanguage,
+                                          entry.path,
+                                          e.target.value,
+                                        )}
+                                        placeholder={translationTargetLanguage === platformLanguage
+                                          ? 'Primary language value'
+                                          : 'Enter manual translation override'}
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <div className="px-4 py-8 text-sm text-stone-500">
+                                No strings match the current filters.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <p className="text-sm text-stone-500">
+                            {localizationFilteredEntries.length} string{localizationFilteredEntries.length === 1 ? '' : 's'} found
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setTranslationPage((current) => Math.max(1, current - 1))}
+                              disabled={translationPage <= 1}
+                            >
+                              Previous
+                            </Button>
+                            <span className="text-sm text-stone-600">
+                              Page {Math.min(translationPage, translationTotalPages)} of {translationTotalPages}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setTranslationPage((current) => Math.min(translationTotalPages, current + 1))}
+                              disabled={translationPage >= translationTotalPages}
+                            >
+                              Next
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => handleResetLanguageOverrides(translationTargetLanguage)}
+                            disabled={translationSaving}
+                          >
+                            Clear {translationTargetLanguage.toUpperCase()} Overrides
+                          </Button>
+                          <Button
+                            type="button"
+                            className="bg-emerald-900 hover:bg-emerald-800"
+                            onClick={handleSaveLocalizationOverrides}
+                            disabled={translationSaving}
+                          >
+                            {translationSaving ? 'Saving...' : 'Save Manual Translations'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="advanced" className="space-y-6">
+                    <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+                      <Card className="border-stone-200">
+                        <CardHeader>
+                          <CardTitle>Language Stats</CardTitle>
+                          <CardDescription>Quick view of enabled languages and saved override counts.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {availableAdminLanguages.map((language) => {
+                            const count = Object.keys(manualTranslationOverrides?.[language.code] || {}).length;
+                            return (
+                              <div key={language.code} className="flex items-center justify-between rounded-xl border border-stone-200 px-3 py-2">
+                                <div>
+                                  <p className="font-medium text-stone-900">{language.nativeName}</p>
+                                  <p className="text-xs text-stone-500 uppercase">{language.code}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm font-semibold text-stone-900">{count}</p>
+                                  <p className="text-xs text-stone-500">overrides</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </CardContent>
+                      </Card>
+
+                      <Card className="border-stone-200">
+                        <CardHeader>
+                          <CardTitle>Advanced Translation Editor</CardTitle>
+                          <CardDescription>Bulk edit one language as flat JSON: translation path to translated value.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label>Language</Label>
+                              <Select value={advancedLanguage} onValueChange={setAdvancedLanguage}>
+                                <SelectTrigger className="h-12">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {availableAdminLanguages.map((language) => (
+                                    <SelectItem key={language.code} value={language.code}>
+                                      {language.nativeName} ({language.code.toUpperCase()})
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-600">
+                              Fallback order:
+                              {' '}
+                              <span className="font-medium text-stone-900">{translationTargetLanguage.toUpperCase()}</span>
+                              {' '}
+                              →
+                              {' '}
+                              <span className="font-medium text-stone-900">{platformLanguage.toUpperCase()}</span>
+                              {' '}
+                              →
+                              {' '}
+                              <span className="font-medium text-stone-900">EN</span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Overrides JSON</Label>
+                            <Textarea
+                              rows={18}
+                              value={advancedOverridesJson}
+                              onChange={(e) => setAdvancedOverridesJson(e.target.value)}
+                              className="font-mono text-xs"
+                              placeholder='{\n  "dashboard.title": "Dashboard"\n}'
+                            />
+                          </div>
+
+                          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setAdvancedOverridesJson(JSON.stringify(manualTranslationOverrides?.[advancedLanguage] || {}, null, 2))}
+                            >
+                              Reload JSON
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => handleResetLanguageOverrides(advancedLanguage)}
+                              disabled={translationSaving}
+                            >
+                              Clear Language Overrides
+                            </Button>
+                            <Button
+                              type="button"
+                              className="bg-emerald-900 hover:bg-emerald-800"
+                              onClick={handleImportAdvancedOverrides}
+                              disabled={translationSaving}
+                            >
+                              {translationSaving ? 'Saving...' : 'Import & Save JSON'}
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </TabsContent>
+                </Tabs>
               )}
             </CardContent>
           </Card>
