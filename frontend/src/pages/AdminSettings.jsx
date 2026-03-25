@@ -55,6 +55,38 @@ const STORAGE_PROVIDER_LABELS = {
   supabase_db: 'Supabase (database)',
   wasabi_s3: 'Wasabi (S3 compatible)',
 };
+const SETTINGS_GROUPS = [
+  {
+    value: 'operations',
+    label: 'Operations',
+    icon: Activity,
+    tabs: ['operations'],
+  },
+  {
+    value: 'commerce',
+    label: 'Commerce',
+    icon: CreditCard,
+    tabs: ['payments', 'plans', 'invoice'],
+  },
+  {
+    value: 'platform',
+    label: 'Platform',
+    icon: Globe,
+    tabs: ['localization', 'public-site', 'branding', 'seo'],
+  },
+  {
+    value: 'infrastructure',
+    label: 'Infrastructure',
+    icon: HardDrive,
+    tabs: ['email', 'storage', 'domains'],
+  },
+  {
+    value: 'access',
+    label: 'Access',
+    icon: Shield,
+    tabs: ['permissions'],
+  },
+];
 
 const formatPlanNameFromId = (planId) =>
   String(planId || '')
@@ -1925,6 +1957,16 @@ const AdminSettings = () => {
   const displayedTabs = (isSuperAdmin ? [...adminTabs, ...superAdminTabs] : adminTabs).filter(
     (tab) => !tab.sectionKey || accessibleSectionSet.has(tab.sectionKey),
   );
+  const displayedTabMap = new Map(displayedTabs.map((tab) => [tab.value, tab]));
+  const visibleGroups = SETTINGS_GROUPS.map((group) => ({
+    ...group,
+    tabs: group.tabs.filter((tabValue) => displayedTabMap.has(tabValue)),
+  })).filter((group) => group.tabs.length > 0);
+  const activeGroup =
+    visibleGroups.find((group) => group.tabs.includes(activeTab)) || visibleGroups[0] || null;
+  const activeGroupTabs = activeGroup
+    ? activeGroup.tabs.map((tabValue) => displayedTabMap.get(tabValue)).filter(Boolean)
+    : displayedTabs;
   const seoPreviewUrl = (seoCanonicalBaseUrl || 'https://your-domain.com').replace(/\/$/, '');
 
   return (
@@ -1937,14 +1979,51 @@ const AdminSettings = () => {
       }
     >
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <div className="overflow-x-auto pb-1">
-          <TabsList className="h-auto w-max min-w-full justify-start gap-2 rounded-xl bg-stone-100 p-1">
-            {displayedTabs.map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value} className="px-4 py-2">
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        <div className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            {visibleGroups.map((group) => {
+              const Icon = group.icon;
+              const isActive = activeGroup?.value === group.value;
+              return (
+                <button
+                  key={group.value}
+                  type="button"
+                  onClick={() => {
+                    if (group.tabs[0]) {
+                      setActiveTab(group.tabs[0]);
+                    }
+                  }}
+                  className={`rounded-2xl border p-4 text-left transition ${
+                    isActive
+                      ? 'border-emerald-300 bg-emerald-50 shadow-sm'
+                      : 'border-stone-200 bg-white hover:border-stone-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-600'}`}>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-stone-900">{group.label}</p>
+                      <p className="text-xs text-stone-500">
+                        {group.tabs.length} section{group.tabs.length === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="overflow-x-auto pb-1">
+            <TabsList className="h-auto w-max min-w-full justify-start gap-2 rounded-xl bg-stone-100 p-1">
+              {activeGroupTabs.map((tab) => (
+                <TabsTrigger key={tab.value} value={tab.value} className="px-4 py-2">
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
         </div>
 
         <TabsContent value="payments" className="max-w-4xl">
