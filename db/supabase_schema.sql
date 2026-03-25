@@ -152,6 +152,60 @@ create index if not exists idx_app_docs_payment_transactions_invoice_id
 create index if not exists idx_app_docs_platform_settings_key
   on public.app_documents ((doc->>'key'))
   where collection = 'platform_settings';
+create index if not exists idx_app_docs_settings_history_change_id
+  on public.app_documents ((doc->>'change_id'))
+  where collection = 'settings_history';
+create index if not exists idx_app_docs_settings_history_setting_key
+  on public.app_documents ((doc->>'setting_key'))
+  where collection = 'settings_history';
+create index if not exists idx_app_docs_settings_history_actor_user_id
+  on public.app_documents ((doc->>'actor_user_id'))
+  where collection = 'settings_history';
+create index if not exists idx_app_docs_settings_history_created_at
+  on public.app_documents ((doc->>'created_at'))
+  where collection = 'settings_history';
+create index if not exists idx_app_docs_jobs_job_id
+  on public.app_documents ((doc->>'job_id'))
+  where collection = 'jobs';
+create index if not exists idx_app_docs_jobs_status
+  on public.app_documents ((doc->>'status'))
+  where collection = 'jobs';
+create index if not exists idx_app_docs_jobs_type
+  on public.app_documents ((doc->>'job_type'))
+  where collection = 'jobs';
+create index if not exists idx_app_docs_jobs_run_after
+  on public.app_documents ((doc->>'run_after'))
+  where collection = 'jobs';
+create index if not exists idx_app_docs_jobs_created_at
+  on public.app_documents ((doc->>'created_at'))
+  where collection = 'jobs';
+create index if not exists idx_app_docs_team_memberships_membership_id
+  on public.app_documents ((doc->>'membership_id'))
+  where collection = 'team_memberships';
+create index if not exists idx_app_docs_team_memberships_account_id
+  on public.app_documents ((doc->>'account_id'))
+  where collection = 'team_memberships';
+create index if not exists idx_app_docs_team_memberships_user_id
+  on public.app_documents ((doc->>'user_id'))
+  where collection = 'team_memberships';
+create index if not exists idx_app_docs_team_memberships_role
+  on public.app_documents ((doc->>'account_role'))
+  where collection = 'team_memberships';
+create index if not exists idx_app_docs_team_memberships_status
+  on public.app_documents ((doc->>'status'))
+  where collection = 'team_memberships';
+create index if not exists idx_app_docs_team_invitations_invitation_id
+  on public.app_documents ((doc->>'invitation_id'))
+  where collection = 'team_invitations';
+create index if not exists idx_app_docs_team_invitations_account_id
+  on public.app_documents ((doc->>'account_id'))
+  where collection = 'team_invitations';
+create index if not exists idx_app_docs_team_invitations_email
+  on public.app_documents ((lower(doc->>'email')))
+  where collection = 'team_invitations';
+create index if not exists idx_app_docs_team_invitations_status
+  on public.app_documents ((doc->>'status'))
+  where collection = 'team_invitations';
 
 -- audit events
 create index if not exists idx_app_docs_audit_event_type

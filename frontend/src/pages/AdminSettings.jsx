@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { CreditCard, Shield, CheckCircle, AlertCircle, Eye, EyeOff, Palette, Search, Globe, FileText, Mail, Copy, Link2, Plus } from 'lucide-react';
+import { CreditCard, Shield, CheckCircle, AlertCircle, Eye, EyeOff, Palette, Search, Globe, FileText, Mail, Copy, Link2, Plus, Activity, History, RefreshCw, Settings2, HardDrive } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -38,6 +38,11 @@ import { useLocation } from 'react-router-dom';
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 const PLAN_ID_RE = /^[a-z0-9][a-z0-9_-]{1,39}$/;
+const SETTINGS_ACCESS_ROLES = ['admin', 'super_admin'];
+const STORAGE_PROVIDER_LABELS = {
+  supabase_db: 'Supabase (database)',
+  wasabi_s3: 'Wasabi (S3 compatible)',
+};
 
 const formatPlanNameFromId = (planId) =>
   String(planId || '')
@@ -326,6 +331,21 @@ const AdminSettings = () => {
   const [newPlanId, setNewPlanId] = useState('');
   const [newPlanName, setNewPlanName] = useState('');
   const [copiedPlanLink, setCopiedPlanLink] = useState('');
+  const [operationsHealth, setOperationsHealth] = useState(null);
+  const [operationsHealthLoading, setOperationsHealthLoading] = useState(false);
+  const [jobs, setJobs] = useState([]);
+  const [jobsLoading, setJobsLoading] = useState(false);
+  const [jobsRunning, setJobsRunning] = useState(false);
+  const [settingsHistory, setSettingsHistory] = useState([]);
+  const [settingsHistoryLoading, setSettingsHistoryLoading] = useState(false);
+  const [settingsHistoryFilter, setSettingsHistoryFilter] = useState('all');
+  const [settingsPermissionsConfig, setSettingsPermissionsConfig] = useState(null);
+  const [settingsPermissionsLoading, setSettingsPermissionsLoading] = useState(false);
+  const [settingsPermissionsSaving, setSettingsPermissionsSaving] = useState(false);
+  const [settingsPermissionEditors, setSettingsPermissionEditors] = useState({});
+  const [storageMigrationSource, setStorageMigrationSource] = useState('all');
+  const [storageMigrationLimit, setStorageMigrationLimit] = useState('1000');
+  const [storageMigrationRunning, setStorageMigrationRunning] = useState(false);
 
   const fetchStripeConfig = async () => {
     try {
@@ -642,11 +662,97 @@ const AdminSettings = () => {
     }
   };
 
+  const applySettingsPermissionsState = (config) => {
+    setSettingsPermissionsConfig(config);
+    const nextEditors = Object.entries(config?.sections || {}).reduce((accumulator, [sectionKey, section]) => {
+      accumulator[sectionKey] = {
+        read_role: section?.read_role || 'admin',
+        write_role: section?.write_role || 'super_admin',
+      };
+      return accumulator;
+    }, {});
+    setSettingsPermissionEditors(nextEditors);
+  };
+
+  const fetchSettingsPermissionsConfig = async () => {
+    setSettingsPermissionsLoading(true);
+    try {
+      const res = await api.get('/admin/settings/permissions');
+      applySettingsPermissionsState(res.data);
+    } catch (err) {
+      setSettingsPermissionsConfig(null);
+      if (err.response?.status !== 403) {
+        toast.error(err.response?.data?.detail || 'Failed to load settings permissions');
+      }
+    } finally {
+      setSettingsPermissionsLoading(false);
+    }
+  };
+
+  const fetchOperationsHealth = async () => {
+    setOperationsHealthLoading(true);
+    try {
+      const res = await api.get('/admin/operations/health');
+      setOperationsHealth(res.data);
+    } catch (err) {
+      setOperationsHealth(null);
+      toast.error(err.response?.data?.detail || 'Failed to load operations health');
+    } finally {
+      setOperationsHealthLoading(false);
+    }
+  };
+
+  const fetchJobs = async () => {
+    setJobsLoading(true);
+    try {
+      const res = await api.get('/admin/jobs', { params: { limit: 50 } });
+      setJobs(Array.isArray(res.data?.jobs) ? res.data.jobs : []);
+    } catch (err) {
+      setJobs([]);
+      toast.error(err.response?.data?.detail || 'Failed to load background jobs');
+    } finally {
+      setJobsLoading(false);
+    }
+  };
+
+  const fetchSettingsHistory = async (settingKey = settingsHistoryFilter) => {
+    setSettingsHistoryLoading(true);
+    try {
+      const params = { limit: 40 };
+      if (settingKey && settingKey !== 'all') {
+        params.setting_key = settingKey;
+      }
+      const res = await api.get('/admin/settings/history', { params });
+      setSettingsHistory(Array.isArray(res.data?.changes) ? res.data.changes : []);
+    } catch (err) {
+      setSettingsHistory([]);
+      toast.error(err.response?.data?.detail || 'Failed to load settings history');
+    } finally {
+      setSettingsHistoryLoading(false);
+    }
+  };
+
+  const refreshOperationsData = async () => {
+    await Promise.all([fetchOperationsHealth(), fetchJobs(), fetchSettingsHistory()]);
+  };
+
   const ensureTabLoaded = async (tab) => {
     if (loadedTabs[tab]) return;
 
     if (tab === 'payments') {
       await fetchStripeConfig();
+    } else if (tab === 'operations') {
+      const operationsTasks = [
+        fetchOperationsHealth(),
+        fetchJobs(),
+        fetchSettingsHistory('all'),
+      ];
+      if (isSuperAdmin) {
+        operationsTasks.push(fetchSettingsPermissionsConfig());
+      }
+      await Promise.all(operationsTasks);
+    } else if (isSuperAdmin && tab === 'permissions') {
+      await fetchSettingsPermissionsConfig();
     } else if (isSuperAdmin && tab === 'email') {
       await Promise.all([
         fetchEmailDeliveryConfig(),
@@ -726,6 +832,10 @@ const AdminSettings = () => {
   }, [user?.email, emailTestRecipient]);
 
   useEffect(() => {
+    fetchSettingsPermissionsConfig();
+  }, []);
+
+  useEffect(() => {
     if (activeTab !== 'email') return;
 
     const syncAutofilledEmailProviderFields = () => {
@@ -784,6 +894,11 @@ const AdminSettings = () => {
     const nextOverrides = manualTranslationOverrides?.[advancedLanguage] || {};
     setAdvancedOverridesJson(JSON.stringify(nextOverrides, null, 2));
   }, [advancedLanguage, manualTranslationOverrides]);
+
+  useEffect(() => {
+    if (activeTab !== 'operations' || !loadedTabs.operations) return;
+    fetchSettingsHistory(settingsHistoryFilter);
+  }, [activeTab, loadedTabs.operations, settingsHistoryFilter]);
 
   const handleSaveLiveKey = async () => {
     if (!liveKey.trim()) {
@@ -873,6 +988,59 @@ const AdminSettings = () => {
       toast.error(err.response?.data?.detail || 'Failed to save storage settings');
     } finally {
       setStorageSaving(false);
+    }
+  };
+
+  const handleRunQueuedJobs = async () => {
+    if (!isSuperAdmin) {
+      toast.error('Only super admin can run queued jobs');
+      return;
+    }
+
+    setJobsRunning(true);
+    try {
+      const res = await api.post('/admin/jobs/run', { limit: 5 });
+      toast.success(res.data?.message || 'Queued jobs processed');
+      await refreshOperationsData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to process queued jobs');
+    } finally {
+      setJobsRunning(false);
+    }
+  };
+
+  const handleStartStorageMigration = async () => {
+    if (!isSuperAdmin) {
+      toast.error('Only super admin can start storage migrations');
+      return;
+    }
+
+    if (!storageProvider) {
+      toast.error('Select the active destination storage provider first');
+      return;
+    }
+
+    setStorageMigrationRunning(true);
+    try {
+      const payload = {
+        destination_provider: storageProvider,
+        run_now: true,
+      };
+      if (storageMigrationSource !== 'all') {
+        payload.source_provider = storageMigrationSource;
+      }
+      const parsedLimit = Number.parseInt(storageMigrationLimit, 10);
+      if (Number.isFinite(parsedLimit) && parsedLimit > 0) {
+        payload.limit = parsedLimit;
+      }
+
+      const res = await api.post('/admin/jobs/storage-migration', payload);
+      toast.success(res.data?.message || 'Storage migration queued');
+      await Promise.all([fetchJobs(), fetchOperationsHealth()]);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to start storage migration');
+    } finally {
+      setStorageMigrationRunning(false);
     }
   };
 
@@ -1492,6 +1660,57 @@ const AdminSettings = () => {
     }
   };
 
+  const handleSettingsPermissionEditorChange = (sectionKey, field, value) => {
+    setSettingsPermissionEditors((prev) => ({
+      ...prev,
+      [sectionKey]: {
+        ...(prev?.[sectionKey] || {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleSaveSettingsPermissions = async () => {
+    if (!isSuperAdmin) {
+      toast.error('Only super admin can update settings permissions');
+      return;
+    }
+
+    const sections = Object.entries(settingsPermissionEditors || {}).reduce((accumulator, [sectionKey, section]) => {
+      accumulator[sectionKey] = {
+        read_role: section?.read_role || 'admin',
+        write_role: section?.write_role || 'super_admin',
+      };
+      return accumulator;
+    }, {});
+
+    setSettingsPermissionsSaving(true);
+    try {
+      const res = await api.put('/admin/settings/permissions', { sections });
+      applySettingsPermissionsState(res.data);
+      toast.success('Settings permissions saved');
+      await fetchSettingsHistory('all');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to save settings permissions');
+    } finally {
+      setSettingsPermissionsSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    const accessibleSections = new Set(settingsPermissionsConfig?.accessible_sections || SETTINGS_SECTION_KEYS);
+    const nextVisibleTabs = [
+      ...(accessibleSections.has('payments') ? ['payments'] : []),
+      ...(accessibleSections.has('localization') ? ['localization'] : []),
+      'operations',
+      ...(isSuperAdmin ? ['email', 'public-site', 'plans', 'storage', 'domains', 'branding', 'seo', 'invoice', 'permissions'] : []),
+    ];
+
+    if (nextVisibleTabs.length && !nextVisibleTabs.includes(activeTab)) {
+      setActiveTab(nextVisibleTabs[0]);
+    }
+  }, [activeTab, isSuperAdmin, settingsPermissionsConfig]);
+
   const orderedPlanEntries = useMemo(
     () => getOrderedPlanEntries(
       Object.fromEntries(
@@ -1661,21 +1880,39 @@ const AdminSettings = () => {
   const emailFallbackNotice = requestedEmailProvider !== activeEmailProvider
     ? `${emailProviderLabels[requestedEmailProvider] || requestedEmailProvider} is not ready, so ${emailProviderLabels[activeEmailProvider] || activeEmailProvider} is active.`
     : '';
+  const settingsSectionEntries = Object.values(settingsPermissionsConfig?.sections || {});
+  const settingsHistoryKeyOptions = [
+    { value: 'all', label: 'All settings' },
+    ...settingsSectionEntries.flatMap((section) =>
+      (section?.setting_keys || []).map((settingKey) => ({
+        value: settingKey,
+        label: `${section.label}: ${settingKey}`,
+      })),
+    ),
+    ...(isSuperAdmin
+      ? [{ value: 'settings_permissions', label: 'Permissions: settings_permissions' }]
+      : []),
+  ].filter((option, index, array) => array.findIndex((item) => item.value === option.value) === index);
+  const accessibleSectionSet = new Set(settingsPermissionsConfig?.accessible_sections || SETTINGS_SECTION_KEYS);
   const adminTabs = [
-    { value: 'payments', label: t('adminSettingsTabs.payments') },
-    { value: 'localization', label: t('adminSettingsTabs.localization') },
+    { value: 'payments', label: t('adminSettingsTabs.payments'), sectionKey: 'payments' },
+    { value: 'localization', label: t('adminSettingsTabs.localization'), sectionKey: 'localization' },
+    { value: 'operations', label: 'Operations' },
   ];
   const superAdminTabs = [
-    { value: 'email', label: t('adminSettingsTabs.email') },
-    { value: 'public-site', label: t('adminSettingsTabs.publicSite') },
-    { value: 'plans', label: t('adminSettingsTabs.plans') },
-    { value: 'storage', label: t('adminSettingsTabs.storage') },
-    { value: 'domains', label: t('adminSettingsTabs.domains') },
-    { value: 'branding', label: t('adminSettingsTabs.branding') },
-    { value: 'seo', label: t('adminSettingsTabs.seo') },
-    { value: 'invoice', label: t('adminSettingsTabs.invoice') },
+    { value: 'email', label: t('adminSettingsTabs.email'), sectionKey: 'email' },
+    { value: 'public-site', label: t('adminSettingsTabs.publicSite'), sectionKey: 'public_site' },
+    { value: 'plans', label: t('adminSettingsTabs.plans'), sectionKey: 'plans' },
+    { value: 'storage', label: t('adminSettingsTabs.storage'), sectionKey: 'storage' },
+    { value: 'domains', label: t('adminSettingsTabs.domains'), sectionKey: 'domains' },
+    { value: 'branding', label: t('adminSettingsTabs.branding'), sectionKey: 'branding' },
+    { value: 'seo', label: t('adminSettingsTabs.seo'), sectionKey: 'seo' },
+    { value: 'invoice', label: t('adminSettingsTabs.invoice'), sectionKey: 'invoice' },
+    { value: 'permissions', label: 'Permissions' },
   ];
-  const displayedTabs = isSuperAdmin ? [...adminTabs, ...superAdminTabs] : adminTabs;
+  const displayedTabs = (isSuperAdmin ? [...adminTabs, ...superAdminTabs] : adminTabs).filter(
+    (tab) => !tab.sectionKey || accessibleSectionSet.has(tab.sectionKey),
+  );
   const seoPreviewUrl = (seoCanonicalBaseUrl || 'https://your-domain.com').replace(/\/$/, '');
 
   return (
@@ -1829,6 +2066,201 @@ const AdminSettings = () => {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="operations" className="max-w-6xl">
+          <div className="space-y-6">
+            <Card className="border-stone-200">
+              <CardHeader>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100">
+                      <Activity className="h-5 w-5 text-emerald-700" />
+                    </div>
+                    <div>
+                      <CardTitle>Operations Health</CardTitle>
+                      <CardDescription>Service readiness, queue activity, and recent configuration changes.</CardDescription>
+                    </div>
+                  </div>
+                  <Button variant="outline" onClick={refreshOperationsData} disabled={operationsHealthLoading || jobsLoading || settingsHistoryLoading}>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Refresh
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {operationsHealthLoading ? (
+                  <p className="text-sm text-stone-500">Loading operations health...</p>
+                ) : (
+                  <>
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                      {Object.entries(operationsHealth?.services || {}).map(([serviceKey, service]) => (
+                        <Card key={serviceKey} className="border-stone-200 bg-stone-50/80">
+                          <CardContent className="space-y-2 p-4">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-sm font-semibold capitalize text-stone-900">
+                                {serviceKey.replace(/_/g, ' ')}
+                              </p>
+                              <Badge
+                                className={
+                                  service?.status === 'healthy'
+                                    ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                    : 'bg-amber-100 text-amber-800 border-amber-200'
+                                }
+                              >
+                                {service?.status || 'unknown'}
+                              </Badge>
+                            </div>
+                            <p className="text-xs leading-5 text-stone-600">{service?.detail || 'No details available'}</p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-5">
+                      {[
+                        ['Queued', operationsHealth?.jobs?.queued || 0],
+                        ['Running', operationsHealth?.jobs?.running || 0],
+                        ['Completed', operationsHealth?.jobs?.completed || 0],
+                        ['Failed', operationsHealth?.jobs?.failed || 0],
+                        ['Total', operationsHealth?.jobs?.total || 0],
+                      ].map(([label, value]) => (
+                        <Card key={label} className="border-stone-200">
+                          <CardContent className="space-y-1 p-4">
+                            <p className="text-sm text-stone-500">{label}</p>
+                            <p className="text-3xl font-semibold text-stone-900">{value}</p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+
+                    <div className="rounded-xl border border-stone-200 bg-stone-50 p-4 text-xs text-stone-500">
+                      Last health snapshot: {operationsHealth?.generated_at ? new Date(operationsHealth.generated_at).toLocaleString() : '—'}
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+              <Card className="border-stone-200">
+                <CardHeader>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <CardTitle>Background Jobs</CardTitle>
+                      <CardDescription>Queue status for migrations and other deferred operations.</CardDescription>
+                    </div>
+                    {isSuperAdmin && (
+                      <Button variant="outline" onClick={handleRunQueuedJobs} disabled={jobsRunning}>
+                        <HardDrive className="mr-2 h-4 w-4" />
+                        {jobsRunning ? 'Running...' : 'Run queued jobs'}
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {jobsLoading ? (
+                    <p className="text-sm text-stone-500">Loading background jobs...</p>
+                  ) : jobs.length ? (
+                    <div className="space-y-3">
+                      {jobs.map((job) => (
+                        <div key={job.job_id} className="rounded-xl border border-stone-200 p-4">
+                          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                            <div className="space-y-1">
+                              <p className="font-medium text-stone-900">{job.job_type}</p>
+                              <p className="text-xs text-stone-500 font-mono">{job.job_id}</p>
+                              <p className="text-xs text-stone-500">
+                                Created: {job.created_at ? new Date(job.created_at).toLocaleString() : '—'}
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge
+                                className={
+                                  job.status === 'completed'
+                                    ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                    : job.status === 'failed'
+                                      ? 'bg-red-100 text-red-800 border-red-200'
+                                      : job.status === 'running'
+                                        ? 'bg-blue-100 text-blue-800 border-blue-200'
+                                        : 'bg-amber-100 text-amber-800 border-amber-200'
+                                }
+                              >
+                                {job.status}
+                              </Badge>
+                              <Badge variant="outline">{job.progress || 0}%</Badge>
+                            </div>
+                          </div>
+                          {job.last_error && (
+                            <p className="mt-3 text-sm text-red-700">{job.last_error}</p>
+                          )}
+                          {job.result && (
+                            <div className="mt-3 rounded-lg bg-stone-50 p-3 text-xs text-stone-600">
+                              <pre className="whitespace-pre-wrap break-all">{JSON.stringify(job.result, null, 2)}</pre>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-stone-500">No jobs have been queued yet.</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border-stone-200">
+                <CardHeader>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <CardTitle>Settings Change History</CardTitle>
+                      <CardDescription>Recent platform-setting changes recorded with actor and field history.</CardDescription>
+                    </div>
+                    <div className="w-full max-w-[260px]">
+                      <Select value={settingsHistoryFilter} onValueChange={setSettingsHistoryFilter}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {settingsHistoryKeyOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {settingsHistoryLoading ? (
+                    <p className="text-sm text-stone-500">Loading settings history...</p>
+                  ) : settingsHistory.length ? (
+                    <div className="space-y-3">
+                      {settingsHistory.map((entry) => (
+                        <div key={entry.change_id} className="rounded-xl border border-stone-200 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-medium text-stone-900">{entry.setting_key}</p>
+                              <p className="text-xs text-stone-500">
+                                {entry.actor?.name || entry.actor?.email || 'System'} • {entry.created_at ? new Date(entry.created_at).toLocaleString() : '—'}
+                              </p>
+                            </div>
+                            <History className="h-4 w-4 text-stone-400" />
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {(entry.updated_fields || []).map((field) => (
+                              <Badge key={field} variant="outline">{field}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-stone-500">No settings history is available for the selected filter.</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="email" className="max-w-4xl">
@@ -3218,6 +3650,54 @@ const AdminSettings = () => {
                       <Button onClick={handleSaveStorageConfig} disabled={storageSaving} className="bg-emerald-900 hover:bg-emerald-800">
                         {storageSaving ? 'Saving...' : 'Save Storage Settings'}
                       </Button>
+
+                      <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4 space-y-4">
+                        <div>
+                          <p className="font-semibold text-stone-900">Migrate Existing PDFs</p>
+                          <p className="text-sm text-stone-500">
+                            Queue a background job to move existing PDFs into the currently selected destination provider without changing their public link IDs.
+                          </p>
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label>Source provider</Label>
+                            <Select value={storageMigrationSource} onValueChange={setStorageMigrationSource}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All providers</SelectItem>
+                                {Object.entries(STORAGE_PROVIDER_LABELS).map(([providerValue, providerLabel]) => (
+                                  <SelectItem key={providerValue} value={providerValue}>
+                                    {providerLabel}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Limit</Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              max="10000"
+                              value={storageMigrationLimit}
+                              onChange={(e) => setStorageMigrationLimit(e.target.value)}
+                              placeholder="1000"
+                            />
+                          </div>
+                        </div>
+                        <div className="rounded-xl border border-stone-200 bg-white p-3 text-sm text-stone-600">
+                          Destination provider: <span className="font-medium text-stone-900">{STORAGE_PROVIDER_LABELS[storageProvider] || storageProvider}</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          onClick={handleStartStorageMigration}
+                          disabled={storageMigrationRunning}
+                        >
+                          {storageMigrationRunning ? 'Queuing migration...' : 'Queue storage migration'}
+                        </Button>
+                      </div>
                     </>
                   )}
                 </CardContent>
@@ -3409,6 +3889,94 @@ const AdminSettings = () => {
                         {invoiceSaving ? 'Saving...' : 'Save Invoice Template'}
                       </Button>
                     </>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="permissions" className="max-w-5xl">
+              <Card className="border-stone-200">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100">
+                      <Settings2 className="h-5 w-5 text-violet-700" />
+                    </div>
+                    <div>
+                      <CardTitle>Role-Based Settings Permissions</CardTitle>
+                      <CardDescription>
+                        Control which admin roles can read or write each platform settings section.
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {settingsPermissionsLoading ? (
+                    <p className="text-sm text-stone-500">Loading settings permissions...</p>
+                  ) : settingsSectionEntries.length ? (
+                    <>
+                      <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+                        Write access cannot be less privileged than read access. Super admin always retains full access even if a section is set to admin/admin.
+                      </div>
+                      <div className="space-y-3">
+                        {settingsSectionEntries.map((section) => (
+                          <div key={section.key} className="rounded-2xl border border-stone-200 p-4">
+                            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                              <div className="space-y-1">
+                                <p className="font-semibold text-stone-900">{section.label}</p>
+                                <p className="text-sm text-stone-500">{section.setting_keys.join(', ')}</p>
+                              </div>
+                              <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[420px]">
+                                <div className="space-y-2">
+                                  <Label>Read access</Label>
+                                  <Select
+                                    value={settingsPermissionEditors?.[section.key]?.read_role || section.read_role}
+                                    onValueChange={(value) => handleSettingsPermissionEditorChange(section.key, 'read_role', value)}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {SETTINGS_ACCESS_ROLES.map((roleValue) => (
+                                        <SelectItem key={`${section.key}-read-${roleValue}`} value={roleValue}>
+                                          {roleValue}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Write access</Label>
+                                  <Select
+                                    value={settingsPermissionEditors?.[section.key]?.write_role || section.write_role}
+                                    onValueChange={(value) => handleSettingsPermissionEditorChange(section.key, 'write_role', value)}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {SETTINGS_ACCESS_ROLES.map((roleValue) => (
+                                        <SelectItem key={`${section.key}-write-${roleValue}`} value={roleValue}>
+                                          {roleValue}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <Button
+                        onClick={handleSaveSettingsPermissions}
+                        disabled={settingsPermissionsSaving}
+                        className="bg-emerald-900 hover:bg-emerald-800"
+                      >
+                        {settingsPermissionsSaving ? 'Saving...' : 'Save Settings Permissions'}
+                      </Button>
+                    </>
+                  ) : (
+                    <p className="text-sm text-stone-500">No settings permissions are available yet.</p>
                   )}
                 </CardContent>
               </Card>
