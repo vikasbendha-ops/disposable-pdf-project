@@ -142,6 +142,7 @@ const PDFManagement = () => {
   const thumbnailLoadingRef = useRef(new Set());
   const thumbnailQueueRef = useRef([]);
   const thumbnailQueuedRef = useRef(new Set());
+  const loadFailedMessageRef = useRef('Failed to load PDFs');
 
   const { user, activeWorkspace, activeWorkspaceId } = useAuth();
   const { t, language } = useLanguage();
@@ -156,6 +157,10 @@ const PDFManagement = () => {
     [language],
   );
 
+  useEffect(() => {
+    loadFailedMessageRef.current = t('pdfManagement.loadFailed');
+  }, [language, t]);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -168,11 +173,11 @@ const PDFManagement = () => {
       setFolders(Array.isArray(foldersRes.data) ? foldersRes.data : []);
       setLinks(Array.isArray(linksRes.data) ? linksRes.data : []);
     } catch (error) {
-      toast.error(t('pdfManagement.loadFailed'));
+      toast.error(loadFailedMessageRef.current);
     } finally {
       setLoading(false);
     }
-  }, [activeWorkspaceId, t]);
+  }, [activeWorkspaceId]);
 
   useEffect(() => {
     fetchData();
