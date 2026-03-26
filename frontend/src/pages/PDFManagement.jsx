@@ -64,6 +64,7 @@ const PDF_WORKER_SRC = 'https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.mi
 const MAX_INITIAL_THUMBNAILS = 8;
 const MAX_IDLE_THUMBNAILS = 8;
 const MAX_THUMBNAIL_CONCURRENCY = 2;
+const PDF_PAGE_SIZE = 24;
 let pdfJsLibPromise = null;
 
 const formatLocalizedDate = (value, formatter) => {
@@ -87,12 +88,23 @@ const PDFManagement = () => {
   const [pdfs, setPdfs] = useState([]);
   const [folders, setFolders] = useState([]);
   const [links, setLinks] = useState([]);
+  const [pagination, setPagination] = useState({ total: 0, limit: PDF_PAGE_SIZE, offset: 0, has_more: false });
+  const [workspaceSummary, setWorkspaceSummary] = useState({
+    totals: { pdfCount: 0, activeLinks: 0, totalViews: 0 },
+    folderStats: {
+      all: { pdfCount: 0, activeLinks: 0, totalViews: 0 },
+      root: { pdfCount: 0, activeLinks: 0, totalViews: 0 },
+      byFolder: {},
+    },
+  });
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [folderFilter, setFolderFilter] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
   const [viewMode, setViewMode] = useState('list');
+  const [page, setPage] = useState(0);
   const [expandedPdfId, setExpandedPdfId] = useState(null);
 
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -161,23 +173,72 @@ const PDFManagement = () => {
     loadFailedMessageRef.current = t('pdfManagement.loadFailed');
   }, [language, t]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim());
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [pdfsRes, foldersRes, linksRes] = await Promise.all([
-        api.get('/pdfs'),
-        api.get('/folders'),
-        api.get('/links'),
-      ]);
-      setPdfs(Array.isArray(pdfsRes.data) ? pdfsRes.data : []);
-      setFolders(Array.isArray(foldersRes.data) ? foldersRes.data : []);
-      setLinks(Array.isArray(linksRes.data) ? linksRes.data : []);
+      const response = await api.get('/pdfs/workspace', {
+        params: {
+          folder: folderFilter,
+          search: debouncedSearchQuery || undefined,
+          sort: sortBy,
+          limit: PDF_PAGE_SIZE,
+          offset: page * PDF_PAGE_SIZE,
+        },
+      });
+      const payload = response.data || {};
+      const nextMeta = payload.meta || {};
+      const total = Number(nextMeta.total || 0);
+      const nextOffset = Number(nextMeta.offset || 0);
+      const nextItems = Array.isArray(payload.items) ? payload.items : [];
+
+      if (page > 0 && total > 0 && nextOffset >= total && nextItems.length === 0) {
+        setPage((prev) => Math.max(prev - 1, 0));
+        return;
+      }
+
+      setPdfs(nextItems);
+      setFolders(Array.isArray(payload.folders) ? payload.folders : []);
+      setLinks(Array.isArray(payload.links) ? payload.links : []);
+      setPagination({
+        total,
+        limit: Number(nextMeta.limit || PDF_PAGE_SIZE),
+        offset: nextOffset,
+        has_more: Boolean(nextMeta.has_more),
+      });
+      const summary = payload.summary || {};
+      setWorkspaceSummary({
+        totals: {
+          pdfCount: Number(summary?.totals?.pdfCount || 0),
+          activeLinks: Number(summary?.totals?.activeLinks || 0),
+          totalViews: Number(summary?.totals?.totalViews || 0),
+        },
+        folderStats: {
+          all: {
+            pdfCount: Number(summary?.folder_stats?.all?.pdfCount || 0),
+            activeLinks: Number(summary?.folder_stats?.all?.activeLinks || 0),
+            totalViews: Number(summary?.folder_stats?.all?.totalViews || 0),
+          },
+          root: {
+            pdfCount: Number(summary?.folder_stats?.root?.pdfCount || 0),
+            activeLinks: Number(summary?.folder_stats?.root?.activeLinks || 0),
+            totalViews: Number(summary?.folder_stats?.root?.totalViews || 0),
+          },
+          byFolder: summary?.folder_stats?.by_folder || {},
+        },
+      });
     } catch (error) {
       toast.error(loadFailedMessageRef.current);
     } finally {
       setLoading(false);
     }
-  }, [activeWorkspaceId]);
+  }, [activeWorkspaceId, debouncedSearchQuery, folderFilter, page, sortBy]);
 
   useEffect(() => {
     fetchData();
@@ -282,6 +343,7 @@ const PDFManagement = () => {
       }
       toast.success(t('pdfManagement.linkSettingsUpdated'));
       setEditLinkTarget(null);
+      await fetchData();
     } catch (error) {
       toast.error(error.response?.data?.detail || t('pdfManagement.linkSettingsUpdateFailed'));
     } finally {
@@ -325,9 +387,8 @@ const PDFManagement = () => {
     if (!deleteTarget) return;
     try {
       await api.delete(`/pdfs/${deleteTarget.pdf_id}`);
-      setPdfs((prev) => prev.filter((item) => item.pdf_id !== deleteTarget.pdf_id));
-      setLinks((prev) => prev.filter((link) => link.pdf_id !== deleteTarget.pdf_id));
       toast.success(t('pdfManagement.pdfDeleted'));
+      await fetchData();
     } catch {
       toast.error(t('pdfManagement.pdfDeleteFailed'));
     } finally {
@@ -339,14 +400,8 @@ const PDFManagement = () => {
     if (!renameTarget || !newName.trim()) return;
     try {
       await api.put(`/pdfs/${renameTarget.pdf_id}/rename`, { filename: newName.trim() });
-      setPdfs((prev) =>
-        prev.map((item) =>
-          item.pdf_id === renameTarget.pdf_id
-            ? { ...item, filename: newName.trim() }
-            : item,
-        ),
-      );
       toast.success(t('pdfManagement.filenameUpdated'));
+      await fetchData();
     } catch {
       toast.error(t('pdfManagement.renamePdfFailed'));
     } finally {
@@ -358,9 +413,9 @@ const PDFManagement = () => {
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
     try {
-      const response = await api.post('/folders', { name: newFolderName.trim() });
-      setFolders((prev) => [...prev, response.data]);
+      await api.post('/folders', { name: newFolderName.trim() });
       toast.success(t('pdfManagement.folderCreated'));
+      await fetchData();
     } catch (error) {
       toast.error(error.response?.data?.detail || t('pdfManagement.folderCreateFailed'));
     } finally {
@@ -384,16 +439,9 @@ const PDFManagement = () => {
     }
 
     try {
-      const response = await api.put(`/folders/${renameFolderTarget.folder_id}`, { name: nextName });
-      const updatedFolder = response.data || { ...renameFolderTarget, name: nextName };
-      setFolders((prev) =>
-        prev.map((folder) =>
-          folder.folder_id === renameFolderTarget.folder_id
-            ? { ...folder, ...updatedFolder }
-            : folder,
-        ),
-      );
+      await api.put(`/folders/${renameFolderTarget.folder_id}`, { name: nextName });
       toast.success(t('pdfManagement.folderRenamed'));
+      await fetchData();
     } catch (error) {
       toast.error(error.response?.data?.detail || t('pdfManagement.folderRenameFailed'));
     } finally {
@@ -405,26 +453,20 @@ const PDFManagement = () => {
   const handleDeleteFolder = async () => {
     if (!deleteFolderTarget) return;
     const folderId = deleteFolderTarget.folder_id;
-    const movedCount = pdfs.filter((item) => item.folder === folderId).length;
+    const movedCount = Number(folderStats.byFolder?.[folderId]?.pdfCount || 0);
 
     try {
       await api.delete(`/folders/${folderId}`);
-      setFolders((prev) => prev.filter((folder) => folder.folder_id !== folderId));
-      setPdfs((prev) =>
-        prev.map((item) =>
-          item.folder === folderId
-            ? { ...item, folder: null }
-            : item,
-        ),
-      );
       if (folderFilter === folderId) {
         setFolderFilter('all');
+        setPage(0);
       }
       toast.success(
         movedCount > 0
           ? t('pdfManagement.folderDeletedMoved', { count: movedCount })
           : t('pdfManagement.folderDeleted'),
       );
+      await fetchData();
     } catch (error) {
       toast.error(error.response?.data?.detail || t('pdfManagement.folderDeleteFailed'));
     } finally {
@@ -449,7 +491,7 @@ const PDFManagement = () => {
   };
 
   const handleSelectAllVisible = () => {
-    setSelectedPdfIds((prev) => Array.from(new Set([...prev, ...filteredPdfs.map((pdf) => pdf.pdf_id)])));
+    setSelectedPdfIds((prev) => Array.from(new Set([...prev, ...pdfs.map((pdf) => pdf.pdf_id)])));
   };
 
   const handleMoveMultiplePdfs = async (pdfIds, folderId, successMessage = t('pdfManagement.pdfsMovedDefault')) => {
@@ -469,15 +511,9 @@ const PDFManagement = () => {
 
     try {
       await Promise.all(moveIds.map((pdfId) => api.put(`/pdfs/${pdfId}/move`, { folder: normalizedTargetFolder })));
-      setPdfs((prev) =>
-        prev.map((item) =>
-          moveIds.includes(item.pdf_id)
-            ? { ...item, folder: normalizedTargetFolder }
-            : item,
-        ),
-      );
       setSelectedPdfIds((prev) => prev.filter((pdfId) => !moveIds.includes(pdfId)));
       toast.success(successMessage);
+      await fetchData();
     } catch {
       toast.error(t('pdfManagement.moveFailed'));
     } finally {
@@ -521,14 +557,8 @@ const PDFManagement = () => {
     if (!revokeLinkTarget) return;
     try {
       await api.post(`/links/${revokeLinkTarget.link_id}/revoke`);
-      setLinks((prev) =>
-        prev.map((item) =>
-          item.link_id === revokeLinkTarget.link_id
-            ? { ...item, status: 'revoked' }
-            : item,
-        ),
-      );
       toast.success(t('adminLinks.revokeSuccess'));
+      await fetchData();
     } catch {
       toast.error(t('adminLinks.revokeFailed'));
     } finally {
@@ -540,8 +570,8 @@ const PDFManagement = () => {
     if (!deleteLinkTarget) return;
     try {
       await api.delete(`/links/${deleteLinkTarget.link_id}`);
-      setLinks((prev) => prev.filter((item) => item.link_id !== deleteLinkTarget.link_id));
       toast.success(t('adminLinks.deleteSuccess'));
+      await fetchData();
     } catch {
       toast.error(t('adminLinks.deleteFailed'));
     } finally {
@@ -552,24 +582,9 @@ const PDFManagement = () => {
   const handleUpdateDirectAccess = async (pdf, payload) => {
     setUpdatingDirect(pdf.pdf_id);
     try {
-      const response = await api.put(`/pdfs/${pdf.pdf_id}/direct-access`, payload);
-      const updates = response.data || {};
-      setPdfs((prev) =>
-        prev.map((item) =>
-          item.pdf_id === pdf.pdf_id
-            ? {
-                ...item,
-                direct_access_enabled: updates.direct_access_enabled,
-                direct_access_public: updates.direct_access_public,
-                direct_access_mode: updates.direct_access_mode,
-                direct_access_token: updates.direct_access_token,
-                direct_access_url: updates.direct_access_url,
-                direct_access_path: updates.direct_access_path,
-              }
-            : item,
-        ),
-      );
+      await api.put(`/pdfs/${pdf.pdf_id}/direct-access`, payload);
       toast.success(t('pdfManagement.directLinkUpdated'));
+      await fetchData();
     } catch (error) {
       toast.error(error.response?.data?.detail || t('pdfManagement.directLinkUpdateFailed'));
     } finally {
@@ -648,11 +663,7 @@ const PDFManagement = () => {
     return metrics;
   }, [pdfs, linksByPdf]);
 
-  const totals = useMemo(() => ({
-    pdfCount: pdfs.length,
-    activeLinks: links.filter((item) => item.status === 'active').length,
-    totalViews: links.reduce((sum, item) => sum + Number(item.open_count || 0), 0),
-  }), [pdfs, links]);
+  const totals = workspaceSummary.totals;
 
   const sortedFolders = useMemo(
     () => [...folders].sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''))),
@@ -664,40 +675,7 @@ const PDFManagement = () => {
     [folders],
   );
 
-  const folderStats = useMemo(() => {
-    const byFolder = {};
-    for (const folder of folders) {
-      byFolder[folder.folder_id] = {
-        pdfCount: 0,
-        activeLinks: 0,
-        totalViews: 0,
-      };
-    }
-
-    const root = {
-      pdfCount: 0,
-      activeLinks: 0,
-      totalViews: 0,
-    };
-
-    for (const pdf of pdfs) {
-      const metrics = pdfMetrics[pdf.pdf_id] || { activeLinks: 0, totalViews: 0 };
-      const bucket = pdf.folder ? (byFolder[pdf.folder] ||= { pdfCount: 0, activeLinks: 0, totalViews: 0 }) : root;
-      bucket.pdfCount += 1;
-      bucket.activeLinks += metrics.activeLinks;
-      bucket.totalViews += metrics.totalViews;
-    }
-
-    return {
-      all: {
-        pdfCount: pdfs.length,
-        activeLinks: totals.activeLinks,
-        totalViews: totals.totalViews,
-      },
-      root,
-      byFolder,
-    };
-  }, [folders, pdfMetrics, pdfs, totals.activeLinks, totals.totalViews]);
+  const folderStats = workspaceSummary.folderStats;
 
   const getFolderName = (folderId) =>
     folderId ? (folderLookup[folderId]?.name || t('pdfManagement.unknownFolder')) : t('pdfManagement.root');
@@ -731,58 +709,25 @@ const PDFManagement = () => {
 
   useEffect(() => {
     setSelectedPdfIds((prev) => prev.filter((pdfId) => pdfs.some((pdf) => pdf.pdf_id === pdfId)));
+    setExpandedPdfId((prev) => (prev && !pdfs.some((pdf) => pdf.pdf_id === prev) ? null : prev));
   }, [pdfs]);
 
-  const filteredPdfs = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    const base = pdfs.filter((pdf) => {
-      const matchesFolder =
-        folderFilter === 'all'
-          ? true
-          : folderFilter === 'root'
-            ? !pdf.folder
-            : pdf.folder === folderFilter;
-
-      if (!matchesFolder) return false;
-      if (!query) return true;
-
-      const filenameMatch = String(pdf.filename || '').toLowerCase().includes(query);
-      if (filenameMatch) return true;
-
-      const linkedTokens = (linksByPdf[pdf.pdf_id] || [])
-        .map((item) => [item.token, item.internal_title, item.internal_note].filter(Boolean).join(' ').toLowerCase())
-        .join(' ');
-      return linkedTokens.includes(query);
-    });
-
-    const sorted = [...base];
-    sorted.sort((left, right) => {
-      const leftMetrics = pdfMetrics[left.pdf_id] || { activeLinks: 0, totalViews: 0 };
-      const rightMetrics = pdfMetrics[right.pdf_id] || { activeLinks: 0, totalViews: 0 };
-
-      if (sortBy === 'name') {
-        return String(left.filename || '').localeCompare(String(right.filename || ''));
-      }
-      if (sortBy === 'size') {
-        return Number(right.file_size || 0) - Number(left.file_size || 0);
-      }
-      if (sortBy === 'views') {
-        return rightMetrics.totalViews - leftMetrics.totalViews;
-      }
-      if (sortBy === 'links') {
-        return rightMetrics.activeLinks - leftMetrics.activeLinks;
-      }
-      if (sortBy === 'oldest') {
-        return new Date(left.created_at).getTime() - new Date(right.created_at).getTime();
-      }
-      return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
-    });
-    return sorted;
-  }, [folderFilter, linksByPdf, pdfMetrics, pdfs, searchQuery, sortBy]);
-
   const allVisibleSelected =
-    filteredPdfs.length > 0 &&
-    filteredPdfs.every((pdf) => selectedPdfIds.includes(pdf.pdf_id));
+    pdfs.length > 0 &&
+    pdfs.every((pdf) => selectedPdfIds.includes(pdf.pdf_id));
+  const currentPage = pagination.total > 0 ? Math.floor(pagination.offset / Math.max(1, pagination.limit || PDF_PAGE_SIZE)) + 1 : 1;
+  const totalPages = Math.max(1, Math.ceil(Number(pagination.total || 0) / Math.max(1, pagination.limit || PDF_PAGE_SIZE)));
+  const showingStart = pagination.total > 0 ? pagination.offset + 1 : 0;
+  const showingEnd = pagination.offset + pdfs.length;
+
+  const setActiveFolderFilter = (nextFolder) => {
+    setFolderFilter(nextFolder);
+    setPage(0);
+  };
+
+  useEffect(() => {
+    setPage(0);
+  }, [activeWorkspaceId]);
 
   const generateThumbnail = useCallback(async (pdfId) => {
     if (!pdfId) return;
@@ -842,14 +787,14 @@ const PDFManagement = () => {
   }, [pumpThumbnailQueue]);
 
   useEffect(() => {
-    const immediateTargets = filteredPdfs
+    const immediateTargets = pdfs
       .slice(0, MAX_INITIAL_THUMBNAILS)
       .map((pdf) => pdf.pdf_id);
     for (const pdfId of immediateTargets) {
       enqueueThumbnail(pdfId);
     }
 
-    const idleTargets = filteredPdfs
+    const idleTargets = pdfs
       .slice(MAX_INITIAL_THUMBNAILS, MAX_INITIAL_THUMBNAILS + MAX_IDLE_THUMBNAILS)
       .map((pdf) => pdf.pdf_id);
 
@@ -868,7 +813,7 @@ const PDFManagement = () => {
       idleTargets.forEach((pdfId) => enqueueThumbnail(pdfId));
     }, 500);
     return () => clearTimeout(timer);
-  }, [enqueueThumbnail, filteredPdfs]);
+  }, [enqueueThumbnail, pdfs]);
 
   const renderPdfPreview = (pdf, compact = false) => {
     const thumb = thumbnails[pdf.pdf_id];
@@ -1329,7 +1274,10 @@ const PDFManagement = () => {
             <Input
               placeholder={t('pdfManagement.searchPlaceholder')}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(0);
+              }}
               className="pl-12 h-12 bg-white border-stone-200"
               data-testid="search-pdfs-input"
             />
@@ -1376,7 +1324,10 @@ const PDFManagement = () => {
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
+              onChange={(e) => {
+                setSortBy(e.target.value);
+                setPage(0);
+              }}
               className="h-10 rounded-md border border-stone-200 bg-white px-3 text-sm text-stone-700"
             >
               <option value="recent">{t('pdfManagement.sortNewest')}</option>
@@ -1434,11 +1385,11 @@ const PDFManagement = () => {
                 <div
                   role="button"
                   tabIndex={0}
-                  onClick={() => setFolderFilter('all')}
+                  onClick={() => setActiveFolderFilter('all')}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
-                      setFolderFilter('all');
+                      setActiveFolderFilter('all');
                     }
                   }}
                   className={`rounded-2xl border p-4 transition-all cursor-pointer ${
@@ -1471,7 +1422,7 @@ const PDFManagement = () => {
                 <div
                   role="button"
                   tabIndex={0}
-                  onClick={() => setFolderFilter('root')}
+                  onClick={() => setActiveFolderFilter('root')}
                   onDragOver={(event) => {
                     event.preventDefault();
                     setFolderDropTarget('root');
@@ -1484,7 +1435,7 @@ const PDFManagement = () => {
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
-                      setFolderFilter('root');
+                      setActiveFolderFilter('root');
                     }
                   }}
                   className={`rounded-2xl border p-4 transition-all cursor-pointer ${
@@ -1524,7 +1475,7 @@ const PDFManagement = () => {
                       key={folder.folder_id}
                       role="button"
                       tabIndex={0}
-                      onClick={() => setFolderFilter(folder.folder_id)}
+                      onClick={() => setActiveFolderFilter(folder.folder_id)}
                       onDragOver={(event) => {
                         event.preventDefault();
                         setFolderDropTarget(folder.folder_id);
@@ -1537,7 +1488,7 @@ const PDFManagement = () => {
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault();
-                          setFolderFilter(folder.folder_id);
+                          setActiveFolderFilter(folder.folder_id);
                         }
                       }}
                       className={`rounded-2xl border p-4 transition-all cursor-pointer ${
@@ -1613,7 +1564,7 @@ const PDFManagement = () => {
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-900" />
         </div>
-      ) : filteredPdfs.length === 0 ? (
+      ) : pdfs.length === 0 ? (
         <Card className="border-stone-200">
           <CardContent className="py-16 text-center">
             <FileText className="w-16 h-16 text-stone-300 mx-auto mb-4" />
@@ -1649,7 +1600,7 @@ const PDFManagement = () => {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {!allVisibleSelected && filteredPdfs.length > 0 && (
+                {!allVisibleSelected && pdfs.length > 0 && (
                   <Button variant="outline" onClick={handleSelectAllVisible}>
                     {t('pdfManagement.selectVisible')}
                   </Button>
@@ -1670,22 +1621,55 @@ const PDFManagement = () => {
               <div>
                 <p className="text-sm font-semibold text-stone-900">{folderFilterMeta.title}</p>
                 <p className="text-sm text-stone-500">
-                  {t('pdfManagement.showingCount', { count: filteredPdfs.length })}
+                  {t('pdfManagement.showingCount', { count: pagination.total })}
                 </p>
               </div>
-              <Button variant="outline" onClick={() => setFolderFilter('all')}>
+              <Button variant="outline" onClick={() => setActiveFolderFilter('all')}>
                 {t('pdfManagement.showAllPdfs')}
               </Button>
             </div>
           )}
 
           <div className={viewMode === 'grid' ? 'grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-4' : 'space-y-4'}>
-            {filteredPdfs.map((pdf, index) =>
+            {pdfs.map((pdf, index) =>
               viewMode === 'grid'
                 ? renderGridCard(pdf, index)
                 : renderListCard(pdf, index),
             )}
           </div>
+
+          {pagination.total > (pagination.limit || PDF_PAGE_SIZE) && (
+            <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-stone-200 bg-white p-4 md:flex-row md:items-center md:justify-between">
+              <p className="text-sm text-stone-600">
+                {t('pdfManagement.paginationSummary', {
+                  start: showingStart,
+                  end: showingEnd,
+                  total: pagination.total,
+                })}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage <= 1}
+                  onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
+                >
+                  {t('pdfManagement.previousPage')}
+                </Button>
+                <span className="text-sm text-stone-600">
+                  {t('pdfManagement.pageStatus', { page: currentPage, total: totalPages })}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!pagination.has_more}
+                  onClick={() => setPage((prev) => prev + 1)}
+                >
+                  {t('pdfManagement.nextPage')}
+                </Button>
+              </div>
+            </div>
+          )}
         </>
       )}
 

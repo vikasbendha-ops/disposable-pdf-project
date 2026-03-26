@@ -13,7 +13,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { api, useAuth, useSubscriptionPlans } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 
 const Settings = () => {
@@ -101,10 +100,21 @@ const Settings = () => {
     geo_country_codes: '',
   });
   const isPrivilegedAccount = user?.role === 'admin' || user?.role === 'super_admin';
+  const dateFormatter = useMemo(
+    () => new Intl.DateTimeFormat(language || 'en', { dateStyle: 'long' }),
+    [language],
+  );
   const dateTimeFormatter = useMemo(
     () => new Intl.DateTimeFormat(language || 'en', { dateStyle: 'medium', timeStyle: 'short' }),
     [language],
   );
+
+  const formatLocalizedDate = (value) => {
+    if (!value) return '';
+    const parsed = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return dateFormatter.format(parsed);
+  };
 
   const formatLocalizedDateTime = (value) => {
     if (!value) return '';
@@ -243,9 +253,9 @@ const Settings = () => {
     try {
       await updateUserLanguage(newLang);
       setLanguage(newLang);
-      toast.success('Language updated successfully');
+      toast.success(t('settings.languageUpdated'));
     } catch (error) {
-      toast.error('Failed to update language');
+      toast.error(t('settings.languageUpdateFailed'));
     } finally {
       setSavingLanguage(false);
     }
@@ -258,14 +268,14 @@ const Settings = () => {
     setAddingDomain(true);
     try {
       const response = await api.post('/domains', { domain: newDomain });
-      toast.success('Domain added! Follow the verification instructions.');
+      toast.success(t('settings.domainAdded'));
       await fetchDomains();
       if (response.data?.is_default && response.data?.is_ready) {
         setDefaultDomainId(response.data.domain_id);
       }
       setNewDomain('');
     } catch (error) {
-      const message = error.response?.data?.detail || 'Failed to add domain';
+      const message = error.response?.data?.detail || t('settings.addDomainFailed');
       toast.error(message);
     } finally {
       setAddingDomain(false);
@@ -275,10 +285,10 @@ const Settings = () => {
   const handleDeleteDomain = async (domainId) => {
     try {
       await api.delete(`/domains/${domainId}`);
-      toast.success('Domain removed');
+      toast.success(t('settings.domainRemoved'));
       await fetchDomains();
     } catch (error) {
-      toast.error('Failed to remove domain');
+      toast.error(t('settings.removeDomainFailed'));
     }
   };
 
@@ -290,10 +300,10 @@ const Settings = () => {
       await api.put('/domains/default', {
         domain_id: target === 'platform' ? null : target,
       });
-      toast.success('Default domain updated');
+      toast.success(t('settings.defaultDomainUpdated'));
       await fetchDomains();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to update default domain');
+      toast.error(error.response?.data?.detail || t('settings.defaultDomainUpdateFailed'));
       await fetchDomains();
     } finally {
       setUpdatingDefaultDomain(false);
@@ -305,13 +315,13 @@ const Settings = () => {
     try {
       const response = await api.post(`/domains/${domainId}`);
       if (response.data?.is_ready) {
-        toast.success('Domain verified with active SSL');
+        toast.success(t('settings.domainVerifiedActiveSsl'));
       } else {
-        toast.warning(response.data?.verification_error || 'Domain not ready yet. Check DNS and SSL.');
+        toast.warning(response.data?.verification_error || t('settings.domainNotReady'));
       }
       await fetchDomains();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to verify domain');
+      toast.error(error.response?.data?.detail || t('settings.verifyDomainFailed'));
     } finally {
       setVerifyingDomainId(null);
     }
@@ -350,12 +360,12 @@ const Settings = () => {
         account_role: inviteRole,
         origin_url: window.location.origin,
       });
-      toast.success(response.data?.message || 'Invitation created');
+      toast.success(response.data?.message || t('workspaceTeam.inviteCreated'));
       if (response.data?.invite_url) {
         try {
           if (navigator?.clipboard?.writeText) {
             await navigator.clipboard.writeText(response.data.invite_url);
-            toast.success('Invite link copied');
+            toast.success(t('workspaceTeam.inviteLinkCopied'));
           }
         } catch {
           // ignore clipboard errors; invitation already exists
@@ -378,7 +388,7 @@ const Settings = () => {
       const response = await api.put(`/team/members/${membershipId}`, {
         account_role: role,
       });
-      toast.success(response.data?.message || 'Team member updated');
+      toast.success(response.data?.message || t('workspaceTeam.memberUpdated'));
       await fetchTeamState();
     } catch (error) {
       toast.error(error.response?.data?.detail || t('workspaceTeam.memberUpdateFailed'));
@@ -391,7 +401,7 @@ const Settings = () => {
     setRemovingMembershipId(membershipId);
     try {
       const response = await api.delete(`/team/members/${membershipId}`);
-      toast.success(response.data?.message || 'Team member removed');
+      toast.success(response.data?.message || t('workspaceTeam.memberRemoved'));
       await refreshWorkspaces(user);
       await fetchTeamState();
     } catch (error) {
@@ -405,7 +415,7 @@ const Settings = () => {
     setCancellingInvitationId(invitationId);
     try {
       const response = await api.delete(`/team/invitations/${invitationId}`);
-      toast.success(response.data?.message || 'Invitation cancelled');
+      toast.success(response.data?.message || t('workspaceTeam.inviteCancelled'));
       await fetchTeamState();
     } catch (error) {
       toast.error(error.response?.data?.detail || t('workspaceTeam.inviteCancelFailed'));
@@ -418,7 +428,7 @@ const Settings = () => {
     setProcessingReceivedInvitationId(invitationId);
     try {
       const response = await api.post('/team/invitations/accept', { invitation_id: invitationId });
-      toast.success(response.data?.message || 'Invitation accepted');
+      toast.success(response.data?.message || t('workspaceTeam.inviteAccepted'));
       if (response.data?.workspace?.workspace_id) {
         await refreshWorkspaces(user);
       }
@@ -434,7 +444,7 @@ const Settings = () => {
     setProcessingReceivedInvitationId(invitationId);
     try {
       const response = await api.post(`/team/invitations/${invitationId}/decline`);
-      toast.success(response.data?.message || 'Invitation declined');
+      toast.success(response.data?.message || t('workspaceTeam.inviteDeclined'));
       await fetchTeamState();
       await refreshWorkspaces(user);
     } catch (error) {
@@ -459,9 +469,9 @@ const Settings = () => {
         name: profileName,
       });
       await refreshUser();
-      toast.success('Profile updated successfully');
+      toast.success(t('settings.profileUpdated'));
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to update profile');
+      toast.error(error.response?.data?.detail || t('settings.profileUpdateFailed'));
     } finally {
       setSavingAccount(false);
     }
@@ -475,9 +485,9 @@ const Settings = () => {
         billing_profile: billingProfile,
       });
       await refreshUser();
-      toast.success('Billing profile updated successfully');
+      toast.success(t('settings.billingProfileUpdated'));
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to update billing profile');
+      toast.error(error.response?.data?.detail || t('settings.billingProfileUpdateFailed'));
     } finally {
       setSavingBillingProfile(false);
     }
@@ -502,7 +512,7 @@ const Settings = () => {
     } catch (error) {
       setBillingOverview(null);
       if (error.response?.status !== 404) {
-        toast.error(error.response?.data?.detail || 'Failed to load billing details');
+        toast.error(error.response?.data?.detail || t('settings.billingLoadFailed'));
       }
     } finally {
       setBillingLoading(false);
@@ -520,7 +530,7 @@ const Settings = () => {
       }
       window.location.href = response.data.url;
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to open billing portal');
+      toast.error(error.response?.data?.detail || t('settings.billingPortalFailed'));
     } finally {
       setOpeningBillingPortal(false);
     }
@@ -542,9 +552,9 @@ const Settings = () => {
       anchor.click();
       anchor.remove();
       window.URL.revokeObjectURL(url);
-      toast.success('Invoice downloaded');
+      toast.success(t('settings.invoiceDownloaded'));
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to download invoice');
+      toast.error(error.response?.data?.detail || t('settings.invoiceDownloadFailed'));
     } finally {
       setDownloadingInvoiceId(null);
     }
@@ -552,16 +562,16 @@ const Settings = () => {
 
   const handleSendResetEmail = async () => {
     if (!user?.email) {
-      toast.error('Email address is missing');
+      toast.error(t('settings.missingEmailAddress'));
       return;
     }
 
     setSendingResetEmail(true);
     try {
       await requestOwnPasswordReset();
-      toast.success('Password reset email sent');
+      toast.success(t('settings.passwordResetSent'));
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to send password reset email');
+      toast.error(error.response?.data?.detail || t('settings.passwordResetFailed'));
     } finally {
       setSendingResetEmail(false);
     }
@@ -580,7 +590,7 @@ const Settings = () => {
         setTwoFactorSetupData(null);
       }
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to load two-factor authentication status');
+      toast.error(error.response?.data?.detail || t('settings.twoFactorStatusLoadFailed'));
     }
   };
 
@@ -594,10 +604,10 @@ const Settings = () => {
         otp_auth_uri: response.data?.otp_auth_uri || '',
       });
       setTwoFactorCode('');
-      toast.success('Two-factor setup started');
+      toast.success(t('settings.twoFactorSetupStarted'));
       await refreshUser();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to start two-factor setup');
+      toast.error(error.response?.data?.detail || t('settings.twoFactorSetupStartFailed'));
     } finally {
       setTwoFactorLoading(false);
     }
@@ -613,10 +623,10 @@ const Settings = () => {
       setTwoFactorStatus(response.data?.two_factor || null);
       setTwoFactorSetupData(null);
       setTwoFactorCode('');
-      toast.success(response.data?.message || 'Two-factor authentication enabled');
+      toast.success(response.data?.message || t('settings.twoFactorEnabledToast'));
       await refreshUser();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to enable two-factor authentication');
+      toast.error(error.response?.data?.detail || t('settings.twoFactorEnableFailed'));
     } finally {
       setTwoFactorLoading(false);
     }
@@ -632,10 +642,10 @@ const Settings = () => {
       setTwoFactorStatus(response.data?.two_factor || null);
       setTwoFactorDisableCode('');
       setTwoFactorSetupData(null);
-      toast.success(response.data?.message || 'Two-factor authentication disabled');
+      toast.success(response.data?.message || t('settings.twoFactorDisabledToast'));
       await refreshUser();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to disable two-factor authentication');
+      toast.error(error.response?.data?.detail || t('settings.twoFactorDisableFailed'));
     } finally {
       setTwoFactorLoading(false);
     }
@@ -683,9 +693,9 @@ const Settings = () => {
         secure_link_defaults: secureLinkDefaults,
       });
       await refreshUser();
-      toast.success('Secure link defaults updated');
+      toast.success(t('settings.secureLinkDefaultsUpdated'));
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to update secure link defaults');
+      toast.error(error.response?.data?.detail || t('settings.secureLinkDefaultsUpdateFailed'));
     } finally {
       setSavingSecureLinkDefaults(false);
     }
@@ -763,7 +773,7 @@ const Settings = () => {
                   <div>
                     <Label className="text-sm text-stone-500">{t('settings.memberSince')}</Label>
                     <p className="font-medium text-stone-900 mt-2">
-                      {user?.created_at ? format(new Date(user.created_at), 'MMMM d, yyyy') : 'N/A'}
+                      {user?.created_at ? formatLocalizedDate(user.created_at) : t('common.na')}
                     </p>
                   </div>
                   <div>
@@ -799,7 +809,7 @@ const Settings = () => {
                   </p>
                   <p className="text-sm text-amber-800 mt-1">
                     {t('settings.pendingEmailNotice')}
-                    {user?.pending_email_requested_at ? ` ${format(new Date(user.pending_email_requested_at), 'MMM d, yyyy HH:mm')}` : ''}
+                    {user?.pending_email_requested_at ? ` ${formatLocalizedDateTime(user.pending_email_requested_at)}` : ''}
                   </p>
                 </div>
               )}
@@ -812,7 +822,7 @@ const Settings = () => {
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
                     className="h-12 mt-1"
-                    placeholder="name@example.com"
+                    placeholder={t('settings.emailPlaceholder')}
                   />
                 </div>
                 <Button
@@ -849,13 +859,13 @@ const Settings = () => {
                       <p className="text-sm text-stone-500">
                         {t('settings.status')}:{' '}
                         <span className={user?.subscription_status === 'active' ? 'text-emerald-600' : 'text-stone-600'}>
-                          {user?.subscription_status === 'active' ? 'Active' : 'Inactive'}
+                          {user?.subscription_status === 'active' ? t('settings.statusActive') : t('settings.statusInactive')}
                         </span>
                       </p>
                     </div>
                     {user?.subscription_status === 'active' ? (
                       <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold uppercase">
-                        Active
+                        {t('settings.statusActive')}
                       </span>
                     ) : (
                       <Link to="/pricing">
@@ -869,11 +879,11 @@ const Settings = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="rounded-lg border border-stone-200 p-3">
-                      <p className="text-xs uppercase text-stone-500">Successful Payments</p>
+                      <p className="text-xs uppercase text-stone-500">{t('settings.successfulPayments')}</p>
                       <p className="text-lg font-semibold text-stone-900">{billingOverview?.payment_summary?.successful_payments || 0}</p>
                     </div>
                     <div className="rounded-lg border border-stone-200 p-3">
-                      <p className="text-xs uppercase text-stone-500">Total Paid</p>
+                      <p className="text-xs uppercase text-stone-500">{t('settings.totalPaidLabel')}</p>
                       <p className="text-lg font-semibold text-stone-900">
                         {formatAmount(
                           billingOverview?.payment_summary?.total_paid || 0,
@@ -882,11 +892,11 @@ const Settings = () => {
                       </p>
                     </div>
                     <div className="rounded-lg border border-stone-200 p-3">
-                      <p className="text-xs uppercase text-stone-500">Next Renewal</p>
+                      <p className="text-xs uppercase text-stone-500">{t('settings.nextRenewalLabel')}</p>
                       <p className="text-sm font-semibold text-stone-900">
                         {billingOverview?.payment_summary?.next_renewal_at
-                          ? format(new Date(billingOverview.payment_summary.next_renewal_at), 'MMM d, yyyy HH:mm')
-                          : 'N/A'}
+                          ? formatLocalizedDateTime(billingOverview.payment_summary.next_renewal_at)
+                          : t('common.na')}
                       </p>
                     </div>
                   </div>
@@ -896,12 +906,12 @@ const Settings = () => {
                       {billingLoading ? (
                         <>
                           <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                          Refreshing...
+                          {t('settings.refreshingBillingData')}
                         </>
                       ) : (
                         <>
                           <RefreshCw className="w-4 h-4 mr-2" />
-                          Refresh Billing Data
+                          {t('settings.refreshBillingData')}
                         </>
                       )}
                     </Button>
@@ -909,12 +919,12 @@ const Settings = () => {
                       {openingBillingPortal ? (
                         <>
                           <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                          Opening Portal...
+                          {t('settings.openingPortal')}
                         </>
                       ) : (
                         <>
                           <ExternalLink className="w-4 h-4 mr-2" />
-                          Update Card & Billing
+                          {t('settings.updateCardBilling')}
                         </>
                       )}
                     </Button>
@@ -928,9 +938,9 @@ const Settings = () => {
                   </div>
 
                   <div className="rounded-lg border border-stone-200 p-3">
-                    <p className="text-sm font-semibold text-stone-900 mb-3">Invoices</p>
+                    <p className="text-sm font-semibold text-stone-900 mb-3">{t('settings.invoicesTitle')}</p>
                     <p className="text-xs text-stone-500 mb-3">
-                      Invoice PDFs are generated only after a successful payment. Future billing profile changes do not modify past invoices.
+                      {t('settings.invoiceLockNotice')}
                     </p>
                     {Array.isArray(billingOverview?.payments) && billingOverview.payments.length > 0 ? (
                       <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
@@ -943,10 +953,10 @@ const Settings = () => {
                               </p>
                               <p className="text-xs text-stone-500">
                                 {payment.paid_at
-                                  ? format(new Date(payment.paid_at), 'MMM d, yyyy HH:mm')
+                                  ? formatLocalizedDateTime(payment.paid_at)
                                   : payment.created_at
-                                    ? format(new Date(payment.created_at), 'MMM d, yyyy HH:mm')
-                                    : 'N/A'}
+                                    ? formatLocalizedDateTime(payment.created_at)
+                                    : t('common.na')}
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
@@ -965,12 +975,12 @@ const Settings = () => {
                                   ) : (
                                     <>
                                       <Download className="w-4 h-4 mr-1" />
-                                      Invoice PDF
+                                      {t('adminUsers.downloadPdf')}
                                     </>
                                   )}
                                 </Button>
                               ) : (
-                                <span className="text-xs text-stone-500">Available after payment</span>
+                                <span className="text-xs text-stone-500">{t('settings.invoiceAvailableAfterPayment')}</span>
                               )}
                             </div>
                           </div>
@@ -978,7 +988,7 @@ const Settings = () => {
                       </div>
                     ) : (
                       <p className="text-sm text-stone-500">
-                        No invoices yet. After your first successful payment, invoices will appear here.
+                        {t('settings.noInvoicesYet')}
                       </p>
                     )}
                   </div>
@@ -989,66 +999,66 @@ const Settings = () => {
 
           <Card className="border-stone-200">
             <CardHeader>
-              <CardTitle>Billing Profile</CardTitle>
+              <CardTitle>{t('settings.billingProfileTitle')}</CardTitle>
               <CardDescription>
-                This information is copied into future paid invoices. Existing invoices remain locked after payment.
+                {t('settings.billingProfileDescription')}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleBillingProfileSave} className="space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Invoice Full Name</Label>
+                    <Label>{t('settings.invoiceFullName')}</Label>
                     <Input value={billingProfile.full_name} onChange={(e) => updateBillingField('full_name', e.target.value)} className="h-12 mt-1" />
                   </div>
                   <div>
-                    <Label>Company Name</Label>
+                    <Label>{t('settings.companyName')}</Label>
                     <Input value={billingProfile.company_name} onChange={(e) => updateBillingField('company_name', e.target.value)} className="h-12 mt-1" />
                   </div>
                   <div>
-                    <Label>Billing Email</Label>
+                    <Label>{t('settings.billingEmail')}</Label>
                     <Input value={billingProfile.email} onChange={(e) => updateBillingField('email', e.target.value)} className="h-12 mt-1" />
                   </div>
                   <div>
-                    <Label>Phone</Label>
+                    <Label>{t('settings.phoneLabel')}</Label>
                     <Input value={billingProfile.phone} onChange={(e) => updateBillingField('phone', e.target.value)} className="h-12 mt-1" />
                   </div>
                   <div>
-                    <Label>Tax Label</Label>
+                    <Label>{t('settings.taxLabelField')}</Label>
                     <Input value={billingProfile.tax_label} onChange={(e) => updateBillingField('tax_label', e.target.value)} className="h-12 mt-1" />
                   </div>
                   <div>
-                    <Label>Tax ID / VAT / GST</Label>
+                    <Label>{t('settings.taxIdField')}</Label>
                     <Input value={billingProfile.tax_id} onChange={(e) => updateBillingField('tax_id', e.target.value)} className="h-12 mt-1" />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4">
                   <div>
-                    <Label>Address Line 1</Label>
+                    <Label>{t('settings.addressLine1')}</Label>
                     <Input value={billingProfile.address_line_1} onChange={(e) => updateBillingField('address_line_1', e.target.value)} className="h-12 mt-1" />
                   </div>
                   <div>
-                    <Label>Address Line 2</Label>
+                    <Label>{t('settings.addressLine2')}</Label>
                     <Input value={billingProfile.address_line_2} onChange={(e) => updateBillingField('address_line_2', e.target.value)} className="h-12 mt-1" />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div>
-                    <Label>City</Label>
+                    <Label>{t('settings.cityLabel')}</Label>
                     <Input value={billingProfile.city} onChange={(e) => updateBillingField('city', e.target.value)} className="h-12 mt-1" />
                   </div>
                   <div>
-                    <Label>State</Label>
+                    <Label>{t('settings.stateLabel')}</Label>
                     <Input value={billingProfile.state} onChange={(e) => updateBillingField('state', e.target.value)} className="h-12 mt-1" />
                   </div>
                   <div>
-                    <Label>Postal Code</Label>
+                    <Label>{t('settings.postalCodeLabel')}</Label>
                     <Input value={billingProfile.postal_code} onChange={(e) => updateBillingField('postal_code', e.target.value)} className="h-12 mt-1" />
                   </div>
                   <div>
-                    <Label>Country</Label>
+                    <Label>{t('settings.countryLabel')}</Label>
                     <Input value={billingProfile.country} onChange={(e) => updateBillingField('country', e.target.value)} className="h-12 mt-1" />
                   </div>
                 </div>
@@ -1078,12 +1088,12 @@ const Settings = () => {
                   </p>
                   {twoFactorStatus?.configured_at && (
                     <p className="text-sm text-stone-500 mt-1">
-                      {t('settings.twoFactorConfiguredAt')}: {format(new Date(twoFactorStatus.configured_at), 'MMM d, yyyy HH:mm')}
+                      {t('settings.twoFactorConfiguredAt')}: {formatLocalizedDateTime(twoFactorStatus.configured_at)}
                     </p>
                   )}
                   {twoFactorStatus?.last_verified_at && (
                     <p className="text-sm text-stone-500 mt-1">
-                      {t('settings.twoFactorLastVerifiedAt')}: {format(new Date(twoFactorStatus.last_verified_at), 'MMM d, yyyy HH:mm')}
+                      {t('settings.twoFactorLastVerifiedAt')}: {formatLocalizedDateTime(twoFactorStatus.last_verified_at)}
                     </p>
                   )}
                 </div>
@@ -1124,7 +1134,7 @@ const Settings = () => {
                             onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                             inputMode="numeric"
                             autoComplete="one-time-code"
-                            placeholder="123456"
+                            placeholder={t('settings.twoFactorCodePlaceholder')}
                             maxLength={6}
                             className="h-12 font-mono tracking-[0.35em] text-center"
                           />
@@ -1172,7 +1182,7 @@ const Settings = () => {
                         onChange={(e) => setTwoFactorDisableCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                         inputMode="numeric"
                         autoComplete="one-time-code"
-                        placeholder="123456"
+                        placeholder={t('settings.twoFactorCodePlaceholder')}
                         maxLength={6}
                         className="h-12 font-mono tracking-[0.35em] text-center"
                       />
@@ -1343,7 +1353,7 @@ const Settings = () => {
                         value={secureLinkDefaults.geo_country_codes}
                         onChange={(e) => updateSecureLinkDefault('geo_country_codes', e.target.value)}
                         rows={4}
-                        placeholder={'US, GB, IN'}
+                        placeholder={t('settings.geoCountryCodesPlaceholder')}
                       />
                       <p className="text-xs text-stone-500">{t('settings.geoCountryCodesHelp')}</p>
                     </div>
@@ -1624,33 +1634,33 @@ const Settings = () => {
                 <span>{t('settings.customDomains')}</span>
               </CardTitle>
               <CardDescription>
-                Add domains for secure links and direct PDF links, then choose a default.
+                {t('settings.domainsDescription')}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="mb-4">
-                <Label className="text-sm text-stone-500 mb-2 block">Default domain for new links</Label>
+                <Label className="text-sm text-stone-500 mb-2 block">{t('settings.defaultDomainLabel')}</Label>
                 <Select value={defaultDomainId} onValueChange={handleDefaultDomainChange} disabled={updatingDefaultDomain}>
                   <SelectTrigger className="h-12 max-w-md" data-testid="default-domain-select">
-                    <SelectValue placeholder="Select default domain" />
+                    <SelectValue placeholder={t('settings.defaultDomainPlaceholder')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="platform">Platform domain</SelectItem>
+                    <SelectItem value="platform">{t('settings.platformDomain')}</SelectItem>
                     {domains.map((domain) => (
                       <SelectItem key={domain.domain_id} value={domain.domain_id} disabled={!isDomainReady(domain)}>
-                        {domain.domain}{isDomainReady(domain) ? '' : ' (Verify first)'}
+                        {domain.domain}{isDomainReady(domain) ? '' : t('settings.verifyFirstSuffix')}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-stone-500 mt-2">
-                  Only verified domains with active SSL can be set as default.
+                  {t('settings.verifiedDomainsOnlyHint')}
                 </p>
               </div>
 
               <form onSubmit={handleAddDomain} className="flex gap-3 mb-6">
                 <Input
-                  placeholder="secure.yourdomain.com"
+                  placeholder={t('settings.domainPlaceholder')}
                   value={newDomain}
                   onChange={(e) => setNewDomain(e.target.value)}
                   className="h-12 flex-1"
@@ -1677,27 +1687,27 @@ const Settings = () => {
                               )}
                               <span className="mx-2">•</span>
                               SSL: {domain.ssl_status === 'active' ? (
-                                <span className="text-emerald-600">Active (Let's Encrypt)</span>
+                                <span className="text-emerald-600">{t('settings.sslActive')}</span>
                               ) : domain.ssl_status === 'invalid' ? (
-                                <span className="text-red-600">Invalid</span>
+                                <span className="text-red-600">{t('settings.sslInvalid')}</span>
                               ) : (
-                                <span className="text-amber-600">Pending</span>
+                                <span className="text-amber-600">{t('settings.statusPending')}</span>
                               )}
                               <span className="mx-2">•</span>
                               Vercel: {domain.vercel_status === 'verified' ? (
-                                <span className="text-emerald-600">Verified</span>
+                                <span className="text-emerald-600">{t('settings.statusVerified')}</span>
                               ) : domain.vercel_status === 'pending' ? (
-                                <span className="text-amber-600">Pending</span>
+                                <span className="text-amber-600">{t('settings.statusPending')}</span>
                               ) : domain.vercel_status === 'error' ? (
-                                <span className="text-red-600">Error</span>
+                                <span className="text-red-600">{t('settings.statusError')}</span>
                               ) : domain.vercel_status === 'not_configured' ? (
-                                <span className="text-amber-600">Not Configured</span>
+                                <span className="text-amber-600">{t('settings.statusNotConfigured')}</span>
                               ) : (
-                                <span className="text-stone-600">{domain.vercel_status || 'Unknown'}</span>
+                                <span className="text-stone-600">{domain.vercel_status || t('settings.statusUnknown')}</span>
                               )}
                               {domain.is_default && (
                                 <span className="ml-2 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">
-                                  Default
+                                  {t('settings.defaultBadge')}
                                 </span>
                               )}
                             </p>
@@ -1705,7 +1715,7 @@ const Settings = () => {
                               <p className="text-xs text-amber-700 mt-1">{domain.verification_error}</p>
                             )}
                             {domain.vercel_error && (
-                              <p className="text-xs text-amber-700 mt-1">Vercel: {domain.vercel_error}</p>
+                              <p className="text-xs text-amber-700 mt-1">{t('settings.vercelErrorPrefix')}: {domain.vercel_error}</p>
                             )}
                           </div>
                           <div className="flex items-center gap-2">
@@ -1715,7 +1725,7 @@ const Settings = () => {
                               onClick={() => handleVerifyDomain(domain.domain_id)}
                               disabled={verifyingDomainId === domain.domain_id}
                             >
-                              {verifyingDomainId === domain.domain_id ? 'Verifying...' : 'Verify DNS & SSL'}
+                              {verifyingDomainId === domain.domain_id ? t('settings.verifyingDnsSsl') : t('settings.verifyDnsSsl')}
                             </Button>
                             <Button
                               variant="outline"

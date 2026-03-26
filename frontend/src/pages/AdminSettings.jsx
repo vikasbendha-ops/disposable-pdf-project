@@ -58,31 +58,31 @@ const STORAGE_PROVIDER_LABELS = {
 const SETTINGS_GROUPS = [
   {
     value: 'operations',
-    label: 'Operations',
+    labelKey: 'adminSettingsGroups.operations',
     icon: Activity,
     tabs: ['operations'],
   },
   {
     value: 'commerce',
-    label: 'Commerce',
+    labelKey: 'adminSettingsGroups.commerce',
     icon: CreditCard,
     tabs: ['payments', 'plans', 'invoice'],
   },
   {
     value: 'platform',
-    label: 'Platform',
+    labelKey: 'adminSettingsGroups.platform',
     icon: Globe,
     tabs: ['localization', 'public-site', 'branding', 'seo'],
   },
   {
     value: 'infrastructure',
-    label: 'Infrastructure',
+    labelKey: 'adminSettingsGroups.infrastructure',
     icon: HardDrive,
     tabs: ['email', 'storage', 'domains'],
   },
   {
     value: 'access',
-    label: 'Access',
+    labelKey: 'adminSettingsGroups.access',
     icon: Shield,
     tabs: ['permissions'],
   },
@@ -396,7 +396,7 @@ const AdminSettings = () => {
       const res = await api.get('/admin/settings/stripe');
       setStripeConfig(res.data);
     } catch (err) {
-      toast.error('Failed to load Stripe settings');
+      toast.error(t('adminSettingsGeneral.loadStripeFailed'));
     } finally {
       setLoading(false);
     }
@@ -485,7 +485,7 @@ const AdminSettings = () => {
     } catch (err) {
       setStorageConfig(null);
       if (err.response?.status !== 403) {
-        toast.error(err.response?.data?.detail || 'Failed to load storage settings');
+        toast.error(err.response?.data?.detail || t('adminSettingsGeneral.loadStorageFailed'));
       }
     } finally {
       setStorageLoading(false);
@@ -500,7 +500,7 @@ const AdminSettings = () => {
     } catch (err) {
       setEmailDeliveryConfig(null);
       if (err.response?.status !== 403) {
-        toast.error(err.response?.data?.detail || 'Failed to load email delivery settings');
+        toast.error(err.response?.data?.detail || t('adminSettingsGeneral.loadEmailFailed'));
       }
     } finally {
       setEmailLoading(false);
@@ -515,7 +515,7 @@ const AdminSettings = () => {
     } catch (err) {
       setVercelConfig(null);
       if (err.response?.status !== 403) {
-        toast.error(err.response?.data?.detail || 'Failed to load Vercel settings');
+        toast.error(err.response?.data?.detail || t('adminSettingsGeneral.loadVercelFailed'));
       }
     } finally {
       setVercelLoading(false);
@@ -540,7 +540,7 @@ const AdminSettings = () => {
     } catch (err) {
       setBrandingConfig(null);
       if (err.response?.status !== 403) {
-        toast.error(err.response?.data?.detail || 'Failed to load branding settings');
+        toast.error(err.response?.data?.detail || t('adminSettingsGeneral.loadBrandingFailed'));
       }
     } finally {
       setBrandingLoading(false);
@@ -568,7 +568,7 @@ const AdminSettings = () => {
     } catch (err) {
       setSeoConfig(null);
       if (err.response?.status !== 403) {
-        toast.error(err.response?.data?.detail || 'Failed to load SEO settings');
+        toast.error(err.response?.data?.detail || t('adminSettingsGeneral.loadSeoFailed'));
       }
     } finally {
       setSeoLoading(false);
@@ -602,7 +602,7 @@ const AdminSettings = () => {
     } catch (err) {
       setInvoiceTemplate(null);
       if (err.response?.status !== 403) {
-        toast.error(err.response?.data?.detail || 'Failed to load invoice template settings');
+        toast.error(err.response?.data?.detail || t('adminSettingsGeneral.loadInvoiceTemplateFailed'));
       }
     } finally {
       setInvoiceLoading(false);
@@ -677,7 +677,7 @@ const AdminSettings = () => {
     } catch (err) {
       setPublicSiteConfig(null);
       if (err.response?.status !== 403) {
-        toast.error(err.response?.data?.detail || 'Failed to load public site settings');
+        toast.error(err.response?.data?.detail || t('adminSettingsGeneral.loadPublicSiteFailed'));
       }
     } finally {
       setPublicSiteLoading(false);
@@ -699,7 +699,7 @@ const AdminSettings = () => {
     } catch (err) {
       setPlanConfig(null);
       if (err.response?.status !== 403) {
-        toast.error(err.response?.data?.detail || 'Failed to load subscription plan settings');
+        toast.error(err.response?.data?.detail || t('adminSettingsGeneral.loadPlanSettingsFailed'));
       }
     } finally {
       setPlanLoading(false);
@@ -726,7 +726,7 @@ const AdminSettings = () => {
     } catch (err) {
       setSettingsPermissionsConfig(null);
       if (err.response?.status !== 403) {
-        toast.error(err.response?.data?.detail || 'Failed to load settings permissions');
+        toast.error(err.response?.data?.detail || t('adminSettingsGeneral.loadPermissionsFailed'));
       }
     } finally {
       setSettingsPermissionsLoading(false);
@@ -740,7 +740,7 @@ const AdminSettings = () => {
       setOperationsHealth(res.data);
     } catch (err) {
       setOperationsHealth(null);
-      toast.error(err.response?.data?.detail || 'Failed to load operations health');
+      toast.error(err.response?.data?.detail || t('adminSettingsGeneral.loadOperationsFailed'));
     } finally {
       setOperationsHealthLoading(false);
     }
@@ -753,7 +753,7 @@ const AdminSettings = () => {
       setJobs(Array.isArray(res.data?.jobs) ? res.data.jobs : []);
     } catch (err) {
       setJobs([]);
-      toast.error(err.response?.data?.detail || 'Failed to load background jobs');
+      toast.error(err.response?.data?.detail || t('adminSettingsGeneral.loadJobsFailed'));
     } finally {
       setJobsLoading(false);
     }
@@ -770,7 +770,7 @@ const AdminSettings = () => {
       setSettingsHistory(Array.isArray(res.data?.changes) ? res.data.changes : []);
     } catch (err) {
       setSettingsHistory([]);
-      toast.error(err.response?.data?.detail || 'Failed to load settings history');
+      toast.error(err.response?.data?.detail || t('adminSettingsGeneral.loadSettingsHistoryFailed'));
     } finally {
       setSettingsHistoryLoading(false);
     }
@@ -1883,43 +1883,43 @@ const AdminSettings = () => {
   const activeEmailProvider = emailDeliveryConfig?.active_provider || 'supabase';
   const requestedEmailProvider = emailDeliveryConfig?.requested_provider || activeEmailProvider;
   const emailProviderLabels = {
-    gmail: 'Gmail / Google Workspace',
-    mailgun: 'Mailgun',
-    outlook: 'Microsoft 365 / Outlook',
-    resend: 'Resend',
-    smtp: 'Other SMTP',
-    supabase: 'Supabase Auth Emails',
+    gmail: t('adminSettingsGeneral.emailProviderGmail'),
+    mailgun: t('adminSettingsGeneral.emailProviderMailgun'),
+    outlook: t('adminSettingsGeneral.emailProviderOutlook'),
+    resend: t('adminSettingsGeneral.emailProviderResend'),
+    smtp: t('adminSettingsGeneral.emailProviderSmtp'),
+    supabase: t('adminSettingsGeneral.emailProviderSupabase'),
   };
-  let emailHealthStatus = 'Not ready';
+  let emailHealthStatus = t('adminSettingsGeneral.emailStatusNotReady');
   let emailHealthStatusClass = 'text-amber-700';
   let emailHealthDetail = '';
 
   if (activeEmailProvider === 'gmail') {
-    emailHealthStatus = emailDeliveryConfig?.gmail?.connected ? 'Connected' : 'Needs connection';
+    emailHealthStatus = emailDeliveryConfig?.gmail?.connected ? t('adminSettingsGeneral.connected') : t('adminSettingsGeneral.emailStatusNeedsConnection');
     emailHealthStatusClass = emailDeliveryConfig?.gmail?.connected ? 'text-emerald-700' : 'text-amber-700';
-    emailHealthDetail = emailDeliveryConfig?.gmail?.email || gmailFromEmail || 'Sender mailbox not confirmed yet';
+    emailHealthDetail = emailDeliveryConfig?.gmail?.email || gmailFromEmail || t('adminSettingsGeneral.senderMailboxPending');
   } else if (activeEmailProvider === 'outlook') {
-    emailHealthStatus = emailDeliveryConfig?.outlook?.connected ? 'Connected' : 'Needs connection';
+    emailHealthStatus = emailDeliveryConfig?.outlook?.connected ? t('adminSettingsGeneral.connected') : t('adminSettingsGeneral.emailStatusNeedsConnection');
     emailHealthStatusClass = emailDeliveryConfig?.outlook?.connected ? 'text-emerald-700' : 'text-amber-700';
-    emailHealthDetail = emailDeliveryConfig?.outlook?.email || outlookFromEmail || 'Sender mailbox not confirmed yet';
+    emailHealthDetail = emailDeliveryConfig?.outlook?.email || outlookFromEmail || t('adminSettingsGeneral.senderMailboxPending');
   } else if (activeEmailProvider === 'mailgun') {
-    emailHealthStatus = emailDeliveryConfig?.mailgun?.configured ? 'Ready' : 'Needs configuration';
+    emailHealthStatus = emailDeliveryConfig?.mailgun?.configured ? t('adminSettingsGeneral.emailStatusReady') : t('adminSettingsGeneral.emailStatusNeedsConfiguration');
     emailHealthStatusClass = emailDeliveryConfig?.mailgun?.configured ? 'text-emerald-700' : 'text-amber-700';
-    emailHealthDetail = emailDeliveryConfig?.mailgun?.domain || mailgunDomain || 'Mailgun sending domain not set';
+    emailHealthDetail = emailDeliveryConfig?.mailgun?.domain || mailgunDomain || t('adminSettingsGeneral.mailgunDomainUnset');
   } else if (activeEmailProvider === 'smtp') {
-    emailHealthStatus = emailDeliveryConfig?.smtp?.configured ? 'Ready' : 'Needs configuration';
+    emailHealthStatus = emailDeliveryConfig?.smtp?.configured ? t('adminSettingsGeneral.emailStatusReady') : t('adminSettingsGeneral.emailStatusNeedsConfiguration');
     emailHealthStatusClass = emailDeliveryConfig?.smtp?.configured ? 'text-emerald-700' : 'text-amber-700';
-    emailHealthDetail = emailDeliveryConfig?.smtp?.from_email || smtpFromEmail || emailDeliveryConfig?.smtp?.host || smtpHost || 'SMTP sender not set';
+    emailHealthDetail = emailDeliveryConfig?.smtp?.from_email || smtpFromEmail || emailDeliveryConfig?.smtp?.host || smtpHost || t('adminSettingsGeneral.senderMailboxUnavailable');
   } else if (activeEmailProvider === 'resend') {
-    emailHealthStatus = emailDeliveryConfig?.resend?.configured ? 'Ready' : 'Needs configuration';
+    emailHealthStatus = emailDeliveryConfig?.resend?.configured ? t('adminSettingsGeneral.emailStatusReady') : t('adminSettingsGeneral.emailStatusNeedsConfiguration');
     emailHealthStatusClass = emailDeliveryConfig?.resend?.configured ? 'text-emerald-700' : 'text-amber-700';
-    emailHealthDetail = emailDeliveryConfig?.resend?.from_email || 'Resend sender email not configured';
+    emailHealthDetail = emailDeliveryConfig?.resend?.from_email || t('adminSettingsGeneral.resendEnvironmentMissing');
   } else {
-    emailHealthStatus = emailDeliveryConfig?.supabase?.publishable_key_set ? 'Ready' : 'Needs configuration';
+    emailHealthStatus = emailDeliveryConfig?.supabase?.publishable_key_set ? t('adminSettingsGeneral.emailStatusReady') : t('adminSettingsGeneral.emailStatusNeedsConfiguration');
     emailHealthStatusClass = emailDeliveryConfig?.supabase?.publishable_key_set ? 'text-emerald-700' : 'text-amber-700';
     emailHealthDetail = emailDeliveryConfig?.supabase?.publishable_key_set
-      ? 'Supabase Auth email delivery is enabled'
-      : 'Supabase publishable key is missing';
+      ? t('adminSettingsGeneral.emailProviderSupabase')
+      : t('adminSettingsGeneral.resendEnvironmentMissing');
   }
   const emailFallbackNotice = requestedEmailProvider !== activeEmailProvider
     ? `${emailProviderLabels[requestedEmailProvider] || requestedEmailProvider} is not ready, so ${emailProviderLabels[activeEmailProvider] || activeEmailProvider} is active.`
@@ -1941,7 +1941,7 @@ const AdminSettings = () => {
   const adminTabs = [
     { value: 'payments', label: t('adminSettingsTabs.payments'), sectionKey: 'payments' },
     { value: 'localization', label: t('adminSettingsTabs.localization'), sectionKey: 'localization' },
-    { value: 'operations', label: 'Operations' },
+    { value: 'operations', label: t('adminSettingsTabs.operations') },
   ];
   const superAdminTabs = [
     { value: 'email', label: t('adminSettingsTabs.email'), sectionKey: 'email' },
@@ -1952,7 +1952,7 @@ const AdminSettings = () => {
     { value: 'branding', label: t('adminSettingsTabs.branding'), sectionKey: 'branding' },
     { value: 'seo', label: t('adminSettingsTabs.seo'), sectionKey: 'seo' },
     { value: 'invoice', label: t('adminSettingsTabs.invoice'), sectionKey: 'invoice' },
-    { value: 'permissions', label: 'Permissions' },
+    { value: 'permissions', label: t('adminSettingsTabs.permissions') },
   ];
   const displayedTabs = (isSuperAdmin ? [...adminTabs, ...superAdminTabs] : adminTabs).filter(
     (tab) => !tab.sectionKey || accessibleSectionSet.has(tab.sectionKey),
@@ -1960,6 +1960,7 @@ const AdminSettings = () => {
   const displayedTabMap = new Map(displayedTabs.map((tab) => [tab.value, tab]));
   const visibleGroups = SETTINGS_GROUPS.map((group) => ({
     ...group,
+    label: t(group.labelKey),
     tabs: group.tabs.filter((tabValue) => displayedTabMap.has(tabValue)),
   })).filter((group) => group.tabs.length > 0);
   const activeGroup =
@@ -2035,8 +2036,8 @@ const AdminSettings = () => {
                     <CreditCard className="w-5 h-5 text-indigo-700" />
                   </div>
                   <div>
-                    <CardTitle>Stripe Payment Integration</CardTitle>
-                    <CardDescription>Manage subscription payments and Stripe mode.</CardDescription>
+                    <CardTitle>{t('adminSettingsGeneral.stripeTitle')}</CardTitle>
+                    <CardDescription>{t('adminSettingsGeneral.stripeDescription')}</CardDescription>
                   </div>
                 </div>
                 <Badge
@@ -2046,7 +2047,7 @@ const AdminSettings = () => {
                     : 'bg-amber-100 text-amber-800 border-amber-200'
                   }
                 >
-                  {isLive ? 'Live Mode' : 'Sandbox Mode'}
+                  {isLive ? t('adminSettingsGeneral.liveMode') : t('adminSettingsGeneral.sandboxMode')}
                 </Badge>
               </div>
             </CardHeader>
@@ -2076,7 +2077,7 @@ const AdminSettings = () => {
 
               <div className="space-y-3">
                 <div>
-                  <h3 className="font-semibold text-stone-900 mb-1">Activate Live Mode</h3>
+                  <h3 className="font-semibold text-stone-900 mb-1">{t('adminSettingsGeneral.activateLiveMode')}</h3>
                   <p className="text-sm text-stone-500">
                     Save a live secret key to process real payments.
                   </p>
@@ -2086,7 +2087,7 @@ const AdminSettings = () => {
                     <Input
                       data-testid="stripe-live-key-input"
                       type={showKey ? 'text' : 'password'}
-                      placeholder="sk_live_..."
+                      placeholder={t('adminSettingsGeneral.liveKeyPlaceholder')}
                       value={liveKey}
                       onChange={(e) => setLiveKey(e.target.value)}
                       className="pr-10 font-mono text-sm"
@@ -2112,7 +2113,7 @@ const AdminSettings = () => {
 
               <div className="space-y-3 pt-2 border-t border-stone-200">
                 <div>
-                  <h3 className="font-semibold text-stone-900 mb-1">Activate Sandbox Mode</h3>
+                  <h3 className="font-semibold text-stone-900 mb-1">{t('adminSettingsGeneral.activateSandboxMode')}</h3>
                   <p className="text-sm text-stone-500">
                     Save a sandbox key or switch the existing configuration back to test mode.
                   </p>
@@ -2120,7 +2121,7 @@ const AdminSettings = () => {
                 <div className="flex flex-col sm:flex-row gap-2">
                   <Input
                     type={showKey ? 'text' : 'password'}
-                    placeholder="sk_test_..."
+                    placeholder={t('adminSettingsGeneral.sandboxKeyPlaceholder')}
                     value={sandboxKey}
                     onChange={(e) => setSandboxKey(e.target.value)}
                     className="font-mono text-sm"
@@ -2141,8 +2142,8 @@ const AdminSettings = () => {
               {isLive && (
                 <div className="pt-4 border-t border-stone-200 flex items-center justify-between gap-3">
                   <div>
-                    <p className="font-medium text-stone-900">Switch back to sandbox</p>
-                    <p className="text-sm text-stone-500">Useful before testing deployment changes.</p>
+                    <p className="font-medium text-stone-900">{t('adminSettingsGeneral.switchBackToSandbox')}</p>
+                    <p className="text-sm text-stone-500">{t('adminSettingsGeneral.switchBackToSandboxDescription')}</p>
                   </div>
                   <Button
                     data-testid="activate-sandbox-btn"
@@ -2169,8 +2170,8 @@ const AdminSettings = () => {
                       <Activity className="h-5 w-5 text-emerald-700" />
                     </div>
                     <div>
-                      <CardTitle>Operations Health</CardTitle>
-                      <CardDescription>Service readiness, queue activity, and recent configuration changes.</CardDescription>
+                      <CardTitle>{t('adminSettingsGeneral.operationsTitle')}</CardTitle>
+                      <CardDescription>{t('adminSettingsGeneral.operationsDescription')}</CardDescription>
                     </div>
                   </div>
                   <Button variant="outline" onClick={refreshOperationsData} disabled={operationsHealthLoading || jobsLoading || settingsHistoryLoading}>
@@ -2181,7 +2182,7 @@ const AdminSettings = () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 {operationsHealthLoading ? (
-                  <p className="text-sm text-stone-500">Loading operations health...</p>
+                    <p className="text-sm text-stone-500">{t('adminSettingsGeneral.loadingOperations')}</p>
                 ) : (
                   <>
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -2238,8 +2239,8 @@ const AdminSettings = () => {
                 <CardHeader>
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <CardTitle>Background Jobs</CardTitle>
-                      <CardDescription>Queue status for migrations and other deferred operations.</CardDescription>
+                      <CardTitle>{t('adminSettingsGeneral.jobsTitle')}</CardTitle>
+                      <CardDescription>{t('adminSettingsGeneral.jobsDescription')}</CardDescription>
                     </div>
                     {isSuperAdmin && (
                       <Button variant="outline" onClick={handleRunQueuedJobs} disabled={jobsRunning}>
@@ -2251,7 +2252,7 @@ const AdminSettings = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {jobsLoading ? (
-                    <p className="text-sm text-stone-500">Loading background jobs...</p>
+                    <p className="text-sm text-stone-500">{t('adminSettingsGeneral.loadingJobs')}</p>
                   ) : jobs.length ? (
                     <div className="space-y-3">
                       {jobs.map((job) => (
@@ -2293,7 +2294,7 @@ const AdminSettings = () => {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-stone-500">No jobs have been queued yet.</p>
+                    <p className="text-sm text-stone-500">{t('adminSettingsGeneral.noJobs')}</p>
                   )}
                 </CardContent>
               </Card>
@@ -2302,8 +2303,8 @@ const AdminSettings = () => {
                 <CardHeader>
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <CardTitle>Settings Change History</CardTitle>
-                      <CardDescription>Recent platform-setting changes recorded with actor and field history.</CardDescription>
+                      <CardTitle>{t('adminSettingsGeneral.settingsHistoryTitle')}</CardTitle>
+                      <CardDescription>{t('adminSettingsGeneral.settingsHistoryDescription')}</CardDescription>
                     </div>
                     <div className="w-full max-w-[260px]">
                       <Select value={settingsHistoryFilter} onValueChange={setSettingsHistoryFilter}>
@@ -2323,7 +2324,7 @@ const AdminSettings = () => {
                 </CardHeader>
                 <CardContent>
                   {settingsHistoryLoading ? (
-                    <p className="text-sm text-stone-500">Loading settings history...</p>
+                    <p className="text-sm text-stone-500">{t('adminSettingsGeneral.loadingSettingsHistory')}</p>
                   ) : settingsHistory.length ? (
                     <div className="space-y-3">
                       {settingsHistory.map((entry) => (
@@ -2346,7 +2347,7 @@ const AdminSettings = () => {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-stone-500">No settings history is available for the selected filter.</p>
+                    <p className="text-sm text-stone-500">{t('adminSettingsGeneral.noSettingsHistory')}</p>
                   )}
                 </CardContent>
               </Card>
@@ -2363,7 +2364,7 @@ const AdminSettings = () => {
                     <Mail className="w-5 h-5 text-sky-700" />
                   </div>
                   <div>
-                    <CardTitle>Email Delivery</CardTitle>
+                    <CardTitle>{t('adminSettingsGeneral.emailDeliveryTitle')}</CardTitle>
                     <CardDescription>
                       Configure provider-specific mailers like Gmail, Mailgun, Microsoft 365, or Other SMTP from one place.
                     </CardDescription>
@@ -2379,7 +2380,7 @@ const AdminSettings = () => {
             </CardHeader>
             <CardContent className="space-y-6">
               {emailLoading ? (
-                <p className="text-sm text-stone-500">Loading email delivery settings...</p>
+                    <p className="text-sm text-stone-500">{t('adminSettingsGeneral.emailLoading')}</p>
               ) : (
                 <>
                   {emailOauthFeedback && (
@@ -2395,15 +2396,15 @@ const AdminSettings = () => {
                   )}
 
                   <div className="rounded-xl bg-stone-50 border border-stone-200 p-4 space-y-2">
-                    <p className="font-semibold text-stone-900">Delivery health</p>
+                    <p className="font-semibold text-stone-900">{t('adminSettingsGeneral.emailHealthTitle')}</p>
                     <p className="text-sm text-stone-600">
-                      Active provider: <span className="font-medium text-stone-900">{emailProviderLabels[activeEmailProvider] || activeEmailProvider}</span>
+                      {t('adminSettingsGeneral.emailHealthActiveProviderLabel')}: <span className="font-medium text-stone-900">{emailProviderLabels[activeEmailProvider] || activeEmailProvider}</span>
                     </p>
                     <p className="text-sm text-stone-600">
-                      Status: <span className={`font-medium ${emailHealthStatusClass}`}>{emailHealthStatus}</span>
+                      {t('adminSettingsGeneral.emailHealthStatusLabel')}: <span className={`font-medium ${emailHealthStatusClass}`}>{emailHealthStatus}</span>
                     </p>
                     <p className="text-sm text-stone-600">
-                      Active sender: <span className="font-medium text-stone-900">{emailHealthDetail}</span>
+                      {t('adminSettingsGeneral.emailHealthSenderLabel')}: <span className="font-medium text-stone-900">{emailHealthDetail}</span>
                     </p>
                     {emailFallbackNotice && (
                       <p className="text-xs text-amber-700 pt-1">{emailFallbackNotice}</p>
@@ -2411,22 +2412,22 @@ const AdminSettings = () => {
                   </div>
 
                   <div className="space-y-3">
-                    <Label>Active Provider</Label>
+                    <Label>{t('adminSettingsGeneral.activeProvider')}</Label>
                     <Select value={emailProvider} onValueChange={setEmailProvider}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="supabase">Supabase Auth Emails</SelectItem>
-                        <SelectItem value="gmail">Gmail / Google Workspace</SelectItem>
-                        <SelectItem value="mailgun">Mailgun API</SelectItem>
-                        <SelectItem value="outlook">Microsoft 365 / Outlook</SelectItem>
-                        <SelectItem value="smtp">Other SMTP</SelectItem>
-                        <SelectItem value="resend">Resend Environment</SelectItem>
+                        <SelectItem value="supabase">{t('adminSettingsGeneral.emailProviderSupabase')}</SelectItem>
+                        <SelectItem value="gmail">{t('adminSettingsGeneral.emailProviderGmail')}</SelectItem>
+                        <SelectItem value="mailgun">{t('adminSettingsGeneral.emailProviderMailgun')}</SelectItem>
+                        <SelectItem value="outlook">{t('adminSettingsGeneral.emailProviderOutlook')}</SelectItem>
+                        <SelectItem value="smtp">{t('adminSettingsGeneral.emailProviderSmtp')}</SelectItem>
+                        <SelectItem value="resend">{t('adminSettingsGeneral.emailProviderResend')}</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-stone-500">
-                      Gmail and Microsoft use OAuth connect flows. Mailgun uses API credentials. Other SMTP is for host, port, encryption, auth, reply-to, and controllable return-path.
+                      {t('adminSettingsGeneral.emailProviderHelp')}
                     </p>
                   </div>
 
@@ -2434,38 +2435,38 @@ const AdminSettings = () => {
                     <div className="space-y-4 rounded-xl border border-stone-200 p-4">
                       <div className="flex items-start justify-between gap-4">
                         <div>
-                          <p className="font-semibold text-stone-900">Gmail / Google Workspace mailer</p>
+                          <p className="font-semibold text-stone-900">{t('adminSettingsGeneral.gmailMailerTitle')}</p>
                           <p className="text-sm text-stone-500">
-                            Save your Google OAuth web app credentials, then connect the mailbox with OAuth.
+                            {t('adminSettingsGeneral.gmailMailerDescription')}
                           </p>
                           <p className="text-xs text-stone-500 mt-2">
-                            Redirect URI: {emailDeliveryConfig?.gmail?.oauth_callback_url || 'Unavailable until this page is served from the live app URL'}
+                            {t('adminSettingsGeneral.redirectUriLabel')}: {emailDeliveryConfig?.gmail?.oauth_callback_url || t('adminSettingsGeneral.liveUrlUnavailable')}
                           </p>
                           <p className="text-xs text-stone-500 mt-1">
-                            Use the OAuth Client ID and Client Secret from Google Cloud. The API key is not used here.
+                            {t('adminSettingsGeneral.gmailOauthHint')}
                           </p>
                         </div>
                         <Badge className={emailDeliveryConfig?.gmail?.connected ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-stone-100 text-stone-700 border-stone-200'}>
-                          {emailDeliveryConfig?.gmail?.connected ? 'Connected' : 'Not Connected'}
+                          {emailDeliveryConfig?.gmail?.connected ? t('adminSettingsGeneral.connected') : t('adminSettingsGeneral.notConnected')}
                         </Badge>
                       </div>
                       <div className="grid md:grid-cols-2 gap-3">
                         <div className="space-y-2">
-                          <Label>Google Client ID</Label>
+                          <Label>{t('adminSettingsGeneral.googleClientId')}</Label>
                           <Input
                             ref={gmailClientIdRef}
                             value={gmailClientId}
                             onChange={(e) => setGmailClientId(e.target.value)}
                             onBlur={() => setGmailClientId(String(gmailClientIdRef.current?.value || '').trim())}
                             autoComplete="off"
-                            placeholder={emailDeliveryConfig?.gmail?.client_id_set ? 'Saved client ID is already configured' : 'Google OAuth client ID'}
+                            placeholder={emailDeliveryConfig?.gmail?.client_id_set ? t('adminSettingsGeneral.savedClientIdConfigured') : t('adminSettingsGeneral.googleClientIdPlaceholder')}
                           />
                           <p className="text-xs text-stone-500">
-                            Status: {gmailClientIdStatus}
+                            {t('adminSettingsGeneral.statusLabel')}: {gmailClientIdStatus}
                           </p>
                         </div>
                         <div className="space-y-2">
-                          <Label>Google Client Secret</Label>
+                          <Label>{t('adminSettingsGeneral.googleClientSecret')}</Label>
                           <div className="relative">
                             <Input
                               ref={gmailClientSecretRef}
@@ -2474,7 +2475,7 @@ const AdminSettings = () => {
                               onChange={(e) => setGmailClientSecret(e.target.value)}
                               onBlur={() => setGmailClientSecret(String(gmailClientSecretRef.current?.value || '').trim())}
                               autoComplete="off"
-                              placeholder={emailDeliveryConfig?.gmail?.client_secret_set ? 'Saved secret is masked. Enter a new one to replace it.' : 'Google OAuth client secret'}
+                              placeholder={emailDeliveryConfig?.gmail?.client_secret_set ? t('adminSettingsGeneral.savedClientSecretConfigured') : t('adminSettingsGeneral.googleClientSecretPlaceholder')}
                               className="pr-10"
                             />
                             <button
@@ -2486,7 +2487,7 @@ const AdminSettings = () => {
                             </button>
                           </div>
                           <p className="text-xs text-stone-500">
-                            Status: {gmailClientSecretStatus}
+                            {t('adminSettingsGeneral.statusLabel')}: {gmailClientSecretStatus}
                           </p>
                         </div>
                         <div className="space-y-2">
@@ -2608,7 +2609,7 @@ const AdminSettings = () => {
                           </p>
                         </div>
                         <Badge className={emailDeliveryConfig?.outlook?.connected ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-stone-100 text-stone-700 border-stone-200'}>
-                          {emailDeliveryConfig?.outlook?.connected ? 'Connected' : 'Not Connected'}
+                          {emailDeliveryConfig?.outlook?.connected ? t('adminSettingsGeneral.connected') : t('adminSettingsGeneral.notConnected')}
                         </Badge>
                       </div>
                       <div className="grid md:grid-cols-2 gap-3">
@@ -2627,7 +2628,7 @@ const AdminSettings = () => {
                             placeholder={emailDeliveryConfig?.outlook?.client_id_set ? 'Saved application ID is already configured' : 'Azure application ID'}
                           />
                           <p className="text-xs text-stone-500">
-                            Status: {outlookClientIdStatus}
+                            {t('adminSettingsGeneral.statusLabel')}: {outlookClientIdStatus}
                           </p>
                         </div>
                         <div className="space-y-2">
@@ -2652,7 +2653,7 @@ const AdminSettings = () => {
                             </button>
                           </div>
                           <p className="text-xs text-stone-500">
-                            Status: {outlookClientSecretStatus}
+                            {t('adminSettingsGeneral.statusLabel')}: {outlookClientSecretStatus}
                           </p>
                         </div>
                         <div className="space-y-2">
@@ -2779,30 +2780,30 @@ const AdminSettings = () => {
 
                   {emailProvider === 'resend' && (
                     <div className="space-y-2 rounded-xl border border-stone-200 p-4">
-                      <p className="font-semibold text-stone-900">Resend Environment</p>
+                      <p className="font-semibold text-stone-900">{t('adminSettingsGeneral.emailProviderResend')}</p>
                       <p className="text-sm text-stone-500">
-                        This provider uses `RESEND_API_KEY` and `EMAIL_FROM` from the server environment. Configure those in Vercel, then save this provider as active here.
+                        {t('adminSettingsGeneral.resendEnvironmentDescription')}
                       </p>
                     </div>
                   )}
 
                   {emailProvider === 'supabase' && (
                     <div className="space-y-2 rounded-xl border border-stone-200 p-4">
-                      <p className="font-semibold text-stone-900">Supabase Auth Emails</p>
+                      <p className="font-semibold text-stone-900">{t('adminSettingsGeneral.emailProviderSupabase')}</p>
                       <p className="text-sm text-stone-500">
-                        Use this only if you configured custom SMTP inside Supabase Auth. Supabase default delivery is not appropriate for production.
+                        {t('adminSettingsGeneral.supabaseDescription')}
                       </p>
                     </div>
                   )}
 
                   <div className="flex flex-col sm:flex-row gap-2">
                     <Button onClick={handleSaveEmailDeliveryConfig} disabled={emailSaving} className="bg-emerald-900 hover:bg-emerald-800">
-                      {emailSaving ? 'Saving...' : 'Save Email Delivery Settings'}
+                      {emailSaving ? t('adminSettingsGeneral.savingLabel') : t('adminSettingsGeneral.saveEmailDeliverySettings')}
                     </Button>
                     <div className="flex-1 flex flex-col sm:flex-row gap-2">
                       <Input value={emailTestRecipient} onChange={(e) => setEmailTestRecipient(e.target.value)} placeholder="test@yourdomain.com" />
                       <Button variant="outline" onClick={handleSendTestEmail} disabled={emailTesting}>
-                        {emailTesting ? 'Sending Test...' : 'Send Test Email'}
+                        {emailTesting ? t('adminSettingsGeneral.sendingTestEmail') : t('adminSettingsGeneral.sendTestEmail')}
                       </Button>
                     </div>
                   </div>
@@ -2813,89 +2814,82 @@ const AdminSettings = () => {
 
           <Card className="border-stone-200 mt-6">
             <CardHeader>
-              <CardTitle>Verification Email</CardTitle>
-              <CardDescription>
-                Customize the email sent after account registration and verification resend. Supported placeholders:
-                {' '}
-                <span className="font-mono">{'{{app_name}}'}</span>,{' '}
-                <span className="font-mono">{'{{verify_url}}'}</span>,{' '}
-                <span className="font-mono">{'{{expiry_hours}}'}</span>,{' '}
-                <span className="font-mono">{'{{recipient_email}}'}</span>.
-              </CardDescription>
+              <CardTitle>{t('adminSettingsGeneral.verificationEmailTitle')}</CardTitle>
+              <CardDescription>{t('adminSettingsGeneral.verificationEmailDescription')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {authEmailLoading ? (
-                <p className="text-sm text-stone-500">Loading verification email template...</p>
+                <p className="text-sm text-stone-500">{t('adminSettingsGeneral.loadingVerificationTemplate')}</p>
               ) : (
                 <>
                   <div className="grid md:grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label>Subject</Label>
+                      <Label>{t('adminSettingsGeneral.authFieldSubject')}</Label>
                       <Input
                         value={verifyEmailSubject}
                         onChange={(e) => setVerifyEmailSubject(e.target.value)}
-                        placeholder="Verify your email address"
+                        placeholder={t('adminSettingsGeneral.verificationSubjectPlaceholder')}
                         maxLength={160}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Preview Text</Label>
+                      <Label>{t('adminSettingsGeneral.authFieldPreviewText')}</Label>
                       <Input
                         value={verifyEmailPreview}
                         onChange={(e) => setVerifyEmailPreview(e.target.value)}
-                        placeholder="Use the secure link below to verify your email and activate your account."
+                        placeholder={t('adminSettingsGeneral.verificationPreviewPlaceholder')}
                         maxLength={220}
                       />
                     </div>
                   </div>
                   <div className="grid md:grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label>Heading</Label>
+                      <Label>{t('adminSettingsGeneral.authFieldHeading')}</Label>
                       <Input
                         value={verifyEmailHeading}
                         onChange={(e) => setVerifyEmailHeading(e.target.value)}
-                        placeholder="Verify your email address"
+                        placeholder={t('adminSettingsGeneral.verificationHeadingPlaceholder')}
                         maxLength={120}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Button Label</Label>
+                      <Label>{t('adminSettingsGeneral.authFieldButtonLabel')}</Label>
                       <Input
                         value={verifyEmailButtonLabel}
                         onChange={(e) => setVerifyEmailButtonLabel(e.target.value)}
-                        placeholder="Verify email"
+                        placeholder={t('adminSettingsGeneral.verificationButtonPlaceholder')}
                         maxLength={60}
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>Body</Label>
+                    <Label>{t('adminSettingsGeneral.authFieldBody')}</Label>
                     <Textarea
                       value={verifyEmailBody}
                       onChange={(e) => setVerifyEmailBody(e.target.value)}
                       rows={5}
                       maxLength={1200}
-                      placeholder="Welcome to {{app_name}}. Use the secure button below to verify your email address and activate your account."
+                      placeholder={t('adminSettingsGeneral.verificationBodyPlaceholder')}
                     />
-                    <p className="text-xs text-stone-500">Use a blank line to create a new paragraph.</p>
+                    <p className="text-xs text-stone-500">{t('adminSettingsGeneral.authParagraphHint')}</p>
                   </div>
                   <div className="space-y-2">
-                    <Label>Expiry Notice</Label>
+                    <Label>{t('adminSettingsGeneral.authFieldExpiryNotice')}</Label>
                     <Input
                       value={verifyEmailExpiryNotice}
                       onChange={(e) => setVerifyEmailExpiryNotice(e.target.value)}
-                      placeholder="This secure link expires in {{expiry_hours}} hours."
+                      placeholder={t('adminSettingsGeneral.verificationExpiryPlaceholder')}
                       maxLength={200}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Footer</Label>
+                    <Label>{t('adminSettingsGeneral.authFieldFooter')}</Label>
                     <Textarea
                       value={verifyEmailFooter}
                       onChange={(e) => setVerifyEmailFooter(e.target.value)}
                       rows={3}
                       maxLength={320}
-                      placeholder="If you did not create this account, you can safely ignore this email."
+                      placeholder={t('adminSettingsGeneral.verificationFooterPlaceholder')}
                     />
                   </div>
                 </>
@@ -2905,101 +2899,90 @@ const AdminSettings = () => {
 
           <Card className="border-stone-200 mt-6">
             <CardHeader>
-              <CardTitle>Password Reset Email</CardTitle>
-              <CardDescription>
-                Customize the email users receive when they request a password reset. Supported placeholders:
-                {' '}
-                <span className="font-mono">{'{{app_name}}'}</span>,{' '}
-                <span className="font-mono">{'{{reset_url}}'}</span>,{' '}
-                <span className="font-mono">{'{{expiry_minutes}}'}</span>,{' '}
-                <span className="font-mono">{'{{recipient_email}}'}</span>.
-              </CardDescription>
+              <CardTitle>{t('adminSettingsGeneral.passwordResetEmailTitle')}</CardTitle>
+              <CardDescription>{t('adminSettingsGeneral.passwordResetEmailDescription')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {authEmailLoading ? (
-                <p className="text-sm text-stone-500">Loading password reset email template...</p>
+                <p className="text-sm text-stone-500">{t('adminSettingsGeneral.loadingPasswordResetTemplate')}</p>
               ) : (
                 <>
                   <div className="grid md:grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label>Subject</Label>
+                      <Label>{t('adminSettingsGeneral.authFieldSubject')}</Label>
                       <Input
                         value={passwordResetEmailSubject}
                         onChange={(e) => setPasswordResetEmailSubject(e.target.value)}
-                        placeholder="Reset your password"
+                        placeholder={t('adminSettingsGeneral.resetSubjectPlaceholder')}
                         maxLength={160}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Preview Text</Label>
+                      <Label>{t('adminSettingsGeneral.authFieldPreviewText')}</Label>
                       <Input
                         value={passwordResetEmailPreview}
                         onChange={(e) => setPasswordResetEmailPreview(e.target.value)}
-                        placeholder="Use the secure link below to choose a new password for your account."
+                        placeholder={t('adminSettingsGeneral.resetPreviewPlaceholder')}
                         maxLength={220}
                       />
                     </div>
                   </div>
                   <div className="grid md:grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label>Heading</Label>
+                      <Label>{t('adminSettingsGeneral.authFieldHeading')}</Label>
                       <Input
                         value={passwordResetEmailHeading}
                         onChange={(e) => setPasswordResetEmailHeading(e.target.value)}
-                        placeholder="Reset your password"
+                        placeholder={t('adminSettingsGeneral.resetHeadingPlaceholder')}
                         maxLength={120}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Button Label</Label>
+                      <Label>{t('adminSettingsGeneral.authFieldButtonLabel')}</Label>
                       <Input
                         value={passwordResetEmailButtonLabel}
                         onChange={(e) => setPasswordResetEmailButtonLabel(e.target.value)}
-                        placeholder="Reset password"
+                        placeholder={t('adminSettingsGeneral.resetButtonPlaceholder')}
                         maxLength={60}
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>Body</Label>
+                    <Label>{t('adminSettingsGeneral.authFieldBody')}</Label>
                     <Textarea
                       value={passwordResetEmailBody}
                       onChange={(e) => setPasswordResetEmailBody(e.target.value)}
                       rows={5}
                       maxLength={1200}
-                      placeholder="We received a request to reset the password for your {{app_name}} account."
+                      placeholder={t('adminSettingsGeneral.resetBodyPlaceholder')}
                     />
-                    <p className="text-xs text-stone-500">Use a blank line to create a new paragraph.</p>
+                    <p className="text-xs text-stone-500">{t('adminSettingsGeneral.authParagraphHint')}</p>
                   </div>
                   <div className="space-y-2">
-                    <Label>Expiry Notice</Label>
+                    <Label>{t('adminSettingsGeneral.authFieldExpiryNotice')}</Label>
                     <Input
                       value={passwordResetEmailExpiryNotice}
                       onChange={(e) => setPasswordResetEmailExpiryNotice(e.target.value)}
-                      placeholder="This secure link expires in {{expiry_minutes}} minutes."
+                      placeholder={t('adminSettingsGeneral.resetExpiryPlaceholder')}
                       maxLength={200}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Footer</Label>
+                    <Label>{t('adminSettingsGeneral.authFieldFooter')}</Label>
                     <Textarea
                       value={passwordResetEmailFooter}
                       onChange={(e) => setPasswordResetEmailFooter(e.target.value)}
                       rows={3}
                       maxLength={320}
-                      placeholder="If you did not request a password reset, you can safely ignore this email."
+                      placeholder={t('adminSettingsGeneral.resetFooterPlaceholder')}
                     />
                   </div>
                   <div className="rounded-xl border border-stone-200 bg-stone-50 p-4 space-y-2">
-                    <p className="text-sm font-semibold text-stone-900">Live token preview</p>
-                    <p className="text-xs text-stone-500">
-                      <span className="font-mono">{'{{app_name}}'}</span> resolves to your current platform brand.
-                      {' '}
-                      <span className="font-mono">{'{{reset_url}}'}</span> is inserted automatically when the email is sent.
-                    </p>
+                    <p className="text-sm font-semibold text-stone-900">{t('adminSettingsGeneral.liveTokenPreviewTitle')}</p>
+                    <p className="text-xs text-stone-500">{t('adminSettingsGeneral.liveTokenPreviewDescription')}</p>
                   </div>
                   <Button onClick={handleSaveAuthEmailTemplate} disabled={authEmailSaving} className="bg-emerald-900 hover:bg-emerald-800">
-                    {authEmailSaving ? 'Saving...' : 'Save Auth Emails'}
+                    {authEmailSaving ? t('adminSettingsGeneral.savingLabel') : t('adminSettingsGeneral.saveAuthEmails')}
                   </Button>
                 </>
               )}
@@ -3022,33 +3005,33 @@ const AdminSettings = () => {
             </CardHeader>
             <CardContent className="space-y-6">
               {localizationLoading ? (
-                <p className="text-sm text-stone-500">Loading localization settings...</p>
+                <p className="text-sm text-stone-500">{t('adminSettingsGeneral.loadingLocalization')}</p>
               ) : (
                 <Tabs value={localizationSectionTab} onValueChange={setLocalizationSectionTab} className="space-y-6">
                   <TabsList className="h-auto w-full justify-start gap-2 rounded-xl bg-stone-100 p-1">
-                    <TabsTrigger value="languages" className="px-4 py-2">Languages</TabsTrigger>
-                    <TabsTrigger value="strings" className="px-4 py-2">String Translation</TabsTrigger>
-                    <TabsTrigger value="advanced" className="px-4 py-2">Advanced Translation</TabsTrigger>
+                    <TabsTrigger value="languages" className="px-4 py-2">{t('adminSettingsGeneral.translationLanguages')}</TabsTrigger>
+                    <TabsTrigger value="strings" className="px-4 py-2">{t('adminSettingsGeneral.translationStrings')}</TabsTrigger>
+                    <TabsTrigger value="advanced" className="px-4 py-2">{t('adminSettingsGeneral.translationAdvanced')}</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="languages" className="space-y-6">
                     <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
                       <ol className="space-y-2 list-decimal pl-5">
-                        <li>Untranslated strings fall back to the primary language, then to English if the primary language does not contain that key.</li>
-                        <li>Turning a language off removes it from sign-up and profile selectors, but keeps its saved manual overrides for later reuse.</li>
-                        <li>Manual overrides are applied at runtime and do not require a code deploy.</li>
+                        <li>{t('adminSettingsGeneral.localizationFallbackRule')}</li>
+                        <li>{t('adminSettingsGeneral.localizationDisableRule')}</li>
+                        <li>{t('adminSettingsGeneral.localizationRuntimeRule')}</li>
                       </ol>
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                       <Card className="border-stone-200">
                         <CardHeader className="pb-3">
-                          <CardTitle className="text-base">Automatic Recognition</CardTitle>
-                          <CardDescription>Allow browser language auto-detection for first-time visitors.</CardDescription>
+                          <CardTitle className="text-base">{t('adminSettingsGeneral.automaticRecognition')}</CardTitle>
+                          <CardDescription>{t('adminSettingsGeneral.automaticRecognitionDescription')}</CardDescription>
                         </CardHeader>
                         <CardContent>
                           <div className="flex items-center justify-between gap-3 rounded-xl border border-stone-200 p-3">
-                            <span className="text-sm font-medium text-stone-700">Enable automatic recognition</span>
+                            <span className="text-sm font-medium text-stone-700">{t('adminSettingsGeneral.enableAutomaticRecognition')}</span>
                             <Switch
                               checked={automaticLanguageRecognition}
                               onCheckedChange={setAutomaticLanguageRecognition}
@@ -3059,8 +3042,8 @@ const AdminSettings = () => {
 
                       <Card className="border-stone-200">
                         <CardHeader className="pb-3">
-                          <CardTitle className="text-base">Website Timezone</CardTitle>
-                          <CardDescription>Used as the platform timezone reference in admin-controlled settings.</CardDescription>
+                          <CardTitle className="text-base">{t('adminSettingsGeneral.websiteTimezone')}</CardTitle>
+                          <CardDescription>{t('adminSettingsGeneral.websiteTimezoneDescription')}</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-2">
                           <Select value={siteTimezone} onValueChange={setSiteTimezone}>
@@ -3078,8 +3061,8 @@ const AdminSettings = () => {
 
                       <Card className="border-stone-200">
                         <CardHeader className="pb-3">
-                          <CardTitle className="text-base">Website Currency</CardTitle>
-                          <CardDescription>Reference currency for public pricing and platform defaults.</CardDescription>
+                          <CardTitle className="text-base">{t('adminSettingsGeneral.websiteCurrency')}</CardTitle>
+                          <CardDescription>{t('adminSettingsGeneral.websiteCurrencyDescription')}</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-2">
                           <Select value={siteCurrency} onValueChange={setSiteCurrency}>
@@ -3097,8 +3080,8 @@ const AdminSettings = () => {
 
                       <Card className="border-stone-200">
                         <CardHeader className="pb-3">
-                          <CardTitle className="text-base">Primary Language</CardTitle>
-                          <CardDescription>Default fallback language across the whole platform.</CardDescription>
+                          <CardTitle className="text-base">{t('adminSettingsGeneral.primaryLanguage')}</CardTitle>
+                          <CardDescription>{t('adminSettingsGeneral.primaryLanguageDescription')}</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-2">
                           <Select value={platformLanguage} onValueChange={handleSetPrimaryLanguage}>
@@ -3119,8 +3102,8 @@ const AdminSettings = () => {
 
                     <Card className="border-stone-200">
                       <CardHeader>
-                        <CardTitle>Select Languages</CardTitle>
-                        <CardDescription>Choose which languages are active, then save the localization configuration.</CardDescription>
+                        <CardTitle>{t('adminSettingsGeneral.selectLanguages')}</CardTitle>
+                        <CardDescription>{t('adminSettingsGeneral.selectLanguagesDescription')}</CardDescription>
                       </CardHeader>
                       <CardContent className="grid gap-4">
                         {availableAdminLanguages.map((language) => {
@@ -3145,12 +3128,17 @@ const AdminSettings = () => {
                                     <Badge variant="outline" className="uppercase">{language.code}</Badge>
                                     {isPrimary && (
                                       <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">
-                                        Primary
+                                        {t('adminSettingsGeneral.primaryBadge')}
                                       </Badge>
                                     )}
                                   </div>
                                   <p className="mt-1 text-sm text-stone-500">
-                                    {language.name} • {overrideCount} manual override{overrideCount === 1 ? '' : 's'}
+                                    {language.name} • {t(
+                                      overrideCount === 1
+                                        ? 'adminSettingsGeneral.manualOverrideSingle'
+                                        : 'adminSettingsGeneral.manualOverridePlural',
+                                      { count: overrideCount },
+                                    )}
                                   </p>
                                 </div>
                                 <div className="flex flex-wrap items-center gap-2">
@@ -3160,7 +3148,7 @@ const AdminSettings = () => {
                                     className={isPrimary ? 'bg-emerald-900 hover:bg-emerald-800' : ''}
                                     onClick={() => handleSetPrimaryLanguage(language.code)}
                                   >
-                                    {isPrimary ? 'Primary Language' : 'Set as Primary'}
+                                    {isPrimary ? t('adminSettingsGeneral.primaryLanguageButton') : t('adminSettingsGeneral.setAsPrimary')}
                                   </Button>
                                   <Button
                                     type="button"
@@ -3168,7 +3156,7 @@ const AdminSettings = () => {
                                     className={!isEnabled ? 'bg-sky-700 hover:bg-sky-600' : ''}
                                     onClick={() => handleToggleEnabledLanguage(language.code)}
                                   >
-                                    {isEnabled ? 'Turn Off' : 'Activate'}
+                                    {isEnabled ? t('adminSettingsGeneral.turnOff') : t('adminSettingsGeneral.activate')}
                                   </Button>
                                 </div>
                               </div>
@@ -3184,7 +3172,7 @@ const AdminSettings = () => {
                         onClick={handleSaveLocalizationConfig}
                         disabled={localizationSaving}
                       >
-                        {localizationSaving ? t('adminSettingsLocalization.saving') : 'Save Language Configuration'}
+                        {localizationSaving ? t('adminSettingsLocalization.saving') : t('adminSettingsGeneral.saveLanguageConfiguration')}
                       </Button>
                     </div>
                   </TabsContent>
@@ -3192,13 +3180,13 @@ const AdminSettings = () => {
                   <TabsContent value="strings" className="space-y-6">
                     <Card className="border-stone-200">
                       <CardHeader>
-                        <CardTitle>String Translation</CardTitle>
-                        <CardDescription>Search platform strings and set manual overrides for the selected language.</CardDescription>
+                        <CardTitle>{t('adminSettingsGeneral.stringTranslationTitle')}</CardTitle>
+                        <CardDescription>{t('adminSettingsGeneral.stringTranslationDescription')}</CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)_180px_160px]">
                           <div className="space-y-2">
-                            <Label>Target Language</Label>
+                            <Label>{t('adminSettingsGeneral.targetLanguageLabel')}</Label>
                             <Select value={translationTargetLanguage} onValueChange={setTranslationTargetLanguage}>
                               <SelectTrigger className="h-12">
                                 <SelectValue />
@@ -3215,33 +3203,33 @@ const AdminSettings = () => {
                             </Select>
                           </div>
                           <div className="space-y-2">
-                            <Label>Search</Label>
+                            <Label>{t('adminSettingsGeneral.searchLabel')}</Label>
                             <div className="relative">
                               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
                               <Input
                                 value={translationSearch}
                                 onChange={(e) => setTranslationSearch(e.target.value)}
                                 className="h-12 pl-10"
-                                placeholder="Search by key or text"
+                                placeholder={t('adminSettingsGeneral.searchPlaceholder')}
                               />
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <Label>Show</Label>
+                            <Label>{t('adminSettingsGeneral.showLabel')}</Label>
                             <Select value={translationRowsPerPage} onValueChange={setTranslationRowsPerPage}>
                               <SelectTrigger className="h-12">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="10">10 entries</SelectItem>
-                                <SelectItem value="25">25 entries</SelectItem>
-                                <SelectItem value="50">50 entries</SelectItem>
+                                <SelectItem value="10">{t('adminSettingsGeneral.entries10')}</SelectItem>
+                                <SelectItem value="25">{t('adminSettingsGeneral.entries25')}</SelectItem>
+                                <SelectItem value="50">{t('adminSettingsGeneral.entries50')}</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
                           <div className="flex items-end">
                             <div className="flex items-center justify-between gap-3 rounded-xl border border-stone-200 px-4 py-3 w-full">
-                              <span className="text-sm font-medium text-stone-700">Only untranslated</span>
+                              <span className="text-sm font-medium text-stone-700">{t('adminSettingsGeneral.onlyUntranslated')}</span>
                               <Switch
                                 checked={translationShowUntranslatedOnly}
                                 onCheckedChange={setTranslationShowUntranslatedOnly}
@@ -3252,9 +3240,9 @@ const AdminSettings = () => {
 
                         <div className="overflow-hidden rounded-2xl border border-stone-200">
                           <div className="grid grid-cols-[220px_minmax(0,1fr)_minmax(0,1fr)] gap-0 border-b border-stone-200 bg-stone-50 text-sm font-semibold text-stone-900">
-                            <div className="px-4 py-3">Translation Key</div>
-                            <div className="px-4 py-3">Original String ({platformLanguage.toUpperCase()})</div>
-                            <div className="px-4 py-3">Translated String ({translationTargetLanguage.toUpperCase()})</div>
+                            <div className="px-4 py-3">{t('adminSettingsGeneral.translationKey')}</div>
+                            <div className="px-4 py-3">{t('adminSettingsGeneral.originalStringLabel')} ({platformLanguage.toUpperCase()})</div>
+                            <div className="px-4 py-3">{t('adminSettingsGeneral.translatedStringLabel')} ({translationTargetLanguage.toUpperCase()})</div>
                           </div>
                           <div className="divide-y divide-stone-200">
                             {translationVisibleEntries.length ? (
@@ -3292,8 +3280,8 @@ const AdminSettings = () => {
                                           e.target.value,
                                         )}
                                         placeholder={translationTargetLanguage === platformLanguage
-                                          ? 'Primary language value'
-                                          : 'Enter manual translation override'}
+                                          ? t('adminSettingsGeneral.primaryLanguageValuePlaceholder')
+                                          : t('adminSettingsGeneral.manualTranslationPlaceholder')}
                                       />
                                     </div>
                                   </div>
@@ -3301,7 +3289,7 @@ const AdminSettings = () => {
                               })
                             ) : (
                               <div className="px-4 py-8 text-sm text-stone-500">
-                                No strings match the current filters.
+                                {t('adminSettingsGeneral.noTranslationMatches')}
                               </div>
                             )}
                           </div>
@@ -3309,7 +3297,12 @@ const AdminSettings = () => {
 
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <p className="text-sm text-stone-500">
-                            {localizationFilteredEntries.length} string{localizationFilteredEntries.length === 1 ? '' : 's'} found
+                            {t(
+                              localizationFilteredEntries.length === 1
+                                ? 'adminSettingsGeneral.stringsFoundSingle'
+                                : 'adminSettingsGeneral.stringsFoundPlural',
+                              { count: localizationFilteredEntries.length },
+                            )}
                           </p>
                           <div className="flex items-center gap-2">
                             <Button
@@ -3341,7 +3334,9 @@ const AdminSettings = () => {
                             onClick={() => handleResetLanguageOverrides(translationTargetLanguage)}
                             disabled={translationSaving}
                           >
-                            Clear {translationTargetLanguage.toUpperCase()} Overrides
+                            {t('adminSettingsGeneral.clearLanguageOverrides', {
+                              language: translationTargetLanguage.toUpperCase(),
+                            })}
                           </Button>
                           <Button
                             type="button"
@@ -3349,7 +3344,7 @@ const AdminSettings = () => {
                             onClick={handleSaveLocalizationOverrides}
                             disabled={translationSaving}
                           >
-                            {translationSaving ? 'Saving...' : 'Save Manual Translations'}
+                            {translationSaving ? t('adminSettingsGeneral.savingLabel') : t('adminSettingsGeneral.saveManualTranslations')}
                           </Button>
                         </div>
                       </CardContent>
@@ -3360,8 +3355,8 @@ const AdminSettings = () => {
                     <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
                       <Card className="border-stone-200">
                         <CardHeader>
-                          <CardTitle>Language Stats</CardTitle>
-                          <CardDescription>Quick view of enabled languages and saved override counts.</CardDescription>
+                          <CardTitle>{t('adminSettingsGeneral.languageStatsTitle')}</CardTitle>
+                          <CardDescription>{t('adminSettingsGeneral.languageStatsDescription')}</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3">
                           {availableAdminLanguages.map((language) => {
@@ -3374,7 +3369,7 @@ const AdminSettings = () => {
                                 </div>
                                 <div className="text-right">
                                   <p className="text-sm font-semibold text-stone-900">{count}</p>
-                                  <p className="text-xs text-stone-500">overrides</p>
+                                  <p className="text-xs text-stone-500">{t('adminSettingsGeneral.overridesLabel')}</p>
                                 </div>
                               </div>
                             );
@@ -3384,13 +3379,13 @@ const AdminSettings = () => {
 
                       <Card className="border-stone-200">
                         <CardHeader>
-                          <CardTitle>Advanced Translation Editor</CardTitle>
-                          <CardDescription>Bulk edit one language as flat JSON: translation path to translated value.</CardDescription>
+                          <CardTitle>{t('adminSettingsGeneral.advancedTranslationTitle')}</CardTitle>
+                          <CardDescription>{t('adminSettingsGeneral.advancedTranslationDescription')}</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                           <div className="grid gap-3 md:grid-cols-2">
                             <div className="space-y-2">
-                              <Label>Language</Label>
+                              <Label>{t('adminSettingsGeneral.advancedLanguageLabel')}</Label>
                               <Select value={advancedLanguage} onValueChange={setAdvancedLanguage}>
                                 <SelectTrigger className="h-12">
                                   <SelectValue />
@@ -3405,7 +3400,7 @@ const AdminSettings = () => {
                               </Select>
                             </div>
                             <div className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-600">
-                              Fallback order:
+                              {t('adminSettingsGeneral.fallbackOrderLabel')}:
                               {' '}
                               <span className="font-medium text-stone-900">{translationTargetLanguage.toUpperCase()}</span>
                               {' '}
