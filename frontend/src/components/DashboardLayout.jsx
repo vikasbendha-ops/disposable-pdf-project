@@ -66,7 +66,7 @@ const DashboardLayout = ({ children, title, subtitle }) => {
       <Link
         to={item.path}
         className={cn(
-          "flex items-center space-x-3 px-4 py-3 rounded-lg transition-all",
+          "flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors",
           isActive 
             ? "bg-emerald-900 text-white" 
             : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
