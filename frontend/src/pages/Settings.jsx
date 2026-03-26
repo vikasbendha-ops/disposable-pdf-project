@@ -97,6 +97,8 @@ const Settings = () => {
     nda_text: 'This document contains confidential information. By continuing, you agree not to copy, share, capture, or distribute any part of this material without authorization.',
     nda_accept_label: 'I agree and continue',
     lock_to_first_ip: false,
+    geo_restriction_mode: 'off',
+    geo_country_codes: '',
   });
   const isPrivilegedAccount = user?.role === 'admin' || user?.role === 'super_admin';
   const dateTimeFormatter = useMemo(
@@ -148,6 +150,10 @@ const Settings = () => {
         nda_text: user?.secure_link_defaults?.nda_text || 'This document contains confidential information. By continuing, you agree not to copy, share, capture, or distribute any part of this material without authorization.',
         nda_accept_label: user?.secure_link_defaults?.nda_accept_label || 'I agree and continue',
         lock_to_first_ip: Boolean(user?.secure_link_defaults?.lock_to_first_ip),
+        geo_restriction_mode: user?.secure_link_defaults?.geo_restriction_mode || 'off',
+        geo_country_codes: Array.isArray(user?.secure_link_defaults?.geo_country_codes)
+          ? user.secure_link_defaults.geo_country_codes.join(', ')
+          : '',
       });
     }
   }, [user]);
@@ -664,6 +670,13 @@ const Settings = () => {
 
   const handleSaveSecureLinkDefaults = async (e) => {
     e.preventDefault();
+    if (
+      secureLinkDefaults.geo_restriction_mode !== 'off' &&
+      !String(secureLinkDefaults.geo_country_codes || '').trim()
+    ) {
+      toast.error(t('settings.geoCountryCodesRequired'));
+      return;
+    }
     setSavingSecureLinkDefaults(true);
     try {
       await api.put('/auth/profile', {
@@ -1298,6 +1311,43 @@ const Settings = () => {
                     checked={secureLinkDefaults.lock_to_first_ip}
                     onCheckedChange={(checked) => updateSecureLinkDefault('lock_to_first_ip', checked)}
                   />
+                </div>
+
+                <div className="rounded-lg border border-stone-200 p-4 space-y-4">
+                  <div>
+                    <p className="font-medium text-stone-900">{t('settings.geoRestrictionTitle')}</p>
+                    <p className="text-sm text-stone-500">{t('settings.geoRestrictionDesc')}</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>{t('settings.geoRestrictionModeLabel')}</Label>
+                    <Select
+                      value={secureLinkDefaults.geo_restriction_mode}
+                      onValueChange={(value) => updateSecureLinkDefault('geo_restriction_mode', value)}
+                    >
+                      <SelectTrigger className="h-12">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="off">{t('settings.geoRestrictionModeOff')}</SelectItem>
+                        <SelectItem value="allow">{t('settings.geoRestrictionModeAllow')}</SelectItem>
+                        <SelectItem value="block">{t('settings.geoRestrictionModeBlock')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {secureLinkDefaults.geo_restriction_mode !== 'off' && (
+                    <div className="space-y-2">
+                      <Label>{t('settings.geoCountryCodesLabel')}</Label>
+                      <Textarea
+                        value={secureLinkDefaults.geo_country_codes}
+                        onChange={(e) => updateSecureLinkDefault('geo_country_codes', e.target.value)}
+                        rows={4}
+                        placeholder={'US, GB, IN'}
+                      />
+                      <p className="text-xs text-stone-500">{t('settings.geoCountryCodesHelp')}</p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between rounded-lg border border-stone-200 p-4">

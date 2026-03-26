@@ -57,6 +57,8 @@ const LinkGenerator = () => {
   const [lockToFirstIp, setLockToFirstIp] = useState(false);
   const [restrictToSpecificIps, setRestrictToSpecificIps] = useState(false);
   const [allowedIpAddresses, setAllowedIpAddresses] = useState('');
+  const [geoRestrictionMode, setGeoRestrictionMode] = useState('off');
+  const [geoCountryCodes, setGeoCountryCodes] = useState('');
   
   // Generated link
   const [generatedLink, setGeneratedLink] = useState(null);
@@ -90,6 +92,11 @@ const LinkGenerator = () => {
       : [];
     setRestrictToSpecificIps(defaultAllowedIps.length > 0);
     setAllowedIpAddresses(defaultAllowedIps.join(', '));
+    setGeoRestrictionMode(user?.secure_link_defaults?.geo_restriction_mode || 'off');
+    const defaultGeoCountries = Array.isArray(user?.secure_link_defaults?.geo_country_codes)
+      ? user.secure_link_defaults.geo_country_codes
+      : [];
+    setGeoCountryCodes(defaultGeoCountries.join(', '));
   }, [user?.user_id]);
 
   const fetchData = async () => {
@@ -165,6 +172,10 @@ const LinkGenerator = () => {
       toast.error('NDA button label must be 60 characters or less');
       return;
     }
+    if (geoRestrictionMode !== 'off' && !geoCountryCodes.trim()) {
+      toast.error(t('settings.geoCountryCodesRequired'));
+      return;
+    }
 
     setCreating(true);
 
@@ -204,6 +215,8 @@ const LinkGenerator = () => {
           nda_accept_label: ndaAcceptLabel || null,
           lock_to_first_ip: lockToFirstIp,
           allowed_ip_addresses: restrictToSpecificIps ? allowedIpAddresses : [],
+          geo_restriction_mode: geoRestrictionMode,
+          geo_country_codes: geoRestrictionMode !== 'off' ? geoCountryCodes : [],
         },
       });
 
@@ -813,6 +826,47 @@ const LinkGenerator = () => {
                         </p>
                       </div>
                     )}
+                  </div>
+
+                  <div className="rounded-xl border border-stone-200 bg-stone-50/60 p-4">
+                    <div className="space-y-4">
+                      <div>
+                        <p className="font-semibold text-stone-900">{t('settings.geoRestrictionTitle')}</p>
+                        <p className="mt-1 text-sm text-stone-500">{t('settings.geoRestrictionDesc')}</p>
+                      </div>
+
+                      <div>
+                        <Label className="text-sm font-semibold text-stone-700 mb-2 block">
+                          {t('settings.geoRestrictionModeLabel')}
+                        </Label>
+                        <Select value={geoRestrictionMode} onValueChange={setGeoRestrictionMode}>
+                          <SelectTrigger className="h-12">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="off">{t('settings.geoRestrictionModeOff')}</SelectItem>
+                            <SelectItem value="allow">{t('settings.geoRestrictionModeAllow')}</SelectItem>
+                            <SelectItem value="block">{t('settings.geoRestrictionModeBlock')}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {geoRestrictionMode !== 'off' && (
+                        <div>
+                          <Label className="text-sm font-semibold text-stone-700 mb-2 block">
+                            {t('settings.geoCountryCodesLabel')}
+                          </Label>
+                          <Textarea
+                            placeholder={'US, GB, IN'}
+                            value={geoCountryCodes}
+                            onChange={(e) => setGeoCountryCodes(e.target.value)}
+                            className="min-h-[100px]"
+                            data-testid="advanced-allowed-country-input"
+                          />
+                          <p className="mt-2 text-sm text-stone-500">{t('settings.geoCountryCodesHelp')}</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>

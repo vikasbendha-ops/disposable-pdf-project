@@ -54,6 +54,7 @@ import {
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
 import { Label } from '../components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Switch } from '../components/ui/switch';
 import { api, useAuth } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -126,6 +127,8 @@ const PDFManagement = () => {
     lock_to_first_ip: false,
     restrict_to_specific_ips: false,
     allowed_ip_addresses: '',
+    geo_restriction_mode: 'off',
+    geo_country_codes: '',
   });
 
   const [copiedValue, setCopiedValue] = useState('');
@@ -201,6 +204,8 @@ const PDFManagement = () => {
       lock_to_first_ip: Boolean(security.lock_to_first_ip),
       restrict_to_specific_ips: allowedIps.length > 0,
       allowed_ip_addresses: allowedIps.join(', '),
+      geo_restriction_mode: security.geo_restriction_mode || 'off',
+      geo_country_codes: Array.isArray(security.geo_country_codes) ? security.geo_country_codes.join(', ') : '',
     });
   };
 
@@ -237,6 +242,10 @@ const PDFManagement = () => {
       toast.error(t('pdfManagement.ndaButtonLimit'));
       return;
     }
+    if (editLinkForm.geo_restriction_mode !== 'off' && !String(editLinkForm.geo_country_codes || '').trim()) {
+      toast.error(t('settings.geoCountryCodesRequired'));
+      return;
+    }
 
     setSavingLinkSettings(true);
     try {
@@ -258,6 +267,8 @@ const PDFManagement = () => {
           nda_accept_label: editLinkForm.nda_accept_label || null,
           lock_to_first_ip: editLinkForm.lock_to_first_ip,
           allowed_ip_addresses: editLinkForm.restrict_to_specific_ips ? editLinkForm.allowed_ip_addresses : [],
+          geo_restriction_mode: editLinkForm.geo_restriction_mode,
+          geo_country_codes: editLinkForm.geo_restriction_mode !== 'off' ? editLinkForm.geo_country_codes : [],
         },
       });
       const updatedLink = response.data || null;
@@ -1891,6 +1902,45 @@ const PDFManagement = () => {
                     </p>
                   </div>
                 )}
+              </div>
+
+              <div className="rounded-xl border border-stone-200 bg-stone-50/60 p-4">
+                <div className="space-y-4">
+                  <div>
+                    <p className="font-semibold text-stone-900">{t('settings.geoRestrictionTitle')}</p>
+                    <p className="mt-1 text-sm text-stone-500">{t('settings.geoRestrictionDesc')}</p>
+                  </div>
+
+                  <div>
+                    <Label className="mb-2 block">{t('settings.geoRestrictionModeLabel')}</Label>
+                    <Select
+                      value={editLinkForm.geo_restriction_mode}
+                      onValueChange={(value) => updateEditLinkField('geo_restriction_mode', value)}
+                    >
+                      <SelectTrigger className="h-12">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="off">{t('settings.geoRestrictionModeOff')}</SelectItem>
+                        <SelectItem value="allow">{t('settings.geoRestrictionModeAllow')}</SelectItem>
+                        <SelectItem value="block">{t('settings.geoRestrictionModeBlock')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {editLinkForm.geo_restriction_mode !== 'off' && (
+                    <div>
+                      <Label className="mb-2 block">{t('settings.geoCountryCodesLabel')}</Label>
+                      <Textarea
+                        value={editLinkForm.geo_country_codes}
+                        onChange={(e) => updateEditLinkField('geo_country_codes', e.target.value)}
+                        placeholder={'US, GB, IN'}
+                        className="min-h-[100px]"
+                      />
+                      <p className="mt-2 text-xs text-stone-500">{t('settings.geoCountryCodesHelp')}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
