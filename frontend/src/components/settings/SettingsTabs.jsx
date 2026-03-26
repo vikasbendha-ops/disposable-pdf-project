@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Globe, CreditCard, ChevronRight, RefreshCw, Download, ExternalLink, Mail, Shield, Users } from 'lucide-react';
+import { User, Lock, Globe, CreditCard, ChevronRight, RefreshCw, Download, ExternalLink, Mail, Shield, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
