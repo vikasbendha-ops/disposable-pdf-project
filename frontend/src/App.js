@@ -26,6 +26,7 @@ const AdminUsers = lazy(() => import('./pages/AdminUsers'));
 const AdminLinks = lazy(() => import('./pages/AdminLinks'));
 const AdminAuditLogs = lazy(() => import('./pages/AdminAuditLogs'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
+const TeamInvitation = lazy(() => import('./pages/TeamInvitation'));
 
 const DEFAULT_BACKEND_URL =
   typeof window !== 'undefined'
@@ -103,6 +104,7 @@ const DEFAULT_SUBSCRIPTION_PLANS = Object.freeze({
 });
 
 const DEFAULT_PLAN_ID_RE = /^[a-z0-9][a-z0-9_-]{1,39}$/;
+const ACTIVE_WORKSPACE_STORAGE_KEY = 'activeWorkspaceId';
 
 const toDefaultPlanName = (planId) =>
   String(planId || '')
@@ -194,8 +196,12 @@ export const api = axios.create({
 // Add auth header to requests
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
+  const workspaceId = localStorage.getItem(ACTIVE_WORKSPACE_STORAGE_KEY);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  if (workspaceId) {
+    config.headers['X-Workspace-Id'] = workspaceId;
   }
   return config;
 });
@@ -497,7 +503,68 @@ const SeoProvider = ({ children }) => {
 const AuthProvider = ({ children }) => {
   const { setLanguage } = useLanguage();
   const [user, setUser] = useState(null);
+  const [workspaces, setWorkspaces] = useState([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const loadWorkspaces = useCallback(async (fallbackUser = null) => {
+    try {
+      const response = await api.get('/workspaces');
+      const nextWorkspaces = Array.isArray(response.data?.workspaces) ? response.data.workspaces : [];
+      const storedWorkspaceId = localStorage.getItem(ACTIVE_WORKSPACE_STORAGE_KEY);
+      const defaultWorkspaceId =
+        response.data?.active_workspace_id ||
+        fallbackUser?.user_id ||
+        null;
+      const nextActiveWorkspaceId =
+        nextWorkspaces.find((workspace) => workspace.workspace_id === storedWorkspaceId)?.workspace_id ||
+        nextWorkspaces.find((workspace) => workspace.workspace_id === defaultWorkspaceId)?.workspace_id ||
+        nextWorkspaces[0]?.workspace_id ||
+        fallbackUser?.user_id ||
+        null;
+
+      setWorkspaces(nextWorkspaces);
+      setActiveWorkspaceId(nextActiveWorkspaceId);
+      if (nextActiveWorkspaceId) {
+        localStorage.setItem(ACTIVE_WORKSPACE_STORAGE_KEY, nextActiveWorkspaceId);
+      } else {
+        localStorage.removeItem(ACTIVE_WORKSPACE_STORAGE_KEY);
+      }
+      return {
+        workspaces: nextWorkspaces,
+        active_workspace_id: nextActiveWorkspaceId,
+      };
+    } catch (error) {
+      console.error('Load workspaces error:', error);
+      setWorkspaces([]);
+      setActiveWorkspaceId(fallbackUser?.user_id || null);
+      if (fallbackUser?.user_id) {
+        localStorage.setItem(ACTIVE_WORKSPACE_STORAGE_KEY, fallbackUser.user_id);
+      } else {
+        localStorage.removeItem(ACTIVE_WORKSPACE_STORAGE_KEY);
+      }
+      return {
+        workspaces: fallbackUser?.user_id ? [{
+          workspace_id: fallbackUser.user_id,
+          owner_user_id: fallbackUser.user_id,
+          label: fallbackUser.name || fallbackUser.email || 'Workspace',
+          role: 'owner',
+          role_label: 'Owner',
+          is_owner: true,
+          permissions: {
+            view_workspace: true,
+            manage_documents: true,
+            manage_links: true,
+            manage_domains: true,
+            manage_team: true,
+          },
+          plan: fallbackUser.plan || 'none',
+          subscription_status: fallbackUser.subscription_status || 'inactive',
+        }] : [],
+        active_workspace_id: fallbackUser?.user_id || null,
+      };
+    }
+  }, []);
 
   const checkAuth = useCallback(async () => {
     // CRITICAL: If returning from OAuth callback, skip the /me check.
@@ -519,13 +586,17 @@ const AuthProvider = ({ children }) => {
         localStorage.setItem('preferredLanguage', response.data.language);
         setLanguage(response.data.language);
       }
+      await loadWorkspaces(response.data);
     } catch (error) {
       setUser(null);
+      setWorkspaces([]);
+      setActiveWorkspaceId(null);
       localStorage.removeItem('token');
+      localStorage.removeItem(ACTIVE_WORKSPACE_STORAGE_KEY);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadWorkspaces, setLanguage]);
 
   useEffect(() => {
     checkAuth();
@@ -537,6 +608,8 @@ const AuthProvider = ({ children }) => {
     if (requiresTwoFactor) {
       localStorage.removeItem('token');
       setUser(null);
+      setWorkspaces([]);
+      setActiveWorkspaceId(null);
       return response.data;
     }
     if (access_token) {
@@ -547,6 +620,9 @@ const AuthProvider = ({ children }) => {
       setLanguage(userData.language);
     }
     setUser(userData || null);
+    if (userData) {
+      await loadWorkspaces(userData);
+    }
     return response.data;
   };
 
@@ -564,6 +640,9 @@ const AuthProvider = ({ children }) => {
       setLanguage(userData.language);
     }
     setUser(userData || null);
+    if (userData) {
+      await loadWorkspaces(userData);
+    }
     return response.data;
   };
 
@@ -585,6 +664,7 @@ const AuthProvider = ({ children }) => {
         setLanguage(userData.language);
       }
       setUser(userData);
+      await loadWorkspaces(userData);
     } else {
       if (language) {
         localStorage.setItem('preferredLanguage', language);
@@ -592,6 +672,9 @@ const AuthProvider = ({ children }) => {
       }
       localStorage.removeItem('token');
       setUser(null);
+      setWorkspaces([]);
+      setActiveWorkspaceId(null);
+      localStorage.removeItem(ACTIVE_WORKSPACE_STORAGE_KEY);
     }
 
     return payload;
@@ -605,6 +688,9 @@ const AuthProvider = ({ children }) => {
     }
     localStorage.removeItem('token');
     setUser(null);
+    setWorkspaces([]);
+    setActiveWorkspaceId(null);
+    localStorage.removeItem(ACTIVE_WORKSPACE_STORAGE_KEY);
   };
 
   const refreshUser = async () => {
@@ -615,6 +701,7 @@ const AuthProvider = ({ children }) => {
         localStorage.setItem('preferredLanguage', response.data.language);
         setLanguage(response.data.language);
       }
+      await loadWorkspaces(response.data);
     } catch (error) {
       console.error('Refresh user error:', error);
     }
@@ -698,6 +785,7 @@ const AuthProvider = ({ children }) => {
         setLanguage(userData.language);
       }
       setUser(userData);
+      await loadWorkspaces(userData);
     }
     return response.data;
   };
@@ -714,6 +802,7 @@ const AuthProvider = ({ children }) => {
         setLanguage(userData.language);
       }
       setUser(userData);
+      await loadWorkspaces(userData);
     }
     return response.data;
   };
@@ -726,15 +815,32 @@ const AuthProvider = ({ children }) => {
     return response.data;
   };
 
+  const switchWorkspace = useCallback((workspaceId) => {
+    const normalized = String(workspaceId || '').trim();
+    if (!normalized) return;
+    setActiveWorkspaceId(normalized);
+    localStorage.setItem(ACTIVE_WORKSPACE_STORAGE_KEY, normalized);
+  }, []);
+
+  const activeWorkspace =
+    workspaces.find((workspace) => workspace.workspace_id === activeWorkspaceId) ||
+    workspaces[0] ||
+    null;
+
   return (
     <AuthContext.Provider value={{
       user,
       setUser,
+      workspaces,
+      activeWorkspace,
+      activeWorkspaceId,
       login,
       register,
       logout,
       loading,
       refreshUser,
+      refreshWorkspaces: loadWorkspaces,
+      switchWorkspace,
       updateUserLanguage,
       verifyTwoFactorChallenge,
       requestPasswordReset,
@@ -801,6 +907,7 @@ function AppRouter() {
       <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/verify-email-change" element={<VerifyEmailChange />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/team-invite" element={<TeamInvitation />} />
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/view/:token" element={<SecureViewer />} />
       <Route path="/expired" element={<ExpiredPage />} />

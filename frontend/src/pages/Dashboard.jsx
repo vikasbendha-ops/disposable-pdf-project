@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FileText, Link2, Eye, HardDrive, Plus, ChevronRight, ArrowUpRight } from 'lucide-react';
@@ -14,22 +14,10 @@ const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [recentLinks, setRecentLinks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { user, refreshUser } = useAuth();
+  const { user, activeWorkspace, activeWorkspaceId, refreshUser } = useAuth();
   const { plans } = useSubscriptionPlans();
   const { t } = useLanguage();
   const [searchParams] = useSearchParams();
-
-  useEffect(() => {
-    fetchData();
-    
-    // Check for payment callback
-    const paymentStatus = searchParams.get('payment');
-    const sessionId = searchParams.get('session_id');
-    
-    if (paymentStatus === 'success' && sessionId) {
-      checkPaymentStatus(sessionId);
-    }
-  }, [searchParams]);
 
   const checkPaymentStatus = async (sessionId) => {
     try {
@@ -44,7 +32,8 @@ const Dashboard = () => {
     }
   };
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
       const [statsRes, linksRes] = await Promise.all([
         api.get('/dashboard/stats'),
@@ -57,7 +46,18 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
+
+  useEffect(() => {
+    fetchData();
+
+    const paymentStatus = searchParams.get('payment');
+    const sessionId = searchParams.get('session_id');
+
+    if (paymentStatus === 'success' && sessionId) {
+      checkPaymentStatus(sessionId);
+    }
+  }, [activeWorkspaceId, fetchData, searchParams]);
 
   const formatBytes = (bytes) => {
     if (bytes === 0) return '0 B';
@@ -108,9 +108,9 @@ const Dashboard = () => {
   }
 
   return (
-    <DashboardLayout title={t('dashboard.title')} subtitle={`${t('dashboard.welcomeBack')}, ${user?.name?.split(' ')[0]}`}>
+    <DashboardLayout title={t('dashboard.title')} subtitle={`${t('dashboard.welcomeBack')}, ${activeWorkspace?.label || user?.name?.split(' ')[0]}`}>
       {/* Subscription Alert */}
-      {user?.subscription_status !== 'active' && (
+      {stats?.subscription_status !== 'active' && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}

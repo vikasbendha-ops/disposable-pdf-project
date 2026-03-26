@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { User, Lock, Globe, CreditCard, ChevronRight, RefreshCw, Download, ExternalLink, Mail, Shield } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { User, Lock, Globe, CreditCard, ChevronRight, RefreshCw, Download, ExternalLink, Mail, Shield, Users } from 'lucide-react';
 import QRCode from 'qrcode';
 import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
@@ -17,7 +17,16 @@ import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 
 const Settings = () => {
-  const { user, updateUserLanguage, refreshUser, requestOwnPasswordReset, requestEmailChange } = useAuth();
+  const {
+    user,
+    activeWorkspace,
+    activeWorkspaceId,
+    refreshWorkspaces,
+    updateUserLanguage,
+    refreshUser,
+    requestOwnPasswordReset,
+    requestEmailChange,
+  } = useAuth();
   const { plans } = useSubscriptionPlans();
   const { language, setLanguage, languages, t } = useLanguage();
   const [activeTab, setActiveTab] = useState('account');
@@ -53,6 +62,22 @@ const Settings = () => {
   const [sendingResetEmail, setSendingResetEmail] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [sendingEmailChange, setSendingEmailChange] = useState(false);
+  const [teamState, setTeamState] = useState({
+    workspace: null,
+    workspaces: [],
+    can_manage_team: false,
+    members: [],
+    invitations: [],
+    received_invitations: [],
+  });
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('member');
+  const [invitingTeamMember, setInvitingTeamMember] = useState(false);
+  const [updatingMembershipId, setUpdatingMembershipId] = useState(null);
+  const [removingMembershipId, setRemovingMembershipId] = useState(null);
+  const [cancellingInvitationId, setCancellingInvitationId] = useState(null);
+  const [processingReceivedInvitationId, setProcessingReceivedInvitationId] = useState(null);
   const [twoFactorStatus, setTwoFactorStatus] = useState(null);
   const [twoFactorSetupData, setTwoFactorSetupData] = useState(null);
   const [twoFactorQrCodeUrl, setTwoFactorQrCodeUrl] = useState('');
@@ -74,6 +99,24 @@ const Settings = () => {
     lock_to_first_ip: false,
   });
   const isPrivilegedAccount = user?.role === 'admin' || user?.role === 'super_admin';
+  const dateTimeFormatter = useMemo(
+    () => new Intl.DateTimeFormat(language || 'en', { dateStyle: 'medium', timeStyle: 'short' }),
+    [language],
+  );
+
+  const formatLocalizedDateTime = (value) => {
+    if (!value) return '';
+    const parsed = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return dateTimeFormatter.format(parsed);
+  };
+
+  const getWorkspaceRoleLabel = (role, fallbackLabel) => {
+    if (role === 'owner') return t('workspaceTeam.roleOwner');
+    if (role === 'admin') return t('workspaceTeam.roleAdmin');
+    if (role === 'member') return t('workspaceTeam.roleMember');
+    return fallbackLabel || t('workspaceTeam.roleMember');
+  };
 
   useEffect(() => {
     if (user) {
@@ -153,6 +196,8 @@ const Settings = () => {
         await fetchBillingOverview();
       } else if (activeTab === 'domains' && user) {
         await fetchDomains();
+      } else if (activeTab === 'team' && user) {
+        await fetchTeamState();
       } else if (activeTab === 'security' && user && isPrivilegedAccount) {
         await fetchTwoFactorStatus();
       }
@@ -161,6 +206,16 @@ const Settings = () => {
 
     ensureTabLoaded();
   }, [activeTab, loadedTabs, user, isPrivilegedAccount]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (activeTab === 'domains') {
+      fetchDomains();
+    }
+    if (activeTab === 'team') {
+      fetchTeamState();
+    }
+  }, [activeWorkspaceId]);
 
   const fetchDomains = async () => {
     try {
@@ -253,6 +308,133 @@ const Settings = () => {
       toast.error(error.response?.data?.detail || 'Failed to verify domain');
     } finally {
       setVerifyingDomainId(null);
+    }
+  };
+
+  const fetchTeamState = async () => {
+    setTeamLoading(true);
+    try {
+      const response = await api.get('/team');
+      setTeamState({
+        workspace: response.data?.workspace || null,
+        workspaces: Array.isArray(response.data?.workspaces) ? response.data.workspaces : [],
+        can_manage_team: Boolean(response.data?.can_manage_team),
+        members: Array.isArray(response.data?.members) ? response.data.members : [],
+        invitations: Array.isArray(response.data?.invitations) ? response.data.invitations : [],
+        received_invitations: Array.isArray(response.data?.received_invitations) ? response.data.received_invitations : [],
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.detail || t('workspaceTeam.loadFailed'));
+    } finally {
+      setTeamLoading(false);
+    }
+  };
+
+  const handleInviteTeamMember = async (e) => {
+    e.preventDefault();
+    if (!inviteEmail.trim()) {
+      toast.error(t('workspaceTeam.emailRequired'));
+      return;
+    }
+
+    setInvitingTeamMember(true);
+    try {
+      const response = await api.post('/team/invitations', {
+        email: inviteEmail.trim(),
+        account_role: inviteRole,
+        origin_url: window.location.origin,
+      });
+      toast.success(response.data?.message || 'Invitation created');
+      if (response.data?.invite_url) {
+        try {
+          if (navigator?.clipboard?.writeText) {
+            await navigator.clipboard.writeText(response.data.invite_url);
+            toast.success('Invite link copied');
+          }
+        } catch {
+          // ignore clipboard errors; invitation already exists
+        }
+      }
+      setInviteEmail('');
+      setInviteRole('member');
+      await refreshWorkspaces(user);
+      await fetchTeamState();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || t('workspaceTeam.inviteCreateFailed'));
+    } finally {
+      setInvitingTeamMember(false);
+    }
+  };
+
+  const handleUpdateMemberRole = async (membershipId, role) => {
+    setUpdatingMembershipId(membershipId);
+    try {
+      const response = await api.put(`/team/members/${membershipId}`, {
+        account_role: role,
+      });
+      toast.success(response.data?.message || 'Team member updated');
+      await fetchTeamState();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || t('workspaceTeam.memberUpdateFailed'));
+    } finally {
+      setUpdatingMembershipId(null);
+    }
+  };
+
+  const handleRemoveMember = async (membershipId) => {
+    setRemovingMembershipId(membershipId);
+    try {
+      const response = await api.delete(`/team/members/${membershipId}`);
+      toast.success(response.data?.message || 'Team member removed');
+      await refreshWorkspaces(user);
+      await fetchTeamState();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || t('workspaceTeam.memberRemoveFailed'));
+    } finally {
+      setRemovingMembershipId(null);
+    }
+  };
+
+  const handleCancelInvitation = async (invitationId) => {
+    setCancellingInvitationId(invitationId);
+    try {
+      const response = await api.delete(`/team/invitations/${invitationId}`);
+      toast.success(response.data?.message || 'Invitation cancelled');
+      await fetchTeamState();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || t('workspaceTeam.inviteCancelFailed'));
+    } finally {
+      setCancellingInvitationId(null);
+    }
+  };
+
+  const handleAcceptInvitation = async (invitationId) => {
+    setProcessingReceivedInvitationId(invitationId);
+    try {
+      const response = await api.post('/team/invitations/accept', { invitation_id: invitationId });
+      toast.success(response.data?.message || 'Invitation accepted');
+      if (response.data?.workspace?.workspace_id) {
+        await refreshWorkspaces(user);
+      }
+      await fetchTeamState();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || t('workspaceTeam.inviteAcceptFailed'));
+    } finally {
+      setProcessingReceivedInvitationId(null);
+    }
+  };
+
+  const handleDeclineInvitation = async (invitationId) => {
+    setProcessingReceivedInvitationId(invitationId);
+    try {
+      const response = await api.post(`/team/invitations/${invitationId}/decline`);
+      toast.success(response.data?.message || 'Invitation declined');
+      await fetchTeamState();
+      await refreshWorkspaces(user);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || t('workspaceTeam.inviteDeclineFailed'));
+    } finally {
+      setProcessingReceivedInvitationId(null);
     }
   };
 
@@ -510,7 +692,10 @@ const Settings = () => {
             <TabsTrigger value="billing" className="px-4 py-2">{t('settings.subscription')}</TabsTrigger>
             <TabsTrigger value="security" className="px-4 py-2">{t('settings.accountSecurity')}</TabsTrigger>
             <TabsTrigger value="linkSecurity" className="px-4 py-2">{t('settings.linkSecurity')}</TabsTrigger>
-            <TabsTrigger value="domains" className="px-4 py-2">{t('settings.customDomains')}</TabsTrigger>
+            <TabsTrigger value="team" className="px-4 py-2">{t('workspaceTeam.tab')}</TabsTrigger>
+            {(activeWorkspace?.permissions?.manage_domains ?? true) && (
+              <TabsTrigger value="domains" className="px-4 py-2">{t('settings.customDomains')}</TabsTrigger>
+            )}
           </TabsList>
         </div>
 
@@ -1164,6 +1349,223 @@ const Settings = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="team" className="max-w-4xl space-y-6">
+          <Card className="border-stone-200">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Users className="w-5 h-5 text-emerald-700" />
+                <span>{t('workspaceTeam.title')}</span>
+              </CardTitle>
+              <CardDescription>
+                {t('workspaceTeam.description')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-lg border border-stone-200 bg-stone-50 p-4">
+                <p className="font-medium text-stone-900">
+                  {t('workspaceTeam.currentWorkspace')}: {teamState.workspace?.label || activeWorkspace?.label || user?.name || t('dashboardLayout.workspaceLabel')}
+                </p>
+                <p className="text-sm text-stone-500 mt-1">
+                  {t('workspaceTeam.currentRole')}: {getWorkspaceRoleLabel(teamState.workspace?.role || activeWorkspace?.role, teamState.workspace?.role_label || activeWorkspace?.role_label || t('workspaceTeam.roleOwner'))}
+                  {(teamState.workspace?.permissions?.manage_team || activeWorkspace?.permissions?.manage_team)
+                    ? ` • ${t('workspaceTeam.manageEnabled')}`
+                    : ` • ${t('workspaceTeam.viewOnly')}`}
+                </p>
+              </div>
+
+              {teamLoading ? (
+                <p className="text-sm text-stone-500">{t('workspaceTeam.loading')}</p>
+              ) : (
+                <>
+                  {teamState.received_invitations.length > 0 && (
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 space-y-3">
+                      <div>
+                        <p className="font-medium text-stone-900">{t('workspaceTeam.pendingReceivedTitle')}</p>
+                        <p className="text-sm text-stone-600">
+                          {t('workspaceTeam.invitationsSentTo', { email: user?.email || t('workspaceTeam.yourAccount') })}
+                        </p>
+                      </div>
+                      <div className="space-y-3">
+                        {teamState.received_invitations.map((invitation) => (
+                          <div key={invitation.invitation_id} className="rounded-lg border border-emerald-200 bg-white p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <div>
+                              <p className="font-medium text-stone-900">{invitation.account_name}</p>
+                              <p className="text-sm text-stone-500">
+                                {getWorkspaceRoleLabel(invitation.account_role, invitation.role_label)} {t('workspaceTeam.accessLabel')} • {t('workspaceTeam.invitedBy', { name: invitation.invited_by_name })}
+                              </p>
+                              <p className="text-xs text-stone-500 mt-1">
+                                {t('workspaceTeam.expiresAt', {
+                                  date: invitation.expires_at ? formatLocalizedDateTime(invitation.expires_at) : t('workspaceTeam.soon'),
+                                })}
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                className="bg-emerald-900 hover:bg-emerald-800"
+                                disabled={processingReceivedInvitationId === invitation.invitation_id}
+                                onClick={() => handleAcceptInvitation(invitation.invitation_id)}
+                              >
+                                {t('workspaceTeam.accept')}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                disabled={processingReceivedInvitationId === invitation.invitation_id}
+                                onClick={() => handleDeclineInvitation(invitation.invitation_id)}
+                              >
+                                {t('workspaceTeam.decline')}
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {teamState.can_manage_team ? (
+                    <>
+                      <Card className="border-stone-200">
+                        <CardHeader>
+                          <CardTitle className="text-lg">{t('workspaceTeam.inviteTitle')}</CardTitle>
+                          <CardDescription>
+                            {t('workspaceTeam.inviteDescription')}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <form onSubmit={handleInviteTeamMember} className="grid grid-cols-1 gap-4 md:grid-cols-[1.4fr_0.8fr_auto]">
+                            <div>
+                              <Label>{t('workspaceTeam.emailLabel')}</Label>
+                              <Input
+                                type="email"
+                                value={inviteEmail}
+                                onChange={(e) => setInviteEmail(e.target.value)}
+                                className="h-12 mt-1"
+                                placeholder={t('workspaceTeam.emailPlaceholder')}
+                              />
+                            </div>
+                            <div>
+                              <Label>{t('workspaceTeam.roleLabel')}</Label>
+                              <Select value={inviteRole} onValueChange={setInviteRole}>
+                                <SelectTrigger className="h-12 mt-1">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="member">{t('workspaceTeam.roleMember')}</SelectItem>
+                                  <SelectItem value="admin">{t('workspaceTeam.roleAdmin')}</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="flex items-end">
+                              <Button type="submit" className="w-full bg-emerald-900 hover:bg-emerald-800 h-12" disabled={invitingTeamMember}>
+                                {invitingTeamMember ? t('workspaceTeam.inviting') : t('workspaceTeam.inviteAction')}
+                              </Button>
+                            </div>
+                          </form>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="border-stone-200">
+                        <CardHeader>
+                          <CardTitle className="text-lg">{t('workspaceTeam.membersTitle')}</CardTitle>
+                          <CardDescription>
+                            {t('workspaceTeam.membersDescription')}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {teamState.members.map((member) => (
+                            <div key={member.membership_id} className="rounded-lg border border-stone-200 p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                              <div>
+                                <p className="font-medium text-stone-900">
+                                  {member.name}
+                                  {member.is_self ? ` (${t('workspaceTeam.youLabel')})` : ''}
+                                </p>
+                                <p className="text-sm text-stone-500">{member.email || t('workspaceTeam.noEmail')}</p>
+                              </div>
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                {member.is_owner ? (
+                                  <div className="rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-sm font-medium text-stone-700">
+                                    {t('workspaceTeam.roleOwner')}
+                                  </div>
+                                ) : (
+                                  <>
+                                    <Select
+                                      value={member.account_role}
+                                      onValueChange={(value) => handleUpdateMemberRole(member.membership_id, value)}
+                                      disabled={updatingMembershipId === member.membership_id}
+                                    >
+                                      <SelectTrigger className="h-10 min-w-[140px]">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="member">{t('workspaceTeam.roleMember')}</SelectItem>
+                                        <SelectItem value="admin">{t('workspaceTeam.roleAdmin')}</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <Button
+                                      variant="outline"
+                                      className="text-red-700 hover:bg-red-50"
+                                      disabled={removingMembershipId === member.membership_id}
+                                      onClick={() => handleRemoveMember(member.membership_id)}
+                                    >
+                                      {member.is_self ? t('workspaceTeam.leaveWorkspace') : t('workspaceTeam.removeMember')}
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+
+                      <Card className="border-stone-200">
+                        <CardHeader>
+                          <CardTitle className="text-lg">{t('workspaceTeam.pendingTitle')}</CardTitle>
+                          <CardDescription>
+                            {t('workspaceTeam.pendingDescription')}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {teamState.invitations.length > 0 ? (
+                            teamState.invitations.map((invitation) => (
+                              <div key={invitation.invitation_id} className="rounded-lg border border-stone-200 p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                <div>
+                                  <p className="font-medium text-stone-900">{invitation.email}</p>
+                                  <p className="text-sm text-stone-500">
+                                    {getWorkspaceRoleLabel(invitation.account_role, invitation.role_label)} • {t('workspaceTeam.invitedBy', { name: invitation.invited_by_name })}
+                                  </p>
+                                  <p className="text-xs text-stone-500 mt-1">
+                                    {t('workspaceTeam.expiresAt', {
+                                      date: invitation.expires_at ? formatLocalizedDateTime(invitation.expires_at) : t('workspaceTeam.soon'),
+                                    })}
+                                  </p>
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  className="text-red-700 hover:bg-red-50"
+                                  disabled={cancellingInvitationId === invitation.invitation_id}
+                                  onClick={() => handleCancelInvitation(invitation.invitation_id)}
+                                >
+                                  {t('workspaceTeam.cancelInvitation')}
+                                </Button>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-stone-500">{t('workspaceTeam.noPending')}</p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </>
+                  ) : teamState.received_invitations.length === 0 ? (
+                    <div className="rounded-xl border border-stone-200 bg-stone-50 p-4 text-sm text-stone-600">
+                      {t('workspaceTeam.readOnlyDescription')}
+                    </div>
+                  ) : null}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {(activeWorkspace?.permissions?.manage_domains ?? true) && (
         <TabsContent value="domains" className="max-w-4xl">
           <Card className="border-stone-200">
             <CardHeader>
@@ -1299,6 +1701,7 @@ const Settings = () => {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
       </Tabs>
     </DashboardLayout>
   );

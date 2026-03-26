@@ -140,8 +140,9 @@ const PDFManagement = () => {
   const thumbnailQueueRef = useRef([]);
   const thumbnailQueuedRef = useRef(new Set());
 
-  const { user } = useAuth();
+  const { user, activeWorkspace, activeWorkspaceId } = useAuth();
   const { t, language } = useLanguage();
+  const workspaceSubscriptionStatus = activeWorkspace?.subscription_status || user?.subscription_status || 'inactive';
 
   const shortDateFormatter = useMemo(
     () => new Intl.DateTimeFormat(language || 'en', { dateStyle: 'medium' }),
@@ -153,6 +154,7 @@ const PDFManagement = () => {
   );
 
   const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
       const [pdfsRes, foldersRes, linksRes] = await Promise.all([
         api.get('/pdfs'),
@@ -167,7 +169,7 @@ const PDFManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [activeWorkspaceId, t]);
 
   useEffect(() => {
     fetchData();
@@ -280,7 +282,7 @@ const PDFManagement = () => {
       return;
     }
 
-    if (user?.subscription_status !== 'active') {
+    if (workspaceSubscriptionStatus !== 'active') {
       toast.error(t('pdfManagement.activeSubscriptionRequired'));
       return;
     }
@@ -1273,7 +1275,7 @@ const PDFManagement = () => {
 
   return (
     <DashboardLayout title={t('pdfs.title')} subtitle={t('pdfManagement.subtitle')}>
-      {user?.subscription_status !== 'active' && (
+      {workspaceSubscriptionStatus !== 'active' && (
         <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center space-x-3">
           <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
           <p className="text-amber-800">
@@ -1328,12 +1330,12 @@ const PDFManagement = () => {
                 accept=".pdf"
                 onChange={handleUpload}
                 className="hidden"
-                disabled={uploading || user?.subscription_status !== 'active'}
+                disabled={uploading || workspaceSubscriptionStatus !== 'active'}
                 data-testid="upload-pdf-input"
               />
               <Button
                 className="bg-emerald-900 hover:bg-emerald-800 h-12 px-6"
-                disabled={uploading || user?.subscription_status !== 'active'}
+                disabled={uploading || workspaceSubscriptionStatus !== 'active'}
                 asChild
               >
                 <span>
@@ -1605,7 +1607,7 @@ const PDFManagement = () => {
             <p className="text-stone-500 mb-6">
               {searchQuery ? t('pdfs.tryDifferent') : t('pdfs.uploadFirst')}
             </p>
-            {!searchQuery && user?.subscription_status === 'active' && (
+            {!searchQuery && workspaceSubscriptionStatus === 'active' && (
               <label className="cursor-pointer">
                 <input type="file" accept=".pdf" onChange={handleUpload} className="hidden" />
                 <Button className="bg-emerald-900 hover:bg-emerald-800" asChild>

@@ -29,7 +29,13 @@ const Login = () => {
   const [unverifiedEmail, setUnverifiedEmail] = useState('');
 
   const brandName = branding?.app_name || 'Autodestroy';
-  const from = location.state?.from?.pathname || '/dashboard';
+  const fromLocation = location.state?.from;
+  const from =
+    typeof fromLocation === 'string'
+      ? fromLocation
+      : fromLocation?.pathname
+        ? `${fromLocation.pathname}${fromLocation.search || ''}${fromLocation.hash || ''}`
+        : '/dashboard';
   const registrationPendingVerification = Boolean(location.state?.pendingVerification);
 
   React.useEffect(() => {

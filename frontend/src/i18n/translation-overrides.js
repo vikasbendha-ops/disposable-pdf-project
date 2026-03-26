@@ -1969,6 +1969,80 @@ const SETTINGS_SECURITY_TRANSLATION_OVERRIDES = {
   },
 };
 
+const TEAM_WORKSPACE_TRANSLATION_BASE = {
+  dashboardLayout: {
+    workspaceLabel: 'Workspace',
+  },
+  adminAudit: {
+    workspace: 'Workspace',
+  },
+  workspaceTeam: {
+    tab: 'Team',
+    title: 'Workspace Team',
+    description: 'Invite staff, review active workspace access, and accept pending workspace invitations.',
+    currentWorkspace: 'Current workspace',
+    currentRole: 'Role',
+    manageEnabled: 'Team management enabled',
+    viewOnly: 'View-only team access',
+    loading: 'Loading team workspace...',
+    pendingReceivedTitle: 'Pending invitations',
+    invitationsSentTo: 'Invitations sent to {email}.',
+    yourAccount: 'your account',
+    expiresAt: 'Expires {date}',
+    soon: 'soon',
+    accept: 'Accept',
+    decline: 'Decline',
+    inviteTitle: 'Invite Team Member',
+    inviteDescription: 'Staff accounts can work inside this workspace without sharing the owner login.',
+    emailLabel: 'Email',
+    emailPlaceholder: 'staff@example.com',
+    roleLabel: 'Role',
+    inviteAction: 'Invite',
+    inviting: 'Inviting...',
+    membersTitle: 'Workspace Members',
+    membersDescription: 'Owner actions, staff roles, and workspace access are tracked in audit logs.',
+    youLabel: 'You',
+    noEmail: 'No email',
+    roleOwner: 'Owner',
+    roleAdmin: 'Admin',
+    roleMember: 'Member',
+    leaveWorkspace: 'Leave Workspace',
+    removeMember: 'Remove',
+    pendingTitle: 'Pending Invitations',
+    pendingDescription: 'Invitations remain pending until the invited email accepts them.',
+    invitedBy: 'invited by {name}',
+    cancelInvitation: 'Cancel Invitation',
+    noPending: 'No pending invitations for this workspace.',
+    readOnlyDescription: 'You can work in the current workspace based on your assigned role. Team management is available only to workspace owners and workspace admins.',
+    accessLabel: 'access',
+    emailRequired: 'Team member email is required',
+    loadFailed: 'Failed to load team workspace data',
+    inviteCreateFailed: 'Failed to create invitation',
+    memberUpdateFailed: 'Failed to update team member',
+    memberRemoveFailed: 'Failed to remove team member',
+    inviteCancelFailed: 'Failed to cancel invitation',
+    inviteAcceptFailed: 'Failed to accept invitation',
+    inviteDeclineFailed: 'Failed to decline invitation',
+  },
+  teamInvite: {
+    title: 'Team Invitation',
+    description: 'Join a shared workspace on {appName}',
+    invalidToken: 'Invitation token is missing or invalid.',
+    signInFirst: 'Sign in or create an account with the invited email address first. The invitation will be accepted immediately after you return here.',
+    signIn: 'Sign In',
+    createAccount: 'Create Account',
+    accepting: 'Accepting invitation...',
+    openSettings: 'Open Settings',
+    goToDashboard: 'Go to Dashboard',
+    acceptedTitle: 'Invitation accepted',
+    acceptedWithWorkspace: 'You now have access to {label}.',
+    acceptedGeneric: 'Your workspace access is active.',
+    openDashboard: 'Open Dashboard',
+    acceptedToast: 'Invitation accepted',
+    acceptFailed: 'Failed to accept invitation',
+  },
+};
+
 function cloneTranslationOverrideValue(value) {
   if (Array.isArray(value)) {
     return value.map((item) => cloneTranslationOverrideValue(item));
@@ -3076,4 +3150,5 @@ for (const languageCode of SUPPORTED_LANGUAGE_CODES) {
   if (SETTINGS_SECURITY_TRANSLATION_OVERRIDES[languageCode]) {
     deepMergeTranslationOverrides(TRANSLATION_OVERRIDES[languageCode], SETTINGS_SECURITY_TRANSLATION_OVERRIDES[languageCode]);
   }
+  deepMergeTranslationOverrides(TRANSLATION_OVERRIDES[languageCode], TEAM_WORKSPACE_TRANSLATION_BASE);
 }

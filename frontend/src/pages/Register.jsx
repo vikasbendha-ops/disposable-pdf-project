@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FileText, Mail, Lock, Eye, EyeOff, User, AlertCircle, Globe } from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -23,14 +23,22 @@ const Register = () => {
   const { branding } = useBranding();
   const brandName = branding?.app_name || 'Autodestroy';
   const { language, setLanguage, languages, t } = useLanguage();
+  const location = useLocation();
   const navigate = useNavigate();
+  const fromLocation = location.state?.from;
+  const from =
+    typeof fromLocation === 'string'
+      ? fromLocation
+      : fromLocation?.pathname
+        ? `${fromLocation.pathname}${fromLocation.search || ''}${fromLocation.hash || ''}`
+        : '/dashboard';
 
   // Redirect if already logged in
   React.useEffect(() => {
     if (user) {
-      navigate('/dashboard', { replace: true });
+      navigate(from, { replace: true });
     }
-  }, [user, navigate]);
+  }, [from, user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -63,7 +71,7 @@ const Register = () => {
       }
 
       toast.success('Account created successfully!');
-      navigate('/pricing', { replace: true });
+      navigate(from || '/pricing', { replace: true });
     } catch (err) {
       setError(err.response?.data?.detail || 'Registration failed. Please try again.');
       toast.error('Registration failed');

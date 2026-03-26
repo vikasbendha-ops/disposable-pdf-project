@@ -25,8 +25,9 @@ const LinkGenerator = () => {
   const [creating, setCreating] = useState(false);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, activeWorkspace, activeWorkspaceId } = useAuth();
   const { t } = useLanguage();
+  const workspaceSubscriptionStatus = activeWorkspace?.subscription_status || user?.subscription_status || 'inactive';
 
   // Form state
   const [selectedPdf, setSelectedPdf] = useState('');
@@ -63,13 +64,13 @@ const LinkGenerator = () => {
 
   useEffect(() => {
     fetchData();
-    
+
     // Pre-select PDF from query params
     const pdfId = searchParams.get('pdf');
     if (pdfId) {
       setSelectedPdf(pdfId);
     }
-  }, [searchParams]);
+  }, [activeWorkspaceId, searchParams]);
 
   useEffect(() => {
     if (!user) return;
@@ -92,6 +93,7 @@ const LinkGenerator = () => {
   }, [user?.user_id]);
 
   const fetchData = async () => {
+    setLoading(true);
     try {
       const [pdfResponse, domainResponse] = await Promise.all([
         api.get('/pdfs'),
@@ -123,7 +125,7 @@ const LinkGenerator = () => {
       return;
     }
 
-    if (user?.subscription_status !== 'active') {
+    if (workspaceSubscriptionStatus !== 'active') {
       toast.error('Active subscription required');
       return;
     }
@@ -319,7 +321,7 @@ const LinkGenerator = () => {
   return (
     <DashboardLayout title={t('linkGen.title')} subtitle={t('linkGen.subtitle')}>
       {/* Subscription Warning */}
-      {user?.subscription_status !== 'active' && (
+      {workspaceSubscriptionStatus !== 'active' && (
         <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center space-x-3">
           <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
           <p className="text-amber-800">
@@ -821,7 +823,7 @@ const LinkGenerator = () => {
           <Button 
             type="submit" 
             className="w-full h-14 bg-emerald-900 hover:bg-emerald-800 text-lg"
-            disabled={creating || !selectedPdf || user?.subscription_status !== 'active'}
+            disabled={creating || !selectedPdf || workspaceSubscriptionStatus !== 'active'}
             data-testid="create-link-submit-btn"
           >
             {creating ? (

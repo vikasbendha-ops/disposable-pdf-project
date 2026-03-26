@@ -7,10 +7,11 @@ import {
 import { useAuth, useBranding, useSubscriptionPlans } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Button } from '../components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { cn } from '../lib/utils';
 
 const DashboardLayout = ({ children, title, subtitle }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, workspaces, activeWorkspace, activeWorkspaceId, switchWorkspace } = useAuth();
   const { branding } = useBranding();
   const { plans } = useSubscriptionPlans();
   const { t } = useLanguage();
@@ -19,11 +20,26 @@ const DashboardLayout = ({ children, title, subtitle }) => {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const isAdminRoute = location.pathname.startsWith('/admin');
   const brandName = branding?.app_name || 'Autodestroy';
+  const effectivePlanId =
+    !isAdminRoute && activeWorkspace?.plan
+      ? activeWorkspace.plan
+      : user?.plan;
+  const effectiveSubscriptionStatus =
+    !isAdminRoute && activeWorkspace?.subscription_status
+      ? activeWorkspace.subscription_status
+      : user?.subscription_status;
   const currentPlanLabel =
-    user?.plan && plans?.[user.plan]?.name
-      ? plans[user.plan].name
-      : (user?.plan?.toUpperCase() || 'FREE');
+    effectivePlanId && plans?.[effectivePlanId]?.name
+      ? plans[effectivePlanId].name
+      : (effectivePlanId?.toUpperCase() || 'FREE');
+  const translateWorkspaceRole = React.useCallback((role, fallbackLabel) => {
+    if (role === 'owner') return t('workspaceTeam.roleOwner');
+    if (role === 'admin') return t('workspaceTeam.roleAdmin');
+    if (role === 'member') return t('workspaceTeam.roleMember');
+    return fallbackLabel || t('workspaceTeam.roleMember');
+  }, [t]);
 
   const mainNavItems = [
     { icon: LayoutDashboard, label: t('dashboard.title'), path: '/dashboard' },
@@ -139,18 +155,44 @@ const DashboardLayout = ({ children, title, subtitle }) => {
             
             {/* Subscription Status */}
             <div className="mb-4 p-3 bg-stone-50 rounded-lg">
+              {!isAdminRoute && activeWorkspace && (
+                <div className="mb-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-stone-500 mb-2">
+                    {t('dashboardLayout.workspaceLabel')}
+                  </p>
+                  {workspaces.length > 1 ? (
+                    <Select value={activeWorkspaceId || activeWorkspace.workspace_id} onValueChange={switchWorkspace}>
+                      <SelectTrigger className="h-9 bg-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {workspaces.map((workspace) => (
+                          <SelectItem key={workspace.workspace_id} value={workspace.workspace_id}>
+                            {workspace.label} ({translateWorkspaceRole(workspace.role, workspace.role_label)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="rounded-md border border-stone-200 bg-white px-3 py-2">
+                      <p className="text-sm font-medium text-stone-900 truncate">{activeWorkspace.label}</p>
+                      <p className="text-xs text-stone-500">{translateWorkspaceRole(activeWorkspace.role, activeWorkspace.role_label)}</p>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-stone-500">{t('settings.plan')}</span>
                 <span className={cn(
                   "text-xs font-semibold px-2 py-0.5 rounded-full",
-                  user?.subscription_status === 'active' 
-                    ? "bg-emerald-100 text-emerald-800" 
+                  effectiveSubscriptionStatus === 'active'
+                    ? "bg-emerald-100 text-emerald-800"
                     : "bg-stone-200 text-stone-600"
                 )}>
                   {currentPlanLabel}
                 </span>
               </div>
-              {user?.subscription_status !== 'active' && (
+              {effectiveSubscriptionStatus !== 'active' && (
                 <Link to="/pricing">
                   <Button size="sm" className="w-full mt-2 bg-emerald-900 hover:bg-emerald-800 h-8 text-xs">
                     {t('settings.upgrade')}

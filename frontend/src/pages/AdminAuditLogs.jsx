@@ -126,6 +126,7 @@ const AdminAuditLogs = () => {
                       <th className="py-2 pr-4">{t('adminAudit.time')}</th>
                       <th className="py-2 pr-4">{t('adminAudit.event')}</th>
                       <th className="py-2 pr-4">{t('adminAudit.actor')}</th>
+                      <th className="py-2 pr-4">{t('adminAudit.workspace')}</th>
                       <th className="py-2 pr-4">{t('adminAudit.target')}</th>
                       <th className="py-2 pr-4">{t('adminAudit.resource')}</th>
                       <th className="py-2 pr-4">{t('common.status')}</th>
@@ -138,6 +139,12 @@ const AdminAuditLogs = () => {
                         <td className="py-3 pr-4 whitespace-nowrap text-stone-600">{formatDateTime(event.created_at)}</td>
                         <td className="py-3 pr-4 font-medium text-stone-900">{event.event_type || '-'}</td>
                         <td className="py-3 pr-4 font-mono text-xs text-stone-600">{event.actor_user_id || '-'}</td>
+                        <td className="py-3 pr-4 text-stone-700">
+                          <div className="font-mono text-xs text-stone-600">{event.account_id || '-'}</div>
+                          {event.actor_workspace_role ? (
+                            <div className="text-xs text-stone-500 capitalize">{event.actor_workspace_role}</div>
+                          ) : null}
+                        </td>
                         <td className="py-3 pr-4 font-mono text-xs text-stone-600">{event.target_user_id || '-'}</td>
                         <td className="py-3 pr-4 text-stone-700">
                           {event.resource_type || '-'}
