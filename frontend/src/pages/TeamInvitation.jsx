@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle2, Loader2, Mail, Users } from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -19,6 +19,7 @@ const TeamInvitation = () => {
   const [acceptedWorkspace, setAcceptedWorkspace] = useState(null);
   const [declined, setDeclined] = useState(false);
   const [error, setError] = useState('');
+  const loadedPreviewTokenRef = useRef('');
 
   const token = useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -26,15 +27,21 @@ const TeamInvitation = () => {
   }, [location.search]);
 
   useEffect(() => {
+    if (loadedPreviewTokenRef.current === token) {
+      return;
+    }
+
     let active = true;
     const loadPreview = async () => {
       if (!token) {
         if (active) {
+          loadedPreviewTokenRef.current = '';
           setPreview(null);
           setPreviewLoading(false);
         }
         return;
       }
+      loadedPreviewTokenRef.current = token;
       setPreviewLoading(true);
       setError('');
       try {
@@ -59,7 +66,7 @@ const TeamInvitation = () => {
     return () => {
       active = false;
     };
-  }, [token, t]);
+  }, [token]);
 
   const normalizedUserEmail = String(user?.email || '').trim().toLowerCase();
   const normalizedInviteEmail = String(preview?.email || '').trim().toLowerCase();
