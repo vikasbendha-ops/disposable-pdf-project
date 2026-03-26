@@ -10,11 +10,14 @@ import { toast } from 'sonner';
 const TeamInvitation = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, refreshWorkspaces, switchWorkspace } = useAuth();
+  const { user, logout, refreshWorkspaces, switchWorkspace } = useAuth();
   const { branding } = useBranding();
   const { t } = useLanguage();
-  const [loading, setLoading] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [preview, setPreview] = useState(null);
   const [acceptedWorkspace, setAcceptedWorkspace] = useState(null);
+  const [declined, setDeclined] = useState(false);
   const [error, setError] = useState('');
 
   const token = useMemo(() => {
@@ -23,40 +26,89 @@ const TeamInvitation = () => {
   }, [location.search]);
 
   useEffect(() => {
-    if (!user || !token || acceptedWorkspace || loading) return;
-
     let active = true;
-    const acceptInvitation = async () => {
-      setLoading(true);
+    const loadPreview = async () => {
+      if (!token) {
+        if (active) {
+          setPreview(null);
+          setPreviewLoading(false);
+        }
+        return;
+      }
+      setPreviewLoading(true);
       setError('');
       try {
-        const response = await api.post('/team/invitations/accept', { token });
+        const response = await api.get('/team/invitations/preview', {
+          params: { token },
+        });
         if (!active) return;
-        await refreshWorkspaces(user);
-        if (response.data?.workspace?.workspace_id) {
-          switchWorkspace(response.data.workspace.workspace_id);
-          setAcceptedWorkspace(response.data.workspace);
-        } else {
-          setAcceptedWorkspace(null);
-        }
-        toast.success(response.data?.message || t('teamInvite.acceptedToast'));
+        setPreview(response.data || null);
       } catch (err) {
         if (!active) return;
-        const detail = err.response?.data?.detail || t('teamInvite.acceptFailed');
+        const detail = err.response?.data?.detail || t('teamInvite.previewFailed');
         setError(detail);
-        toast.error(detail);
+        setPreview(null);
       } finally {
         if (active) {
-          setLoading(false);
+          setPreviewLoading(false);
         }
       }
     };
 
-    acceptInvitation();
+    loadPreview();
     return () => {
       active = false;
     };
-  }, [acceptedWorkspace, loading, refreshWorkspaces, switchWorkspace, token, user]);
+  }, [token, t]);
+
+  const normalizedUserEmail = String(user?.email || '').trim().toLowerCase();
+  const normalizedInviteEmail = String(preview?.email || '').trim().toLowerCase();
+  const inviteMatchesCurrentUser = Boolean(user && preview && normalizedUserEmail === normalizedInviteEmail);
+
+  const handleAcceptInvitation = async () => {
+    if (!token) return;
+    setActionLoading(true);
+    setError('');
+    try {
+      const response = await api.post('/team/invitations/accept', { token });
+      await refreshWorkspaces(user);
+      if (response.data?.workspace?.workspace_id) {
+        switchWorkspace(response.data.workspace.workspace_id);
+        setAcceptedWorkspace(response.data.workspace);
+      } else {
+        setAcceptedWorkspace(null);
+      }
+      toast.success(response.data?.message || t('teamInvite.acceptedToast'));
+    } catch (err) {
+      const detail = err.response?.data?.detail || t('teamInvite.acceptFailed');
+      setError(detail);
+      toast.error(detail);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeclineInvitation = async () => {
+    if (!preview?.invitation_id) return;
+    setActionLoading(true);
+    setError('');
+    try {
+      const response = await api.post(`/team/invitations/${preview.invitation_id}/decline`);
+      setDeclined(true);
+      toast.success(response.data?.message || t('teamInvite.declinedToast'));
+    } catch (err) {
+      const detail = err.response?.data?.detail || t('teamInvite.declineFailed');
+      setError(detail);
+      toast.error(detail);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSwitchAccount = async () => {
+    await logout();
+    navigate('/login', { replace: true, state: { from: location } });
+  };
 
   const brandName = branding?.app_name || 'Autodestroy';
 
@@ -79,11 +131,45 @@ const TeamInvitation = () => {
             <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
               {t('teamInvite.invalidToken')}
             </div>
+          ) : previewLoading ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 flex items-center space-x-3 text-emerald-800">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>{t('teamInvite.loading')}</span>
+            </div>
+          ) : error && !preview ? (
+            <>
+              <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+                {error}
+              </div>
+              <div className="flex gap-3">
+                <Link to="/dashboard">
+                  <Button className="bg-emerald-900 hover:bg-emerald-800">{t('teamInvite.goToDashboard')}</Button>
+                </Link>
+              </div>
+            </>
+          ) : declined ? (
+            <>
+              <div className="rounded-xl border border-stone-200 bg-stone-50 p-4 text-stone-700">
+                {t('teamInvite.declinedMessage')}
+              </div>
+              <div className="flex gap-3">
+                <Link to="/dashboard">
+                  <Button className="bg-emerald-900 hover:bg-emerald-800">{t('teamInvite.goToDashboard')}</Button>
+                </Link>
+              </div>
+            </>
           ) : !user ? (
             <>
               <div className="rounded-xl border border-stone-200 bg-stone-50 p-4 text-stone-700">
                 {t('teamInvite.signInFirst')}
               </div>
+              {preview ? (
+                <div className="rounded-xl border border-stone-200 bg-white p-4 text-sm text-stone-700">
+                  <p><span className="font-medium">{t('teamInvite.workspaceLabel')}:</span> {preview.account_name}</p>
+                  <p><span className="font-medium">{t('teamInvite.emailLabel')}:</span> {preview.email}</p>
+                  <p><span className="font-medium">{t('teamInvite.roleLabel')}:</span> {preview.role_label}</p>
+                </div>
+              ) : null}
               <div className="flex flex-col sm:flex-row gap-3">
                 <Button
                   className="bg-emerald-900 hover:bg-emerald-800"
@@ -100,48 +186,84 @@ const TeamInvitation = () => {
                 </Button>
               </div>
             </>
-          ) : loading ? (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 flex items-center space-x-3 text-emerald-800">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>{t('teamInvite.accepting')}</span>
-            </div>
+          ) : !inviteMatchesCurrentUser ? (
+            <>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
+                <p className="font-semibold">{t('teamInvite.accountMismatchTitle')}</p>
+                <p className="text-sm mt-1">
+                  {t('teamInvite.accountMismatchDescription', {
+                    currentEmail: user?.email || t('teamInvite.unknownEmail'),
+                    inviteEmail: preview?.email || t('teamInvite.unknownEmail'),
+                  })}
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button className="bg-emerald-900 hover:bg-emerald-800" onClick={handleSwitchAccount}>
+                  {t('teamInvite.switchAccount')}
+                </Button>
+                <Link to="/dashboard">
+                  <Button variant="outline">{t('teamInvite.goToDashboard')}</Button>
+                </Link>
+              </div>
+            </>
           ) : error ? (
             <>
               <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
                 {error}
               </div>
               <div className="flex gap-3">
-                <Link to="/settings">
-                  <Button variant="outline">{t('teamInvite.openSettings')}</Button>
-                </Link>
-                <Link to="/dashboard">
-                  <Button className="bg-emerald-900 hover:bg-emerald-800">{t('teamInvite.goToDashboard')}</Button>
-                </Link>
+                <Button className="bg-emerald-900 hover:bg-emerald-800" onClick={handleAcceptInvitation} disabled={actionLoading}>
+                  {actionLoading ? t('teamInvite.accepting') : t('teamInvite.acceptAction')}
+                </Button>
+                <Button variant="outline" onClick={handleDeclineInvitation} disabled={actionLoading}>
+                  {t('teamInvite.declineAction')}
+                </Button>
               </div>
             </>
           ) : (
             <>
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                <div className="flex items-center space-x-3 text-emerald-900">
-                  <CheckCircle2 className="w-5 h-5" />
-                  <div>
-                    <p className="font-semibold">{t('teamInvite.acceptedTitle')}</p>
-                    <p className="text-sm text-emerald-800">
-                      {acceptedWorkspace?.label
-                        ? t('teamInvite.acceptedWithWorkspace', { label: acceptedWorkspace.label })
-                        : t('teamInvite.acceptedGeneric')}
-                    </p>
+              {acceptedWorkspace ? (
+                <>
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                    <div className="flex items-center space-x-3 text-emerald-900">
+                      <CheckCircle2 className="w-5 h-5" />
+                      <div>
+                        <p className="font-semibold">{t('teamInvite.acceptedTitle')}</p>
+                        <p className="text-sm text-emerald-800">
+                          {acceptedWorkspace?.label
+                            ? t('teamInvite.acceptedWithWorkspace', { label: acceptedWorkspace.label })
+                            : t('teamInvite.acceptedGeneric')}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <Link to="/dashboard">
-                  <Button className="bg-emerald-900 hover:bg-emerald-800">{t('teamInvite.openDashboard')}</Button>
-                </Link>
-                <Link to="/settings">
-                  <Button variant="outline">{t('teamInvite.openSettings')}</Button>
-                </Link>
-              </div>
+                  <div className="flex gap-3">
+                    <Link to="/dashboard">
+                      <Button className="bg-emerald-900 hover:bg-emerald-800">{t('teamInvite.openDashboard')}</Button>
+                    </Link>
+                    <Link to="/settings">
+                      <Button variant="outline">{t('teamInvite.openSettings')}</Button>
+                    </Link>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="rounded-xl border border-stone-200 bg-stone-50 p-4 text-stone-700 space-y-2">
+                    <p className="font-semibold text-stone-900">{preview?.account_name}</p>
+                    <p><span className="font-medium">{t('teamInvite.emailLabel')}:</span> {preview?.email}</p>
+                    <p><span className="font-medium">{t('teamInvite.roleLabel')}:</span> {preview?.role_label}</p>
+                    <p><span className="font-medium">{t('teamInvite.invitedByLabel')}:</span> {preview?.invited_by_name}</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button className="bg-emerald-900 hover:bg-emerald-800" onClick={handleAcceptInvitation} disabled={actionLoading}>
+                      {actionLoading ? t('teamInvite.accepting') : t('teamInvite.acceptAction')}
+                    </Button>
+                    <Button variant="outline" onClick={handleDeclineInvitation} disabled={actionLoading}>
+                      {t('teamInvite.declineAction')}
+                    </Button>
+                  </div>
+                </>
+              )}
             </>
           )}
         </CardContent>
