@@ -10,6 +10,31 @@ import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { cn } from '../lib/utils';
 
+const DashboardNavLink = React.memo(function DashboardNavLink({
+  icon: Icon,
+  label,
+  path,
+  isActive,
+  onNavigate,
+}) {
+  return (
+    <Link
+      to={path}
+      className={cn(
+        "flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors",
+        isActive
+          ? "bg-emerald-900 text-white"
+          : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
+      )}
+      onClick={onNavigate}
+      data-testid={`nav-${String(label || '').toLowerCase().replace(/\s/g, '-')}`}
+    >
+      <Icon className="w-5 h-5" />
+      <span className="font-medium">{label}</span>
+    </Link>
+  );
+});
+
 const DashboardLayout = ({ children, title, subtitle }) => {
   const { user, logout, workspaces, activeWorkspace, activeWorkspaceId, switchWorkspace } = useAuth();
   const { branding } = useBranding();
@@ -41,44 +66,28 @@ const DashboardLayout = ({ children, title, subtitle }) => {
     return fallbackLabel || t('workspaceTeam.roleMember');
   }, [t]);
 
-  const mainNavItems = [
+  const mainNavItems = React.useMemo(() => [
     { icon: LayoutDashboard, label: t('dashboard.title'), path: '/dashboard' },
     { icon: FileText, label: t('common.myPdfs'), path: '/pdfs' },
     { icon: Settings, label: t('settings.title'), path: '/settings' },
-  ];
+  ], [t]);
 
-  const adminNavItems = [
+  const adminNavItems = React.useMemo(() => [
     { icon: BarChart3, label: t('admin.dashboard'), path: '/admin' },
     { icon: Users, label: t('admin.manageUsers'), path: '/admin/users' },
     { icon: Link2, label: t('admin.allLinks'), path: '/admin/links' },
     { icon: ClipboardList, label: t('adminAudit.title'), path: '/admin/audit-events' },
     { icon: Settings, label: t('admin.platformSettings'), path: '/admin/settings' },
-  ];
+  ], [t]);
 
-  const handleLogout = async () => {
+  const handleLogout = React.useCallback(async () => {
     await logout();
     navigate('/');
-  };
+  }, [logout, navigate]);
 
-  const NavItem = ({ item }) => {
-    const isActive = location.pathname === item.path;
-    return (
-      <Link
-        to={item.path}
-        className={cn(
-          "flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors",
-          isActive 
-            ? "bg-emerald-900 text-white" 
-            : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
-        )}
-        onClick={() => setSidebarOpen(false)}
-        data-testid={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
-      >
-        <item.icon className="w-5 h-5" />
-        <span className="font-medium">{item.label}</span>
-      </Link>
-    );
-  };
+  const handleNavClick = React.useCallback(() => {
+    setSidebarOpen(false);
+  }, []);
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -122,7 +131,14 @@ const DashboardLayout = ({ children, title, subtitle }) => {
               <span className="px-4 text-xs font-semibold text-stone-400 uppercase tracking-wider">{t('dashboardLayout.mainSection')}</span>
               <div className="mt-2 space-y-1">
                 {mainNavItems.map((item) => (
-                  <NavItem key={item.path} item={item} />
+                  <DashboardNavLink
+                    key={item.path}
+                    icon={item.icon}
+                    label={item.label}
+                    path={item.path}
+                    isActive={location.pathname === item.path}
+                    onNavigate={handleNavClick}
+                  />
                 ))}
               </div>
             </div>
@@ -132,7 +148,14 @@ const DashboardLayout = ({ children, title, subtitle }) => {
                 <span className="px-4 text-xs font-semibold text-stone-400 uppercase tracking-wider">{t('dashboardLayout.adminSection')}</span>
                 <div className="mt-2 space-y-1">
                   {adminNavItems.map((item) => (
-                    <NavItem key={item.path} item={item} />
+                    <DashboardNavLink
+                      key={item.path}
+                      icon={item.icon}
+                      label={item.label}
+                      path={item.path}
+                      isActive={location.pathname === item.path}
+                      onNavigate={handleNavClick}
+                    />
                   ))}
                 </div>
               </div>

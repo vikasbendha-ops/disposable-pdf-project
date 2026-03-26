@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FileText, Link2, Eye, HardDrive, Plus, ChevronRight, ArrowUpRight } from 'lucide-react';
@@ -18,19 +18,13 @@ const Dashboard = () => {
   const { plans } = useSubscriptionPlans();
   const { t } = useLanguage();
   const [searchParams] = useSearchParams();
+  const paymentStatus = searchParams.get('payment');
+  const paymentSessionId = searchParams.get('session_id');
+  const loadFailedMessageRef = useRef('Failed to load dashboard data');
 
-  const checkPaymentStatus = async (sessionId) => {
-    try {
-      const response = await api.get(`/subscription/status/${sessionId}`);
-      if (response.data.payment_status === 'paid') {
-        toast.success('Subscription activated successfully!');
-        await refreshUser();
-        fetchData();
-      }
-    } catch (error) {
-      console.error('Payment status check failed:', error);
-    }
-  };
+  useEffect(() => {
+    loadFailedMessageRef.current = t('common.error');
+  }, [t]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -42,22 +36,32 @@ const Dashboard = () => {
       setStats(statsRes.data);
       setRecentLinks(Array.isArray(linksRes.data) ? linksRes.data : []);
     } catch (error) {
-      toast.error('Failed to load dashboard data');
+      toast.error(loadFailedMessageRef.current);
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, []);
+
+  const checkPaymentStatus = useCallback(async (sessionId) => {
+    try {
+      const response = await api.get(`/subscription/status/${sessionId}`);
+      if (response.data.payment_status === 'paid') {
+        toast.success('Subscription activated successfully!');
+        await refreshUser();
+        await fetchData();
+      }
+    } catch (error) {
+      console.error('Payment status check failed:', error);
+    }
+  }, [fetchData, refreshUser]);
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
 
-    const paymentStatus = searchParams.get('payment');
-    const sessionId = searchParams.get('session_id');
-
-    if (paymentStatus === 'success' && sessionId) {
-      checkPaymentStatus(sessionId);
+    if (paymentStatus === 'success' && paymentSessionId) {
+      void checkPaymentStatus(paymentSessionId);
     }
-  }, [activeWorkspaceId, fetchData, searchParams]);
+  }, [activeWorkspaceId, checkPaymentStatus, fetchData, paymentSessionId, paymentStatus]);
 
   const formatBytes = (bytes) => {
     if (bytes === 0) return '0 B';

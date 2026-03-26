@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Users, Search, Shield, Trash2, X, MoreVertical, CreditCard } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
@@ -92,17 +92,22 @@ const AdminUsers = () => {
   const [invoiceEditTarget, setInvoiceEditTarget] = useState(null);
   const [invoiceCustomerForm, setInvoiceCustomerForm] = useState(EMPTY_BILLING_PROFILE);
   const [savingInvoice, setSavingInvoice] = useState(false);
+  const loadFailedMessageRef = useRef('Failed to load users');
+
+  useEffect(() => {
+    loadFailedMessageRef.current = t('common.error');
+  }, [t]);
 
   const fetchUsers = useCallback(async () => {
     try {
       const response = await api.get('/admin/users');
       setUsers(response.data);
     } catch (error) {
-      toast.error(t('common.error'));
+      toast.error(loadFailedMessageRef.current);
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     fetchUsers();

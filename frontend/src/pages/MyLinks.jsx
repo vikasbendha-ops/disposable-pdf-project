@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Link2, Copy, Trash2, Ban, Plus, Search, Eye, Clock, Calendar, Hand, ExternalLink, Check } from 'lucide-react';
@@ -37,6 +37,11 @@ const MyLinks = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [revokeTarget, setRevokeTarget] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
+  const loadFailedMessageRef = useRef('Failed to load links');
+
+  useEffect(() => {
+    loadFailedMessageRef.current = t('adminLinks.loadFailed');
+  }, [t]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -53,7 +58,7 @@ const MyLinks = () => {
       });
       setPdfs(pdfLookup);
     } catch (error) {
-      toast.error('Failed to load links');
+      toast.error(loadFailedMessageRef.current);
     } finally {
       setLoading(false);
     }

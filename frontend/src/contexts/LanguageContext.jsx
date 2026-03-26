@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import translations, {
@@ -60,6 +61,20 @@ const buildVisibleLanguages = (enabledLanguageCodes) => {
   return allLanguages.filter((language) => enabledSet.has(language.code));
 };
 
+const areLocalizationConfigsEqual = (left, right) => {
+  if (left === right) return true;
+  if (!left || !right) return false;
+  return (
+    left.default_language === right.default_language &&
+    left.automatic_detection === right.automatic_detection &&
+    left.site_timezone === right.site_timezone &&
+    left.site_currency === right.site_currency &&
+    JSON.stringify(left.enabled_languages || []) === JSON.stringify(right.enabled_languages || []) &&
+    JSON.stringify(left.available_languages || []) === JSON.stringify(right.available_languages || []) &&
+    JSON.stringify(left.manual_overrides || {}) === JSON.stringify(right.manual_overrides || {})
+  );
+};
+
 const applyDocumentLanguage = (langCode) => {
   document.documentElement.lang = langCode;
   if (langCode === 'ar' || langCode === 'he') {
@@ -80,6 +95,8 @@ export const useLanguage = () => {
 export const LanguageProvider = ({ children }) => {
   const [localizationConfig, setLocalizationConfig] = useState(DEFAULT_LOCALIZATION_CONFIG);
   const [language, setLanguageState] = useState('en');
+  const defaultLanguageRef = useRef(DEFAULT_LOCALIZATION_CONFIG.default_language);
+  const enabledLanguageCodesRef = useRef(DEFAULT_LOCALIZATION_CONFIG.enabled_languages);
 
   const refreshLocalization = useCallback(async () => {
     const response = await fetch('/api/localization', {
@@ -90,7 +107,7 @@ export const LanguageProvider = ({ children }) => {
     }
     const payload = await response.json();
     const normalized = normalizeLocalizationConfig(payload);
-    setLocalizationConfig(normalized);
+    setLocalizationConfig((prev) => (areLocalizationConfigsEqual(prev, normalized) ? prev : normalized));
     return normalized;
   }, []);
 
@@ -101,17 +118,23 @@ export const LanguageProvider = ({ children }) => {
     [localizationConfig],
   );
 
+  useEffect(() => {
+    defaultLanguageRef.current = localizationConfig.default_language || 'en';
+    enabledLanguageCodesRef.current = enabledLanguageCodes;
+  }, [enabledLanguageCodes, localizationConfig.default_language]);
+
   const setLanguage = useCallback((langCode) => {
     const requested = String(langCode || '').trim();
     const nextLanguage =
-      isSupportedLanguage(requested) && enabledLanguageCodes.includes(requested)
+      isSupportedLanguage(requested) && enabledLanguageCodesRef.current.includes(requested)
         ? requested
-        : localizationConfig.default_language || 'en';
+        : defaultLanguageRef.current || 'en';
 
-    setLanguageState(nextLanguage);
+    setLanguageState((prev) => (prev === nextLanguage ? prev : nextLanguage));
     localStorage.setItem('preferredLanguage', nextLanguage);
     applyDocumentLanguage(nextLanguage);
-  }, [enabledLanguageCodes, localizationConfig.default_language]);
+    return nextLanguage;
+  }, []);
 
   const resolveRuntimeTranslation = useCallback((langCode, path) => {
     const primaryLanguage = localizationConfig.default_language || 'en';
