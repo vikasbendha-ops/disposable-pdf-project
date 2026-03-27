@@ -33,15 +33,22 @@ import { api } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { useSearchParams } from 'react-router-dom';
 
 const AdminLinks = () => {
   const { t } = useLanguage();
+  const [searchParams] = useSearchParams();
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState('all');
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [revokeTarget, setRevokeTarget] = useState(null);
+
+  useEffect(() => {
+    setSearchQuery(searchParams.get('search') || '');
+    setFilter(searchParams.get('status') || 'all');
+  }, [searchParams]);
 
   const fetchLinks = useCallback(async () => {
     try {
@@ -134,6 +141,19 @@ const AdminLinks = () => {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {filter !== 'all' && (
+        <div className="mb-4 text-sm text-stone-500">
+          {t('adminLinks.filteredByDashboard')}{' '}
+          <button
+            type="button"
+            className="text-emerald-700 hover:text-emerald-800"
+            onClick={() => setFilter('all')}
+          >
+            {t('adminLinks.clearDashboardFilters')}
+          </button>
+        </div>
+      )}
 
       {/* Links Table */}
       {loading ? (

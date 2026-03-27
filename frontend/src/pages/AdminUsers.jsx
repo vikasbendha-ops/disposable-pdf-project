@@ -44,6 +44,7 @@ import { api, getOrderedPlanEntries, useAuth, useSubscriptionPlans } from '../Ap
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { useSearchParams } from 'react-router-dom';
 
 const EMPTY_BILLING_PROFILE = {
   full_name: '',
@@ -80,9 +81,12 @@ const AdminUsers = () => {
   const { user: currentUser } = useAuth();
   const { plans } = useSubscriptionPlans();
   const { t } = useLanguage();
+  const [searchParams] = useSearchParams();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [subscriptionFilter, setSubscriptionFilter] = useState('all');
+  const [billingFilter, setBillingFilter] = useState('all');
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [billingTarget, setBillingTarget] = useState(null);
   const [billingDetails, setBillingDetails] = useState(null);
@@ -108,6 +112,12 @@ const AdminUsers = () => {
   useEffect(() => {
     loadFailedMessageRef.current = t('common.error');
   }, [t]);
+
+  useEffect(() => {
+    setSearchQuery(searchParams.get('search') || '');
+    setSubscriptionFilter(searchParams.get('subscription_status') || 'all');
+    setBillingFilter(searchParams.get('billing_status') || 'all');
+  }, [searchParams]);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -401,10 +411,26 @@ const AdminUsers = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const filteredUsers = users.filter(user =>
-    user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch =
+      user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const normalizedStripeStatus = String(user.stripe_subscription_status || '').toLowerCase();
+    const normalizedSubscriptionStatus = String(user.subscription_status || '').toLowerCase();
+    const matchesSubscription =
+      subscriptionFilter === 'all' ||
+      (subscriptionFilter === 'active' && normalizedSubscriptionStatus === 'active') ||
+      normalizedStripeStatus === subscriptionFilter;
+
+    const matchesBilling =
+      billingFilter === 'all' ||
+      (billingFilter === 'paid' && Number(user.successful_payments || 0) > 0) ||
+      (billingFilter === 'failed' && Number(user.failed_payments || 0) > 0) ||
+      (billingFilter === 'refunded' && Number(user.total_refunded || 0) > 0);
+
+    return matchesSearch && matchesSubscription && matchesBilling;
+  });
 
   const getPlanLabel = (plan) => {
     if (plan && plans?.[plan]?.name) return plans[plan].name;
@@ -426,24 +452,69 @@ const AdminUsers = () => {
     <DashboardLayout title={t('adminUsers.title')} subtitle={t('adminUsers.subtitle')}>
       {/* Search */}
       <div className="mb-6">
-        <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-          <div className="relative max-w-md flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
-            <Input
-              placeholder={t('admin.searchUsers')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 h-12 bg-white border-stone-200"
-              data-testid="search-users-input"
-            />
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col xl:flex-row gap-3 xl:items-center xl:justify-between">
+            <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_220px_220px] gap-3 flex-1">
+              <div className="relative max-w-md md:max-w-none flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
+                <Input
+                  placeholder={t('admin.searchUsers')}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-12 h-12 bg-white border-stone-200"
+                  data-testid="search-users-input"
+                />
+              </div>
+              <Select value={subscriptionFilter} onValueChange={setSubscriptionFilter}>
+                <SelectTrigger className="h-12 bg-white border-stone-200">
+                  <SelectValue placeholder={t('adminUsers.subscriptionFilter')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('adminUsers.allSubscriptionStatuses')}</SelectItem>
+                  <SelectItem value="active">{t('adminReports.active')}</SelectItem>
+                  <SelectItem value="trialing">{t('adminReports.trialing')}</SelectItem>
+                  <SelectItem value="past_due">{t('adminReports.pastDue')}</SelectItem>
+                  <SelectItem value="canceled">{t('adminReports.canceled')}</SelectItem>
+                  <SelectItem value="incomplete">{t('adminReports.incomplete')}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={billingFilter} onValueChange={setBillingFilter}>
+                <SelectTrigger className="h-12 bg-white border-stone-200">
+                  <SelectValue placeholder={t('adminUsers.billingFilter')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('adminUsers.allBillingStates')}</SelectItem>
+                  <SelectItem value="paid">{t('adminReports.successfulPayments')}</SelectItem>
+                  <SelectItem value="failed">{t('adminReports.failedPayments')}</SelectItem>
+                  <SelectItem value="refunded">{t('adminReports.refundCount')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              className="bg-emerald-900 hover:bg-emerald-800"
+              onClick={() => setCreateOpen(true)}
+            >
+              <Users className="w-4 h-4 mr-2" />
+              {t('adminUsers.newUser')}
+            </Button>
           </div>
-          <Button
-            className="bg-emerald-900 hover:bg-emerald-800"
-            onClick={() => setCreateOpen(true)}
-          >
-            <Users className="w-4 h-4 mr-2" />
-            {t('adminUsers.newUser')}
-          </Button>
+
+          {(subscriptionFilter !== 'all' || billingFilter !== 'all') && (
+            <div className="flex items-center gap-2 text-sm text-stone-500">
+              <span>{t('adminUsers.filteredByDashboard')}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-auto px-2 py-1 text-emerald-700 hover:text-emerald-800"
+                onClick={() => {
+                  setSubscriptionFilter('all');
+                  setBillingFilter('all');
+                }}
+              >
+                {t('adminUsers.clearDashboardFilters')}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 

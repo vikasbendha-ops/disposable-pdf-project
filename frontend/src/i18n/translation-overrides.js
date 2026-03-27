@@ -3489,6 +3489,12 @@ const MODERN_UI_LANGUAGE_OVERRIDES = {
 
 const ADMIN_REPORT_TRANSLATION_BASE = {
   adminReports: {
+    overviewTab: 'Overview',
+    revenueTab: 'Revenue',
+    subscriptionsTab: 'Subscriptions',
+    refundsTab: 'Refunds',
+    reportRange: 'Report Range',
+    reportRangeHelp: 'The selected range applies to revenue, payment, and refund reporting. Platform totals and current subscription health stay live.',
     grossRevenue: 'Gross Revenue',
     refundedAmount: 'Refunded',
     netRevenue: 'Net Revenue',
@@ -3522,6 +3528,13 @@ const ADMIN_REPORT_TRANSLATION_BASE = {
     paymentSuccessRate: 'Payment Success Rate',
     activeVsTotalLinks: 'Active vs total secure links',
     subscribersVsUsers: 'Subscribers vs total users',
+    range: {
+      '7d': '7 Days',
+      '30d': '30 Days',
+      '90d': '90 Days',
+      '365d': '365 Days',
+      all: 'All Time',
+    },
   },
   adminUsers: {
     totalRefunded: 'Total Refunded',
@@ -3548,6 +3561,16 @@ const ADMIN_REPORT_TRANSLATION_BASE = {
     duplicateCharge: 'Duplicate charge',
     fraudulent: 'Fraudulent',
     latestRefund: 'Latest refund',
+    subscriptionFilter: 'Subscription Filter',
+    billingFilter: 'Billing Filter',
+    allSubscriptionStatuses: 'All subscription statuses',
+    allBillingStates: 'All billing states',
+    filteredByDashboard: 'Filtered from the dashboard.',
+    clearDashboardFilters: 'Clear filters',
+  },
+  adminLinks: {
+    filteredByDashboard: 'Filtered from the dashboard.',
+    clearDashboardFilters: 'Clear filters',
   },
 };
 
