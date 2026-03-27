@@ -59,6 +59,8 @@ const DashboardLayout = ({ children, title, subtitle }) => {
     effectivePlanId && plans?.[effectivePlanId]?.name
       ? plans[effectivePlanId].name
       : (effectivePlanId?.toUpperCase() || 'FREE');
+  const currentPlanBadgeLabel = String(currentPlanLabel || 'FREE').trim();
+  const accountDisplayName = user?.name?.trim() || user?.email || t('common.na');
   const translateWorkspaceRole = React.useCallback((role, fallbackLabel) => {
     if (role === 'owner') return t('workspaceTeam.roleOwner');
     if (role === 'admin') return t('workspaceTeam.roleAdmin');
@@ -164,70 +166,93 @@ const DashboardLayout = ({ children, title, subtitle }) => {
 
           {/* User Section */}
           <div className="p-4 border-t border-stone-200">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
-                <span className="text-emerald-900 font-semibold">
-                  {user?.name?.charAt(0).toUpperCase() || 'U'}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-stone-900 truncate">{user?.name}</p>
-                <p className="text-xs text-stone-500 truncate">{user?.email}</p>
-              </div>
-            </div>
-            
-            {/* Subscription Status */}
-            <div className="mb-4 p-3 bg-stone-50 rounded-lg">
-              {!isAdminRoute && activeWorkspace && (
-                <div className="mb-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-stone-500 mb-2">
-                    {t('dashboardLayout.workspaceLabel')}
-                  </p>
-                  {workspaces.length > 1 ? (
-                    <Select value={activeWorkspaceId || activeWorkspace.workspace_id} onValueChange={switchWorkspace}>
-                      <SelectTrigger className="h-9 bg-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {workspaces.map((workspace) => (
-                          <SelectItem key={workspace.workspace_id} value={workspace.workspace_id}>
-                            {workspace.label} ({translateWorkspaceRole(workspace.role, workspace.role_label)})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <div className="rounded-md border border-stone-200 bg-white px-3 py-2">
-                      <p className="text-sm font-medium text-stone-900 truncate">{activeWorkspace.label}</p>
-                      <p className="text-xs text-stone-500">{translateWorkspaceRole(activeWorkspace.role, activeWorkspace.role_label)}</p>
+            <div className="mb-4 rounded-2xl border border-stone-200 bg-stone-50/90 p-3.5 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100">
+                  <span className="text-sm font-semibold text-emerald-900">
+                    {accountDisplayName.charAt(0).toUpperCase() || 'U'}
+                  </span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-semibold leading-5 text-stone-900">
+                        {accountDisplayName}
+                      </p>
+                      <p className="truncate text-[11px] leading-4 text-stone-500">
+                        {user?.email}
+                      </p>
                     </div>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]",
+                        effectiveSubscriptionStatus === 'active'
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-stone-200 text-stone-600",
+                      )}
+                    >
+                      {effectiveSubscriptionStatus === 'active' ? t('settings.statusActive') : t('settings.statusInactive')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 grid gap-3">
+                {!isAdminRoute && activeWorkspace && (
+                  <div className="rounded-xl border border-stone-200 bg-white/90 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
+                        {t('dashboardLayout.workspaceLabel')}
+                      </p>
+                      <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-600">
+                        {translateWorkspaceRole(activeWorkspace.role, activeWorkspace.role_label)}
+                      </span>
+                    </div>
+                    {workspaces.length > 1 ? (
+                      <Select value={activeWorkspaceId || activeWorkspace.workspace_id} onValueChange={switchWorkspace}>
+                        <SelectTrigger className="h-9 border-stone-200 bg-white text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {workspaces.map((workspace) => (
+                            <SelectItem key={workspace.workspace_id} value={workspace.workspace_id}>
+                              {workspace.label} ({translateWorkspaceRole(workspace.role, workspace.role_label)})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="truncate text-sm font-medium text-stone-900">{activeWorkspace.label}</p>
+                    )}
+                  </div>
+                )}
+
+                <div className="rounded-xl border border-stone-200 bg-white/90 p-3">
+                  <div>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
+                        {t('settings.plan')}
+                      </p>
+                      <p className="mt-1 truncate text-sm font-medium text-stone-900">
+                        {currentPlanBadgeLabel}
+                      </p>
+                    </div>
+                  </div>
+                  {effectiveSubscriptionStatus !== 'active' && (
+                    <Link to="/pricing" className="mt-3 block">
+                      <Button size="sm" className="h-8 w-full bg-emerald-900 text-xs hover:bg-emerald-800">
+                        {t('settings.upgrade')}
+                        <ChevronRight className="ml-1 h-3 w-3" />
+                      </Button>
+                    </Link>
                   )}
                 </div>
-              )}
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-stone-500">{t('settings.plan')}</span>
-                <span className={cn(
-                  "text-xs font-semibold px-2 py-0.5 rounded-full",
-                  effectiveSubscriptionStatus === 'active'
-                    ? "bg-emerald-100 text-emerald-800"
-                    : "bg-stone-200 text-stone-600"
-                )}>
-                  {currentPlanLabel}
-                </span>
               </div>
-              {effectiveSubscriptionStatus !== 'active' && (
-                <Link to="/pricing">
-                  <Button size="sm" className="w-full mt-2 bg-emerald-900 hover:bg-emerald-800 h-8 text-xs">
-                    {t('settings.upgrade')}
-                    <ChevronRight className="w-3 h-3 ml-1" />
-                  </Button>
-                </Link>
-              )}
             </div>
 
             <button
               onClick={handleLogout}
-              className="flex items-center space-x-3 w-full px-4 py-3 text-stone-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors"
+              className="flex w-full items-center space-x-3 rounded-xl px-4 py-3 text-sm text-stone-600 transition-colors hover:bg-red-50 hover:text-red-700"
               data-testid="logout-btn"
             >
               <LogOut className="w-5 h-5" />
