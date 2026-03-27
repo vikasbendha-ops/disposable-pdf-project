@@ -22,7 +22,7 @@ import { api } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 
-const REPORT_RANGE_OPTIONS = ['7d', '30d', '90d', '365d', 'all'];
+const REPORT_RANGE_OPTIONS = ['7d', '30d', '90d', '365d', 'custom', 'all'];
 const DASHBOARD_TABS = ['overview', 'revenue', 'subscriptions', 'refunds'];
 
 const AdminDashboard = () => {
@@ -31,11 +31,15 @@ const AdminDashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [customDateFrom, setCustomDateFrom] = useState('');
+  const [customDateTo, setCustomDateTo] = useState('');
   const loadFailedRef = useRef('Failed to load dashboard');
 
   const reportRange = REPORT_RANGE_OPTIONS.includes(searchParams.get('range') || '')
     ? searchParams.get('range')
     : '30d';
+  const appliedDateFrom = searchParams.get('date_from') || '';
+  const appliedDateTo = searchParams.get('date_to') || '';
   const activeTab = DASHBOARD_TABS.includes(searchParams.get('tab') || '')
     ? searchParams.get('tab')
     : 'overview';
@@ -43,6 +47,11 @@ const AdminDashboard = () => {
   useEffect(() => {
     loadFailedRef.current = t('common.error');
   }, [t]);
+
+  useEffect(() => {
+    setCustomDateFrom(searchParams.get('date_from') || '');
+    setCustomDateTo(searchParams.get('date_to') || '');
+  }, [searchParams]);
 
   const updateDashboardSearchParams = useCallback((updates) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -58,14 +67,19 @@ const AdminDashboard = () => {
 
   const fetchStats = useCallback(async () => {
     try {
-      const response = await api.get(`/admin/stats?range=${encodeURIComponent(reportRange)}`);
+      const query = new URLSearchParams({ range: reportRange });
+      if (reportRange === 'custom') {
+        if (appliedDateFrom) query.set('date_from', appliedDateFrom);
+        if (appliedDateTo) query.set('date_to', appliedDateTo);
+      }
+      const response = await api.get(`/admin/stats?${query.toString()}`);
       setStats(response.data);
     } catch (error) {
       toast.error(loadFailedRef.current);
     } finally {
       setLoading(false);
     }
-  }, [reportRange]);
+  }, [appliedDateFrom, appliedDateTo, reportRange]);
 
   useEffect(() => {
     fetchStats();
@@ -265,6 +279,22 @@ const AdminDashboard = () => {
     </div>
   );
 
+  const applyCustomRange = () => {
+    if (!customDateFrom || !customDateTo) {
+      toast.error(t('adminReports.customRangeMissing'));
+      return;
+    }
+    if (customDateFrom > customDateTo) {
+      toast.error(t('adminReports.customRangeInvalid'));
+      return;
+    }
+    updateDashboardSearchParams({
+      range: 'custom',
+      date_from: customDateFrom,
+      date_to: customDateTo,
+    });
+  };
+
   return (
     <DashboardLayout title={t('admin.dashboard')} subtitle={t('admin.platformOverview')}>
       <Tabs value={activeTab} onValueChange={(value) => updateDashboardSearchParams({ tab: value })}>
@@ -285,13 +315,51 @@ const AdminDashboard = () => {
                   type="button"
                   variant={reportRange === range ? 'default' : 'outline'}
                   className={reportRange === range ? 'bg-emerald-900 hover:bg-emerald-800' : ''}
-                  onClick={() => updateDashboardSearchParams({ range })}
+                  onClick={() => updateDashboardSearchParams({
+                    range,
+                    date_from: range === 'custom' ? appliedDateFrom : null,
+                    date_to: range === 'custom' ? appliedDateTo : null,
+                  })}
                 >
                   {t(`adminReports.range.${range}`)}
                 </Button>
               ))}
             </div>
           </div>
+
+          {reportRange === 'custom' && (
+            <div className="flex flex-col lg:flex-row lg:items-end gap-3 rounded-2xl border border-stone-200 bg-white p-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-stone-700 mb-1">
+                  {t('adminReports.dateFrom')}
+                </label>
+                <input
+                  type="date"
+                  value={customDateFrom}
+                  onChange={(e) => setCustomDateFrom(e.target.value)}
+                  className="h-12 w-full rounded-md border border-stone-200 bg-white px-3 text-sm"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-stone-700 mb-1">
+                  {t('adminReports.dateTo')}
+                </label>
+                <input
+                  type="date"
+                  value={customDateTo}
+                  onChange={(e) => setCustomDateTo(e.target.value)}
+                  className="h-12 w-full rounded-md border border-stone-200 bg-white px-3 text-sm"
+                />
+              </div>
+              <Button
+                type="button"
+                className="bg-emerald-900 hover:bg-emerald-800 h-12"
+                onClick={applyCustomRange}
+              >
+                {t('adminReports.applyCustomRange')}
+              </Button>
+            </div>
+          )}
 
           <p className="text-sm text-stone-500">
             {t('adminReports.reportRangeHelp')}
