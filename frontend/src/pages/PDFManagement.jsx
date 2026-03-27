@@ -131,6 +131,9 @@ const PDFManagement = () => {
     strict_security_mode: false,
     require_fullscreen: false,
     enhanced_watermark: false,
+    watermark_mode: 'basic',
+    watermark_text: '',
+    watermark_logo_url: '',
     single_viewer_session: false,
     nda_required: false,
     nda_title: 'Confidentiality agreement',
@@ -262,6 +265,9 @@ const PDFManagement = () => {
       strict_security_mode: Boolean(security.strict_security_mode),
       require_fullscreen: Boolean(security.require_fullscreen),
       enhanced_watermark: Boolean(security.enhanced_watermark),
+      watermark_mode: security.watermark_mode || 'basic',
+      watermark_text: security.watermark_text || '',
+      watermark_logo_url: security.watermark_logo_url || '',
       single_viewer_session: Boolean(security.single_viewer_session),
       nda_required: Boolean(security.nda_required),
       nda_title: security.nda_title || t('pdfManagement.defaultNdaTitle'),
@@ -308,6 +314,14 @@ const PDFManagement = () => {
       toast.error(t('pdfManagement.ndaButtonLimit'));
       return;
     }
+    if (editLinkForm.watermark_mode === 'text' && !String(editLinkForm.watermark_text || '').trim()) {
+      toast.error('Add watermark text or switch to a different watermark type.');
+      return;
+    }
+    if (editLinkForm.watermark_mode === 'logo' && !String(editLinkForm.watermark_logo_url || '').trim()) {
+      toast.error('Add a logo image URL or switch to a different watermark type.');
+      return;
+    }
     if (editLinkForm.geo_restriction_mode !== 'off' && !String(editLinkForm.geo_country_codes || '').trim()) {
       toast.error(t('settings.geoCountryCodesRequired'));
       return;
@@ -326,6 +340,9 @@ const PDFManagement = () => {
           strict_security_mode: editLinkForm.strict_security_mode,
           require_fullscreen: editLinkForm.require_fullscreen,
           enhanced_watermark: editLinkForm.enhanced_watermark,
+          watermark_mode: editLinkForm.watermark_mode,
+          watermark_text: editLinkForm.watermark_mode === 'text' ? editLinkForm.watermark_text : null,
+          watermark_logo_url: editLinkForm.watermark_mode === 'logo' ? editLinkForm.watermark_logo_url : null,
           single_viewer_session: editLinkForm.single_viewer_session,
           nda_required: editLinkForm.nda_required,
           nda_title: editLinkForm.nda_title || null,
@@ -1799,6 +1816,62 @@ const PDFManagement = () => {
                     checked={editLinkForm.single_viewer_session}
                     onCheckedChange={(checked) => updateEditLinkField('single_viewer_session', checked)}
                   />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-stone-200 p-4 space-y-4">
+                <div>
+                  <p className="font-semibold text-stone-900">Watermark style</p>
+                  <p className="mt-1 text-sm text-stone-500">
+                    Choose whether the viewer overlays access details, custom text, or a repeated logo image.
+                  </p>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <Label className="mb-2 block">Watermark type</Label>
+                    <Select
+                      value={editLinkForm.watermark_mode}
+                      onValueChange={(value) => updateEditLinkField('watermark_mode', value)}
+                    >
+                      <SelectTrigger className="h-12">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="basic">Basic details</SelectItem>
+                        <SelectItem value="text">Custom text</SelectItem>
+                        <SelectItem value="logo">Logo image</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {editLinkForm.watermark_mode === 'text' && (
+                    <div>
+                      <Label className="mb-2 block">Watermark text</Label>
+                      <Input
+                        value={editLinkForm.watermark_text}
+                        onChange={(e) => updateEditLinkField('watermark_text', e.target.value)}
+                        maxLength={160}
+                        className="h-12"
+                        placeholder="Confidential • Internal Use Only"
+                      />
+                    </div>
+                  )}
+
+                  {editLinkForm.watermark_mode === 'logo' && (
+                    <div className="md:col-span-2">
+                      <Label className="mb-2 block">Logo image URL</Label>
+                      <Input
+                        value={editLinkForm.watermark_logo_url}
+                        onChange={(e) => updateEditLinkField('watermark_logo_url', e.target.value)}
+                        className="h-12"
+                        placeholder="https://yourdomain.com/logo-mark.png or /images/logo-mark.png"
+                      />
+                      <p className="mt-2 text-xs text-stone-500">
+                        Use a public `https://` image or a root-relative path hosted on this app.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 

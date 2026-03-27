@@ -49,6 +49,9 @@ const LinkGenerator = () => {
   const [strictSecurityMode, setStrictSecurityMode] = useState(false);
   const [requireFullscreen, setRequireFullscreen] = useState(false);
   const [enhancedWatermark, setEnhancedWatermark] = useState(false);
+  const [watermarkMode, setWatermarkMode] = useState('basic');
+  const [watermarkText, setWatermarkText] = useState('');
+  const [watermarkLogoUrl, setWatermarkLogoUrl] = useState('');
   const [singleViewerSession, setSingleViewerSession] = useState(false);
   const [ndaRequired, setNdaRequired] = useState(false);
   const [ndaTitle, setNdaTitle] = useState('Confidentiality agreement');
@@ -81,6 +84,9 @@ const LinkGenerator = () => {
     setStrictSecurityMode(Boolean(user?.secure_link_defaults?.strict_security_mode));
     setRequireFullscreen(Boolean(user?.secure_link_defaults?.require_fullscreen));
     setEnhancedWatermark(Boolean(user?.secure_link_defaults?.enhanced_watermark));
+    setWatermarkMode(user?.secure_link_defaults?.watermark_mode || 'basic');
+    setWatermarkText(user?.secure_link_defaults?.watermark_text || '');
+    setWatermarkLogoUrl(user?.secure_link_defaults?.watermark_logo_url || '');
     setSingleViewerSession(Boolean(user?.secure_link_defaults?.single_viewer_session));
     setNdaRequired(Boolean(user?.secure_link_defaults?.nda_required));
     setNdaTitle(user?.secure_link_defaults?.nda_title || 'Confidentiality agreement');
@@ -176,6 +182,14 @@ const LinkGenerator = () => {
       toast.error(t('settings.geoCountryCodesRequired'));
       return;
     }
+    if (watermarkMode === 'text' && !watermarkText.trim()) {
+      toast.error('Add watermark text or switch back to basic details.');
+      return;
+    }
+    if (watermarkMode === 'logo' && !watermarkLogoUrl.trim()) {
+      toast.error('Add a logo image URL or switch to a different watermark style.');
+      return;
+    }
 
     setCreating(true);
 
@@ -208,6 +222,9 @@ const LinkGenerator = () => {
           strict_security_mode: strictSecurityMode,
           require_fullscreen: requireFullscreen,
           enhanced_watermark: enhancedWatermark,
+          watermark_mode: watermarkMode,
+          watermark_text: watermarkMode === 'text' ? watermarkText : null,
+          watermark_logo_url: watermarkMode === 'logo' ? watermarkLogoUrl : null,
           single_viewer_session: singleViewerSession,
           nda_required: ndaRequired,
           nda_title: ndaTitle || null,
@@ -731,6 +748,58 @@ const LinkGenerator = () => {
                       </div>
                       <Switch checked={singleViewerSession} onCheckedChange={setSingleViewerSession} />
                     </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-stone-200 p-4 space-y-4">
+                  <div>
+                    <p className="font-semibold text-stone-900">Watermark style</p>
+                    <p className="mt-1 text-sm text-stone-500">
+                      Choose whether the viewer overlays access details, your own text, or a repeated logo mark.
+                    </p>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold text-stone-900">Watermark type</Label>
+                      <Select value={watermarkMode} onValueChange={setWatermarkMode}>
+                        <SelectTrigger className="h-12">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="basic">Basic details</SelectItem>
+                          <SelectItem value="text">Custom text</SelectItem>
+                          <SelectItem value="logo">Logo image</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {watermarkMode === 'text' && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-semibold text-stone-900">Watermark text</Label>
+                        <Input
+                          value={watermarkText}
+                          onChange={(e) => setWatermarkText(e.target.value)}
+                          maxLength={160}
+                          className="h-12"
+                          placeholder="Confidential • Internal Use Only"
+                        />
+                      </div>
+                    )}
+
+                    {watermarkMode === 'logo' && (
+                      <div className="space-y-2 md:col-span-2">
+                        <Label className="text-sm font-semibold text-stone-900">Logo image URL</Label>
+                        <Input
+                          value={watermarkLogoUrl}
+                          onChange={(e) => setWatermarkLogoUrl(e.target.value)}
+                          className="h-12"
+                          placeholder="https://yourdomain.com/logo-mark.png or /images/logo-mark.png"
+                        />
+                        <p className="text-xs text-stone-500">
+                          Use a public `https://` image or a root-relative path hosted on this app.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 

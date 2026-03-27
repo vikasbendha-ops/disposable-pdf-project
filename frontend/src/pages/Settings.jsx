@@ -91,6 +91,9 @@ const Settings = () => {
     strict_security_mode: false,
     require_fullscreen: false,
     enhanced_watermark: false,
+    watermark_mode: 'basic',
+    watermark_text: '',
+    watermark_logo_url: '',
     single_viewer_session: false,
     nda_required: false,
     nda_title: 'Confidentiality agreement',
@@ -155,6 +158,9 @@ const Settings = () => {
         strict_security_mode: Boolean(user?.secure_link_defaults?.strict_security_mode),
         require_fullscreen: Boolean(user?.secure_link_defaults?.require_fullscreen),
         enhanced_watermark: Boolean(user?.secure_link_defaults?.enhanced_watermark),
+        watermark_mode: user?.secure_link_defaults?.watermark_mode || 'basic',
+        watermark_text: user?.secure_link_defaults?.watermark_text || '',
+        watermark_logo_url: user?.secure_link_defaults?.watermark_logo_url || '',
         single_viewer_session: Boolean(user?.secure_link_defaults?.single_viewer_session),
         nda_required: Boolean(user?.secure_link_defaults?.nda_required),
         nda_title: user?.secure_link_defaults?.nda_title || 'Confidentiality agreement',
@@ -686,6 +692,14 @@ const Settings = () => {
       !String(secureLinkDefaults.geo_country_codes || '').trim()
     ) {
       toast.error(t('settings.geoCountryCodesRequired'));
+      return;
+    }
+    if (secureLinkDefaults.watermark_mode === 'text' && !String(secureLinkDefaults.watermark_text || '').trim()) {
+      toast.error('Add watermark text or switch to a different watermark type.');
+      return;
+    }
+    if (secureLinkDefaults.watermark_mode === 'logo' && !String(secureLinkDefaults.watermark_logo_url || '').trim()) {
+      toast.error('Add a logo image URL or switch to a different watermark type.');
       return;
     }
     setSavingSecureLinkDefaults(true);

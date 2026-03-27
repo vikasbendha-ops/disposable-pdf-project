@@ -729,6 +729,62 @@ export function SettingsTabsContent({ ctx }) {
                   </div>
                 </div>
 
+                <div className="rounded-lg border border-stone-200 p-4 space-y-4">
+                  <div>
+                    <p className="font-medium text-stone-900">Watermark style</p>
+                    <p className="text-sm text-stone-500">
+                      Pick the default watermark overlay for new secure links: access details, custom text, or a repeated logo image.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Watermark type</Label>
+                      <Select
+                        value={secureLinkDefaults.watermark_mode || 'basic'}
+                        onValueChange={(value) => updateSecureLinkDefault('watermark_mode', value)}
+                      >
+                        <SelectTrigger className="h-12">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="basic">Basic details</SelectItem>
+                          <SelectItem value="text">Custom text</SelectItem>
+                          <SelectItem value="logo">Logo image</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {secureLinkDefaults.watermark_mode === 'text' && (
+                      <div className="space-y-2">
+                        <Label>Watermark text</Label>
+                        <Input
+                          value={secureLinkDefaults.watermark_text || ''}
+                          onChange={(e) => updateSecureLinkDefault('watermark_text', e.target.value)}
+                          maxLength={160}
+                          className="h-12"
+                          placeholder="Confidential • Internal Use Only"
+                        />
+                      </div>
+                    )}
+
+                    {secureLinkDefaults.watermark_mode === 'logo' && (
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>Logo image URL</Label>
+                        <Input
+                          value={secureLinkDefaults.watermark_logo_url || ''}
+                          onChange={(e) => updateSecureLinkDefault('watermark_logo_url', e.target.value)}
+                          className="h-12"
+                          placeholder="https://yourdomain.com/logo-mark.png or /images/logo-mark.png"
+                        />
+                        <p className="text-xs text-stone-500">
+                          Use a public `https://` image or a root-relative path hosted on this app.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between rounded-lg border border-stone-200 p-4">
                   <div>
                     <p className="font-medium text-stone-900">{t('settings.lockFirstIpTitle')}</p>
