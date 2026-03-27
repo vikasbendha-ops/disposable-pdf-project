@@ -144,15 +144,15 @@ const SecureViewer = () => {
         ? 'text'
         : 'basic';
     const watermarkText = mode === 'text' ? String(data.text || '').trim() : basicWatermarkText;
-    const rowCount = data.enhanced ? 5 : 4;
-    const colCount = data.enhanced ? 4 : 3;
+    const rowCount = data.enhanced ? 4 : 3;
+    const colCount = data.enhanced ? 3 : 2;
     for (let row = 0; row < rowCount; row++) {
       for (let col = 0; col < colCount; col++) {
         positions.push({
           id: row * colCount + col,
-          top: `${10 + row * (data.enhanced ? 18 : 22)}%`,
-          left: `${5 + col * (data.enhanced ? 28 : 40)}%`,
-          opacity: mode === 'logo' ? (data.enhanced ? 0.14 : 0.1) : (data.enhanced ? 0.18 : 0.14),
+          top: `${12 + row * (data.enhanced ? 22 : 28)}%`,
+          left: `${8 + col * (data.enhanced ? 31 : 44)}%`,
+          opacity: mode === 'logo' ? (data.enhanced ? 0.08 : 0.06) : (data.enhanced ? 0.11 : 0.085),
           kind: mode,
           text: watermarkText,
           src: data?.logo_url || '',
@@ -944,55 +944,6 @@ const SecureViewer = () => {
 
       {/* PDF Viewer Container */}
       <div className="flex-1 overflow-auto p-4 relative" id="pdf-container">
-        {/* Watermark Overlay - positioned over PDF */}
-        <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
-          {watermarks.map((wm) => (
-            wm.kind === 'logo' ? (
-              <img
-                key={wm.id}
-                src={wm.src}
-                alt=""
-                draggable={false}
-                className="absolute select-none"
-                style={{
-                  top: wm.top,
-                  left: wm.left,
-                  width: enhancedWatermark ? '170px' : '140px',
-                  height: 'auto',
-                  opacity: wm.opacity,
-                  transform: 'rotate(-22deg)',
-                  filter: 'grayscale(1) contrast(1.1)',
-                  mixBlendMode: 'multiply',
-                  userSelect: 'none',
-                }}
-              />
-            ) : (
-              <div
-                key={wm.id}
-                className="absolute select-none font-mono"
-                style={{
-                  top: wm.top,
-                  left: wm.left,
-                  maxWidth: enhancedWatermark ? '320px' : '260px',
-                  color: wm.kind === 'text' ? 'rgba(6, 78, 59, 0.95)' : 'rgba(15, 23, 42, 0.92)',
-                  opacity: wm.opacity,
-                  transform: 'rotate(-25deg)',
-                  fontSize: wm.kind === 'text' ? (enhancedWatermark ? '14px' : '13px') : (enhancedWatermark ? '12px' : '11px'),
-                  fontWeight: wm.kind === 'text' ? 700 : 600,
-                  letterSpacing: '0.08em',
-                  lineHeight: 1.35,
-                  whiteSpace: 'normal',
-                  textTransform: wm.kind === 'text' ? 'uppercase' : 'none',
-                  mixBlendMode: 'multiply',
-                  textShadow: '0 0 1px rgba(255,255,255,0.35)',
-                }}
-              >
-                {wm.text}
-              </div>
-            )
-          ))}
-        </div>
-
         {/* PDF Display (Canvas rendering to avoid selectable text) */}
         <div className="max-w-5xl mx-auto min-h-[600px]">
           {pdfUrl ? (
@@ -1015,7 +966,53 @@ const SecureViewer = () => {
                       }}
                       className="block"
                     />
-                    <div className="absolute inset-0 pointer-events-none">
+                    <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
+                      {watermarks.map((wm) => (
+                        wm.kind === 'logo' ? (
+                          <img
+                            key={`${pageIndex}-${wm.id}`}
+                            src={wm.src}
+                            alt=""
+                            draggable={false}
+                            className="absolute select-none"
+                            style={{
+                              top: wm.top,
+                              left: wm.left,
+                              width: enhancedWatermark ? '138px' : '120px',
+                              height: 'auto',
+                              opacity: wm.opacity,
+                              transform: 'rotate(-22deg)',
+                              filter: 'grayscale(1) contrast(1.03)',
+                              mixBlendMode: 'multiply',
+                              userSelect: 'none',
+                            }}
+                          />
+                        ) : (
+                          <div
+                            key={`${pageIndex}-${wm.id}`}
+                            className="absolute select-none font-mono"
+                            style={{
+                              top: wm.top,
+                              left: wm.left,
+                              maxWidth: enhancedWatermark ? '260px' : '220px',
+                              color: wm.kind === 'text' ? 'rgba(6, 78, 59, 0.82)' : 'rgba(15, 23, 42, 0.76)',
+                              opacity: wm.opacity,
+                              transform: 'rotate(-24deg)',
+                              fontSize: wm.kind === 'text' ? (enhancedWatermark ? '12px' : '11px') : (enhancedWatermark ? '10px' : '9px'),
+                              fontWeight: wm.kind === 'text' ? 700 : 600,
+                              letterSpacing: '0.06em',
+                              lineHeight: 1.3,
+                              whiteSpace: 'normal',
+                              textTransform: wm.kind === 'text' ? 'uppercase' : 'none',
+                              mixBlendMode: 'multiply',
+                            }}
+                          >
+                            {wm.text}
+                          </div>
+                        )
+                      ))}
+                    </div>
+                    <div className="absolute inset-0 pointer-events-none z-20">
                       {(pageLinks[pageIndex] || []).map((link) => (
                         <a
                           key={link.id}
