@@ -59,6 +59,7 @@ import { Switch } from '../components/ui/switch';
 import { api, useAuth } from '../App';
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
+import { optimizeWatermarkImage, isInlineWatermarkImage } from '../lib/watermark-image';
 
 const PDF_WORKER_SRC = 'https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
 const MAX_INITIAL_THUMBNAILS = 8;
@@ -121,6 +122,7 @@ const PDFManagement = () => {
   const [revokeLinkTarget, setRevokeLinkTarget] = useState(null);
   const [editLinkTarget, setEditLinkTarget] = useState(null);
   const [savingLinkSettings, setSavingLinkSettings] = useState(false);
+  const [processingWatermarkLogo, setProcessingWatermarkLogo] = useState(false);
   const [editLinkForm, setEditLinkForm] = useState({
     internal_title: '',
     internal_note: '',
@@ -286,6 +288,27 @@ const PDFManagement = () => {
       ...prev,
       [field]: value,
     }));
+  };
+
+  const handleEditWatermarkLogoUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setProcessingWatermarkLogo(true);
+    try {
+      const result = await optimizeWatermarkImage(file);
+      setEditLinkForm((prev) => ({
+        ...prev,
+        watermark_mode: 'logo',
+        watermark_logo_url: result.dataUrl,
+      }));
+      toast.success('Logo uploaded and optimized for the watermark');
+    } catch (error) {
+      toast.error(error.message || 'Failed to process the watermark logo');
+    } finally {
+      setProcessingWatermarkLogo(false);
+    }
   };
 
   const handleSaveLinkSettings = async () => {
@@ -1860,16 +1883,53 @@ const PDFManagement = () => {
 
                   {editLinkForm.watermark_mode === 'logo' && (
                     <div className="md:col-span-2">
+                      <Label className="mb-2 block">Upload logo image</Label>
+                      <Input
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg,image/webp"
+                        onChange={handleEditWatermarkLogoUpload}
+                        className="h-12"
+                        disabled={processingWatermarkLogo}
+                      />
+                      <p className="mt-2 text-xs text-stone-500">
+                        Images are resized to 320px max and compressed automatically. Start with a PNG, JPG, or WebP under 5 MB.
+                      </p>
                       <Label className="mb-2 block">Logo image URL</Label>
                       <Input
                         value={editLinkForm.watermark_logo_url}
                         onChange={(e) => updateEditLinkField('watermark_logo_url', e.target.value)}
                         className="h-12"
-                        placeholder="https://yourdomain.com/logo-mark.png or /images/logo-mark.png"
+                        placeholder="https://yourdomain.com/logo-mark.png, /images/logo-mark.png, or use the uploader above"
                       />
                       <p className="mt-2 text-xs text-stone-500">
                         Use a public `https://` image or a root-relative path hosted on this app.
                       </p>
+                      {editLinkForm.watermark_logo_url && (
+                        <div className="mt-3 rounded-xl border border-stone-200 bg-stone-50 p-4">
+                          <p className="mb-3 text-sm font-medium text-stone-900">Watermark preview</p>
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-stone-200 bg-white p-2">
+                              <img
+                                src={editLinkForm.watermark_logo_url}
+                                alt="Watermark preview"
+                                className="max-h-full max-w-full object-contain"
+                              />
+                            </div>
+                            <div className="flex-1 text-xs text-stone-500">
+                              {isInlineWatermarkImage(editLinkForm.watermark_logo_url)
+                                ? 'Stored as an optimized inline watermark image.'
+                                : 'Using the logo image from the URL above.'}
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => updateEditLinkField('watermark_logo_url', '')}
+                            >
+                              Clear
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

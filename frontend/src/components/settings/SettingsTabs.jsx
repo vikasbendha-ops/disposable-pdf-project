@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { User, Lock, Globe, CreditCard, ChevronRight, RefreshCw, Download, ExternalLink, Mail, Shield, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/button';
@@ -9,8 +9,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
 import { TabsContent } from '../ui/tabs';
+import { optimizeWatermarkImage, isInlineWatermarkImage } from '../../lib/watermark-image';
+import { toast } from 'sonner';
 
 export function SettingsTabsContent({ ctx }) {
+  const [processingWatermarkLogo, setProcessingWatermarkLogo] = useState(false);
   const {
     user,
     activeWorkspace,
@@ -136,6 +139,24 @@ export function SettingsTabsContent({ ctx }) {
     handleSaveSecureLinkDefaults,
     getPlanLabel,
   } = ctx;
+
+  const handleDefaultWatermarkLogoUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setProcessingWatermarkLogo(true);
+    try {
+      const result = await optimizeWatermarkImage(file);
+      updateSecureLinkDefault('watermark_mode', 'logo');
+      updateSecureLinkDefault('watermark_logo_url', result.dataUrl);
+      toast.success('Logo uploaded and optimized for the watermark');
+    } catch (error) {
+      toast.error(error.message || 'Failed to process the watermark logo');
+    } finally {
+      setProcessingWatermarkLogo(false);
+    }
+  };
 
   return (
     <>
@@ -770,16 +791,53 @@ export function SettingsTabsContent({ ctx }) {
 
                     {secureLinkDefaults.watermark_mode === 'logo' && (
                       <div className="space-y-2 md:col-span-2">
+                        <Label>Upload logo image</Label>
+                        <Input
+                          type="file"
+                          accept="image/png,image/jpeg,image/jpg,image/webp"
+                          onChange={handleDefaultWatermarkLogoUpload}
+                          className="h-12"
+                          disabled={processingWatermarkLogo}
+                        />
+                        <p className="text-xs text-stone-500">
+                          Images are resized to 320px max and compressed automatically. Start with a PNG, JPG, or WebP under 5 MB.
+                        </p>
                         <Label>Logo image URL</Label>
                         <Input
                           value={secureLinkDefaults.watermark_logo_url || ''}
                           onChange={(e) => updateSecureLinkDefault('watermark_logo_url', e.target.value)}
                           className="h-12"
-                          placeholder="https://yourdomain.com/logo-mark.png or /images/logo-mark.png"
+                          placeholder="https://yourdomain.com/logo-mark.png, /images/logo-mark.png, or use the uploader above"
                         />
                         <p className="text-xs text-stone-500">
                           Use a public `https://` image or a root-relative path hosted on this app.
                         </p>
+                        {secureLinkDefaults.watermark_logo_url && (
+                          <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
+                            <p className="mb-3 text-sm font-medium text-stone-900">Watermark preview</p>
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-stone-200 bg-white p-2">
+                                <img
+                                  src={secureLinkDefaults.watermark_logo_url}
+                                  alt="Watermark preview"
+                                  className="max-h-full max-w-full object-contain"
+                                />
+                              </div>
+                              <div className="flex-1 text-xs text-stone-500">
+                                {isInlineWatermarkImage(secureLinkDefaults.watermark_logo_url)
+                                  ? 'Stored as an optimized inline watermark image.'
+                                  : 'Using the logo image from the URL above.'}
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => updateSecureLinkDefault('watermark_logo_url', '')}
+                              >
+                                Clear
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

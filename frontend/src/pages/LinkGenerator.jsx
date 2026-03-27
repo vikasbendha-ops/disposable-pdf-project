@@ -17,6 +17,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '../lib/utils';
+import { optimizeWatermarkImage, isInlineWatermarkImage } from '../lib/watermark-image';
 
 const LinkGenerator = () => {
   const [pdfs, setPdfs] = useState([]);
@@ -52,6 +53,7 @@ const LinkGenerator = () => {
   const [watermarkMode, setWatermarkMode] = useState('basic');
   const [watermarkText, setWatermarkText] = useState('');
   const [watermarkLogoUrl, setWatermarkLogoUrl] = useState('');
+  const [processingWatermarkLogo, setProcessingWatermarkLogo] = useState(false);
   const [singleViewerSession, setSingleViewerSession] = useState(false);
   const [ndaRequired, setNdaRequired] = useState(false);
   const [ndaTitle, setNdaTitle] = useState('Confidentiality agreement');
@@ -258,6 +260,24 @@ const LinkGenerator = () => {
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       toast.error('Failed to copy link');
+    }
+  };
+
+  const handleWatermarkLogoUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setProcessingWatermarkLogo(true);
+    try {
+      const result = await optimizeWatermarkImage(file);
+      setWatermarkMode('logo');
+      setWatermarkLogoUrl(result.dataUrl);
+      toast.success('Logo uploaded and optimized for the watermark');
+    } catch (error) {
+      toast.error(error.message || 'Failed to process the watermark logo');
+    } finally {
+      setProcessingWatermarkLogo(false);
     }
   };
 
@@ -788,16 +808,49 @@ const LinkGenerator = () => {
 
                     {watermarkMode === 'logo' && (
                       <div className="space-y-2 md:col-span-2">
+                        <Label className="text-sm font-semibold text-stone-900">Upload logo image</Label>
+                        <Input
+                          type="file"
+                          accept="image/png,image/jpeg,image/jpg,image/webp"
+                          onChange={handleWatermarkLogoUpload}
+                          className="h-12"
+                          disabled={processingWatermarkLogo}
+                        />
+                        <p className="text-xs text-stone-500">
+                          Images are resized to 320px max and compressed automatically. Start with a PNG, JPG, or WebP under 5 MB.
+                        </p>
                         <Label className="text-sm font-semibold text-stone-900">Logo image URL</Label>
                         <Input
                           value={watermarkLogoUrl}
                           onChange={(e) => setWatermarkLogoUrl(e.target.value)}
                           className="h-12"
-                          placeholder="https://yourdomain.com/logo-mark.png or /images/logo-mark.png"
+                          placeholder="https://yourdomain.com/logo-mark.png, /images/logo-mark.png, or use the uploader above"
                         />
                         <p className="text-xs text-stone-500">
                           Use a public `https://` image or a root-relative path hosted on this app.
                         </p>
+                        {watermarkLogoUrl && (
+                          <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
+                            <p className="mb-3 text-sm font-medium text-stone-900">Watermark preview</p>
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-stone-200 bg-white p-2">
+                                <img src={watermarkLogoUrl} alt="Watermark preview" className="max-h-full max-w-full object-contain" />
+                              </div>
+                              <div className="flex-1 text-xs text-stone-500">
+                                {isInlineWatermarkImage(watermarkLogoUrl)
+                                  ? 'Stored as an optimized inline watermark image.'
+                                  : 'Using the logo image from the URL above.'}
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setWatermarkLogoUrl('')}
+                              >
+                                Clear
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
