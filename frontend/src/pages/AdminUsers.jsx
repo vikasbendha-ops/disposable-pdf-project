@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Users, Search, Shield, Trash2, X, MoreVertical, CreditCard } from 'lucide-react';
+import { Users, Search, Shield, Trash2, X, MoreVertical, CreditCard, RefreshCcw } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
 import { Card, CardContent } from '../components/ui/card';
 import {
   Table,
@@ -68,6 +69,13 @@ const EMPTY_CREATE_USER = {
   free_access_days: '30',
 };
 
+const EMPTY_REFUND_FORM = {
+  mode: 'full',
+  amount: '',
+  reason: 'requested_by_customer',
+  note: '',
+};
+
 const AdminUsers = () => {
   const { user: currentUser } = useAuth();
   const { plans } = useSubscriptionPlans();
@@ -92,6 +100,9 @@ const AdminUsers = () => {
   const [invoiceEditTarget, setInvoiceEditTarget] = useState(null);
   const [invoiceCustomerForm, setInvoiceCustomerForm] = useState(EMPTY_BILLING_PROFILE);
   const [savingInvoice, setSavingInvoice] = useState(false);
+  const [refundTarget, setRefundTarget] = useState(null);
+  const [refundForm, setRefundForm] = useState(EMPTY_REFUND_FORM);
+  const [processingRefund, setProcessingRefund] = useState(false);
   const loadFailedMessageRef = useRef('Failed to load users');
 
   useEffect(() => {
@@ -184,6 +195,13 @@ const AdminUsers = () => {
 
   const updateInvoiceCustomerField = (field, value) => {
     setInvoiceCustomerForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const updateRefundField = (field, value) => {
+    setRefundForm((prev) => ({
       ...prev,
       [field]: value,
     }));
@@ -331,6 +349,47 @@ const AdminUsers = () => {
       toast.error(error.response?.data?.detail || t('common.error'));
     } finally {
       setSavingInvoice(false);
+    }
+  };
+
+  const getRefundStatusLabel = (payment) => {
+    const status = String(payment?.refund_status || 'none');
+    if (status === 'full') return t('adminUsers.refundStatusFull');
+    if (status === 'partial') return t('adminUsers.refundStatusPartial');
+    return t('adminUsers.refundStatusNone');
+  };
+
+  const openRefundDialog = (payment) => {
+    const remaining = Number(payment?.refundable_amount ?? payment?.amount ?? 0);
+    setRefundTarget(payment);
+    setRefundForm({
+      mode: remaining > 0 ? 'full' : 'partial',
+      amount: remaining > 0 ? remaining.toFixed(2) : '',
+      reason: 'requested_by_customer',
+      note: '',
+    });
+  };
+
+  const handleProcessRefund = async () => {
+    if (!refundTarget?.transaction_id) return;
+    setProcessingRefund(true);
+    try {
+      await api.post(`/admin/billing/refunds/${refundTarget.transaction_id}`, {
+        amount: refundForm.mode === 'partial' ? Number(refundForm.amount || 0) : undefined,
+        reason: refundForm.reason,
+        note: refundForm.note,
+      });
+      toast.success(t('adminUsers.refundSuccess'));
+      setRefundTarget(null);
+      setRefundForm(EMPTY_REFUND_FORM);
+      if (billingTarget) {
+        await handleOpenBilling(billingTarget);
+      }
+      fetchUsers();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || t('adminUsers.refundFailed'));
+    } finally {
+      setProcessingRefund(false);
     }
   };
 
@@ -710,7 +769,7 @@ const AdminUsers = () => {
             <p className="text-sm text-stone-500">{t('adminUsers.billingDataMissing')}</p>
           ) : (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
                 <Card className="border-stone-200">
                   <CardContent className="p-4">
                     <p className="text-xs uppercase text-stone-500">{t('adminUsers.overviewSubscription')}</p>
@@ -728,6 +787,17 @@ const AdminUsers = () => {
                       {t('adminUsers.successfulPayments', {
                         count: billingDetails.payment_summary?.successful_payments || 0,
                       })}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card className="border-stone-200">
+                  <CardContent className="p-4">
+                    <p className="text-xs uppercase text-stone-500">{t('adminUsers.totalRefunded')}</p>
+                    <p className="text-lg font-semibold">
+                      {formatAmount(billingDetails.payment_summary?.total_refunded || 0, billingDetails.payment_summary?.currency || 'eur')}
+                    </p>
+                    <p className="text-sm text-stone-500">
+                      {t('adminUsers.netCollected')}: {formatAmount(billingDetails.payment_summary?.net_paid || 0, billingDetails.payment_summary?.currency || 'eur')}
                     </p>
                   </CardContent>
                 </Card>
@@ -760,6 +830,14 @@ const AdminUsers = () => {
                               </p>
                               <p className="text-xs text-stone-500 capitalize">
                                 {getPlanLabel(payment.plan || 'none')} • {payment.payment_status}
+                              </p>
+                              <p className="text-xs text-stone-500">
+                                {getRefundStatusLabel(payment)}
+                                {Number(payment.refunded_amount_total || 0) > 0
+                                  ? ` • ${t('adminUsers.refundedSummary', {
+                                      amount: formatAmount(payment.refunded_amount_total || 0, payment.currency || 'eur'),
+                                    })}`
+                                  : ''}
                               </p>
                               <p className="text-xs text-stone-500">
                                 {t('adminUsers.paymentPeriod')}: {payment.period_start && payment.period_end
@@ -796,6 +874,20 @@ const AdminUsers = () => {
                                   >
                                     {t('adminUsers.editInvoiceInfo')}
                                   </Button>
+                                  {Number(payment.refundable_amount || 0) > 0 ? (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => openRefundDialog(payment)}
+                                    >
+                                      <RefreshCcw className="w-3.5 h-3.5 mr-1.5" />
+                                      {t('adminUsers.refundPayment')}
+                                    </Button>
+                                  ) : (
+                                    <span className="text-xs text-stone-500">
+                                      {t('adminUsers.refundUnavailable')}
+                                    </span>
+                                  )}
                                 </div>
                               ) : (
                                 <p className="text-xs text-stone-500">
@@ -1155,6 +1247,147 @@ const AdminUsers = () => {
               disabled={savingInvoice}
             >
               {savingInvoice ? t('adminUsers.saving') : t('adminUsers.updateInvoicePdf')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!refundTarget} onOpenChange={(open) => {
+        if (!open) {
+          setRefundTarget(null);
+          setRefundForm(EMPTY_REFUND_FORM);
+        }
+      }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t('adminUsers.refundPayment')}</DialogTitle>
+            <DialogDescription>
+              {t('adminUsers.refundDescription')}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="rounded-xl border border-stone-200 bg-stone-50/80 p-4 space-y-2">
+            <p className="font-medium text-stone-900">
+              {refundTarget?.invoice_number || refundTarget?.transaction_id}
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+              <div>
+                <p className="text-stone-500">{t('adminUsers.totalPaid')}</p>
+                <p className="font-semibold text-stone-900">
+                  {formatAmount(refundTarget?.amount || 0, refundTarget?.currency || 'eur')}
+                </p>
+              </div>
+              <div>
+                <p className="text-stone-500">{t('adminUsers.totalRefunded')}</p>
+                <p className="font-semibold text-amber-700">
+                  {formatAmount(refundTarget?.refunded_amount_total || 0, refundTarget?.currency || 'eur')}
+                </p>
+              </div>
+              <div>
+                <p className="text-stone-500">{t('adminUsers.refundRemaining')}</p>
+                <p className="font-semibold text-emerald-800">
+                  {formatAmount(refundTarget?.refundable_amount || 0, refundTarget?.currency || 'eur')}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label>{t('adminUsers.refundAmount')}</Label>
+              <Select
+                value={refundForm.mode}
+                onValueChange={(value) => {
+                  updateRefundField('mode', value);
+                  if (value === 'full') {
+                    updateRefundField(
+                      'amount',
+                      Number(refundTarget?.refundable_amount || 0).toFixed(2),
+                    );
+                  }
+                }}
+              >
+                <SelectTrigger className="h-12 mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="full">{t('adminUsers.refundFull')}</SelectItem>
+                  <SelectItem value="partial">{t('adminUsers.refundPartial')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="refund-amount">{t('adminUsers.refundAmount')}</Label>
+              <Input
+                id="refund-amount"
+                type="number"
+                min="0.01"
+                step="0.01"
+                max={refundTarget?.refundable_amount || 0}
+                value={refundForm.amount}
+                onChange={(e) => updateRefundField('amount', e.target.value)}
+                className="h-12 mt-1"
+                disabled={refundForm.mode === 'full'}
+              />
+            </div>
+            <div>
+              <Label>{t('adminUsers.refundReason')}</Label>
+              <Select
+                value={refundForm.reason}
+                onValueChange={(value) => updateRefundField('reason', value)}
+              >
+                <SelectTrigger className="h-12 mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="requested_by_customer">{t('adminUsers.requestedByCustomer')}</SelectItem>
+                  <SelectItem value="duplicate">{t('adminUsers.duplicateCharge')}</SelectItem>
+                  <SelectItem value="fraudulent">{t('adminUsers.fraudulent')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-1">
+              <Label>{t('adminUsers.latestRefund')}</Label>
+              <div className="h-12 mt-1 rounded-md border border-stone-200 bg-stone-50 px-3 flex items-center text-sm text-stone-600">
+                {refundTarget?.last_refunded_at
+                  ? format(new Date(refundTarget.last_refunded_at), 'MMM d, yyyy HH:mm')
+                  : t('common.na')}
+              </div>
+            </div>
+            <div className="md:col-span-2">
+              <Label htmlFor="refund-note">{t('adminUsers.refundNote')}</Label>
+              <Textarea
+                id="refund-note"
+                value={refundForm.note}
+                onChange={(e) => updateRefundField('note', e.target.value)}
+                placeholder={t('adminUsers.refundNotePlaceholder')}
+                className="mt-1 min-h-[110px]"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setRefundTarget(null);
+                setRefundForm(EMPTY_REFUND_FORM);
+              }}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              type="button"
+              className="bg-emerald-900 hover:bg-emerald-800"
+              onClick={handleProcessRefund}
+              disabled={
+                processingRefund ||
+                Number(refundTarget?.refundable_amount || 0) <= 0 ||
+                (refundForm.mode === 'partial' && Number(refundForm.amount || 0) <= 0)
+              }
+            >
+              {processingRefund ? t('adminUsers.processingRefund') : t('adminUsers.processRefund')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -3487,6 +3487,70 @@ const MODERN_UI_LANGUAGE_OVERRIDES = {
   },
 };
 
+const ADMIN_REPORT_TRANSLATION_BASE = {
+  adminReports: {
+    grossRevenue: 'Gross Revenue',
+    refundedAmount: 'Refunded',
+    netRevenue: 'Net Revenue',
+    successfulPayments: 'Successful Payments',
+    failedPayments: 'Failed Payments',
+    pendingPayments: 'Pending Payments',
+    refundCount: 'Refunds',
+    uniqueViewers: 'Unique Viewers',
+    totalViews: 'Total Views',
+    paymentPerformance: 'Payment Performance',
+    subscriptionHealth: 'Subscription Health',
+    active: 'Active',
+    trialing: 'Trialing',
+    pastDue: 'Past Due',
+    canceled: 'Canceled',
+    incomplete: 'Incomplete',
+    inactive: 'Inactive',
+    monthlyRevenue: 'Revenue by Month',
+    gross: 'Gross',
+    refunds: 'Refunds',
+    net: 'Net',
+    payments: 'Payments',
+    planPerformance: 'Plan Performance',
+    plan: 'Plan',
+    activeSubscribers: 'Active Subscribers',
+    recentRefunds: 'Recent Refunds',
+    noRefunds: 'No refunds yet',
+    customer: 'Customer',
+    reason: 'Reason',
+    refundedAt: 'Refunded At',
+    paymentSuccessRate: 'Payment Success Rate',
+    activeVsTotalLinks: 'Active vs total secure links',
+    subscribersVsUsers: 'Subscribers vs total users',
+  },
+  adminUsers: {
+    totalRefunded: 'Total Refunded',
+    netCollected: 'Net Collected',
+    refundPayment: 'Refund Payment',
+    refundDescription: 'Create a full or partial Stripe refund for this payment.',
+    refundRemaining: 'Refundable Remaining',
+    refundAmount: 'Refund Amount',
+    refundReason: 'Refund Reason',
+    refundNote: 'Internal Note',
+    refundNotePlaceholder: 'Optional note about why the refund was issued',
+    refundFull: 'Full refund',
+    refundPartial: 'Partial refund',
+    processRefund: 'Process Refund',
+    processingRefund: 'Processing...',
+    refundSuccess: 'Refund created successfully',
+    refundFailed: 'Failed to create refund',
+    refundStatusNone: 'No refund',
+    refundStatusPartial: 'Partially refunded',
+    refundStatusFull: 'Fully refunded',
+    refundedSummary: 'Refunded {amount}',
+    refundUnavailable: 'Refund unavailable',
+    requestedByCustomer: 'Requested by customer',
+    duplicateCharge: 'Duplicate charge',
+    fraudulent: 'Fraudulent',
+    latestRefund: 'Latest refund',
+  },
+};
+
 for (const languageCode of SUPPORTED_LANGUAGE_CODES) {
   TRANSLATION_OVERRIDES[languageCode] = TRANSLATION_OVERRIDES[languageCode] || {};
   deepMergeTranslationOverrides(TRANSLATION_OVERRIDES[languageCode], MODERN_UI_TRANSLATION_BASE);
@@ -3500,4 +3564,5 @@ for (const languageCode of SUPPORTED_LANGUAGE_CODES) {
     deepMergeTranslationOverrides(TRANSLATION_OVERRIDES[languageCode], SETTINGS_SECURITY_TRANSLATION_OVERRIDES[languageCode]);
   }
   deepMergeTranslationOverrides(TRANSLATION_OVERRIDES[languageCode], TEAM_WORKSPACE_TRANSLATION_BASE);
+  deepMergeTranslationOverrides(TRANSLATION_OVERRIDES[languageCode], ADMIN_REPORT_TRANSLATION_BASE);
 }
