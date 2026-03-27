@@ -67,6 +67,21 @@ const DashboardLayout = ({ children, title, subtitle }) => {
     if (role === 'member') return t('workspaceTeam.roleMember');
     return fallbackLabel || t('workspaceTeam.roleMember');
   }, [t]);
+  const activeWorkspaceRoleLabel = activeWorkspace
+    ? translateWorkspaceRole(activeWorkspace.role, activeWorkspace.role_label)
+    : '';
+  const normalizedAccountDisplayName = String(accountDisplayName || '').trim().toLowerCase();
+  const normalizedActiveWorkspaceLabel = String(activeWorkspace?.label || '').trim().toLowerCase();
+  const showWorkspaceSwitcher = !isAdminRoute && Boolean(activeWorkspace) && workspaces.length > 1;
+  const showWorkspaceSummary =
+    !isAdminRoute &&
+    Boolean(activeWorkspace) &&
+    !showWorkspaceSwitcher &&
+    (
+      (normalizedActiveWorkspaceLabel && normalizedActiveWorkspaceLabel !== normalizedAccountDisplayName) ||
+      activeWorkspace?.role !== 'owner'
+    );
+  const showPlanSummary = !isAdminRoute && Boolean(currentPlanBadgeLabel);
 
   const mainNavItems = React.useMemo(() => [
     { icon: LayoutDashboard, label: t('dashboard.title'), path: '/dashboard' },
@@ -183,69 +198,63 @@ const DashboardLayout = ({ children, title, subtitle }) => {
                 </div>
               </div>
 
-              <div className="mt-3 space-y-2 border-t border-stone-200 pt-3">
-                {!isAdminRoute && activeWorkspace && (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
-                        {t('dashboardLayout.workspaceLabel')}
-                      </p>
-                      <span className="text-[11px] text-stone-500">
-                        {translateWorkspaceRole(activeWorkspace.role, activeWorkspace.role_label)}
+              {(showWorkspaceSwitcher || showWorkspaceSummary || showPlanSummary) && (
+                <div className="mt-3 space-y-2 border-t border-stone-200 pt-3">
+                  {showWorkspaceSwitcher && (
+                    <Select value={activeWorkspaceId || activeWorkspace.workspace_id} onValueChange={switchWorkspace}>
+                      <SelectTrigger className="h-9 rounded-xl border-stone-200 bg-white text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {workspaces.map((workspace) => (
+                          <SelectItem key={workspace.workspace_id} value={workspace.workspace_id}>
+                            {workspace.label} ({translateWorkspaceRole(workspace.role, workspace.role_label)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  {showWorkspaceSummary && (
+                    <div className="flex items-center justify-between gap-3 text-xs text-stone-500">
+                      <span className="truncate">
+                        {activeWorkspace.label}
+                      </span>
+                      <span className="shrink-0">
+                        {activeWorkspaceRoleLabel}
                       </span>
                     </div>
-                    {workspaces.length > 1 ? (
-                      <Select value={activeWorkspaceId || activeWorkspace.workspace_id} onValueChange={switchWorkspace}>
-                        <SelectTrigger className="h-9 rounded-xl border-stone-200 bg-white text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {workspaces.map((workspace) => (
-                            <SelectItem key={workspace.workspace_id} value={workspace.workspace_id}>
-                              {workspace.label} ({translateWorkspaceRole(workspace.role, workspace.role_label)})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <p className="truncate text-sm font-medium text-stone-900">
-                        {activeWorkspace.label}
-                      </p>
-                    )}
-                  </div>
-                )}
+                  )}
 
-                <div className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2.5">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-500">
-                      {t('settings.plan')}
-                    </p>
-                    <p className="truncate text-sm font-medium text-stone-900">
-                      {currentPlanBadgeLabel}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 text-[11px] text-stone-500">
-                    <span
-                      className={cn(
-                        "h-2 w-2 rounded-full",
-                        effectiveSubscriptionStatus === 'active' ? "bg-emerald-500" : "bg-stone-400",
-                      )}
-                    />
-                    <span>
-                      {effectiveSubscriptionStatus === 'active' ? t('settings.statusActive') : t('settings.statusInactive')}
-                    </span>
-                  </div>
+                  {showPlanSummary && (
+                    <div className="flex items-center gap-2 text-xs text-stone-500">
+                      <span className="rounded-full bg-white px-2.5 py-1 font-medium text-stone-700">
+                        {currentPlanBadgeLabel}
+                      </span>
+                      <span className="inline-flex items-center gap-2">
+                        <span
+                          className={cn(
+                            "h-2 w-2 rounded-full",
+                            effectiveSubscriptionStatus === 'active' ? "bg-emerald-500" : "bg-stone-400",
+                          )}
+                        />
+                        <span>
+                          {effectiveSubscriptionStatus === 'active' ? t('settings.statusActive') : t('settings.statusInactive')}
+                        </span>
+                      </span>
+                    </div>
+                  )}
+
+                  {showPlanSummary && effectiveSubscriptionStatus !== 'active' && (
+                    <Link to="/pricing" className="block pt-1">
+                      <Button size="sm" className="h-8 w-full rounded-xl bg-emerald-900 text-xs hover:bg-emerald-800">
+                        {t('settings.upgrade')}
+                        <ChevronRight className="ml-1 h-3 w-3" />
+                      </Button>
+                    </Link>
+                  )}
                 </div>
-
-                {effectiveSubscriptionStatus !== 'active' && (
-                  <Link to="/pricing" className="block pt-1">
-                    <Button size="sm" className="h-8 w-full rounded-xl bg-emerald-900 text-xs hover:bg-emerald-800">
-                      {t('settings.upgrade')}
-                      <ChevronRight className="ml-1 h-3 w-3" />
-                    </Button>
-                  </Link>
-                )}
-              </div>
+              )}
             </div>
 
             <button
