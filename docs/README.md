@@ -2,6 +2,12 @@
 
 This folder contains the operational and architectural documentation for the Autodestroy PDF Platform.
 
+## Maintainer
+
+- Vikas Bendha
+- Website: [https://vikasbendha.com](https://vikasbendha.com)
+- Profile source: [https://vikasbendha.com/about-us/](https://vikasbendha.com/about-us/)
+
 ## Core Docs
 
 - [PROJECT_CONTEXT_EXPORT.md](./PROJECT_CONTEXT_EXPORT.md)
@@ -48,4 +54,3 @@ When routes, env vars, schema, or platform capabilities change, also regenerate:
 ```bash
 npm run context:export
 ```
-

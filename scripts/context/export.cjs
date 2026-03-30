@@ -8,6 +8,13 @@ const REPO_ROOT = path.resolve(__dirname, "../..");
 const OUTPUT_DIR = path.join(REPO_ROOT, "docs");
 const OUTPUT_MD = path.join(OUTPUT_DIR, "PROJECT_CONTEXT_EXPORT.md");
 const OUTPUT_JSON = path.join(OUTPUT_DIR, "PROJECT_CONTEXT_EXPORT.json");
+const MAINTAINER = {
+  name: "Vikas Bendha",
+  website: "https://vikasbendha.com",
+  about_url: "https://vikasbendha.com/about-us/",
+  summary:
+    "Public site copy describes Vikas Bendha as a full-stack developer focused on intuitive websites, smart AI automations, effective digital strategies, and end-to-end tech partnership from strategy to launch and beyond.",
+};
 
 function readText(relativePath) {
   return fs.readFileSync(path.join(REPO_ROOT, relativePath), "utf8");
@@ -448,6 +455,7 @@ function buildProjectSummary(packageJson, supportedLanguages) {
   return {
     name: packageJson.name,
     version: packageJson.version,
+    maintainer: MAINTAINER,
     deployment_model: "Single Vercel project using Next.js pages plus a client-side React SPA mounted at the catch-all route.",
     active_runtime: "Next.js at repository root",
     legacy_areas: ["frontend/ (source assets and legacy CRA-era structure reused by the Next app)", "backend/ (historical Python-era area, not the primary runtime)"],
@@ -623,7 +631,14 @@ This file is the primary human-readable handoff pack for another Codex instance 
 - Team roles: ${context.project_summary.team_roles.map((item) => formatCode(item)).join(", ")}
 - User roles: ${context.project_summary.user_roles.map((item) => formatCode(item)).join(", ")}
 
-## 2. Architecture and Runtime Model
+## 2. Project Steward and Maintainer
+
+- Maintainer: ${context.project_summary.maintainer.name}
+- Website: ${context.project_summary.maintainer.website}
+- About page: ${context.project_summary.maintainer.about_url}
+- Summary: ${context.project_summary.maintainer.summary}
+
+## 3. Architecture and Runtime Model
 
 - The active app is a **single Next.js deployment at repo root**.
 - ${formatCode("pages/[[...slug]].jsx")} mounts the client-side React app from ${formatCode("frontend/src/App.js")} and injects SSR SEO metadata.
@@ -638,11 +653,11 @@ This file is the primary human-readable handoff pack for another Codex instance 
 
 ${keyFileTable}
 
-## 3. Core Capabilities
+## 4. Core Capabilities
 
 ${capabilityBlocks}
 
-## 4. Commands and Local Workflow
+## 5. Commands and Local Workflow
 
 ### npm scripts
 
@@ -654,17 +669,17 @@ ${Object.entries(context.commands.npm_scripts)
 
 ${context.commands.notable_commands.map((command) => `- ${formatCode(command)}`).join("\n")}
 
-## 5. Environment Variables
+## 6. Environment Variables
 
 The export only includes placeholders from ${formatCode(".env.example")}. Real secrets are intentionally excluded.
 
 ${envTable}
 
-## 6. Frontend Route Inventory
+## 7. Frontend Route Inventory
 
 ${routeTable}
 
-## 7. API Route Inventory
+## 8. API Route Inventory
 
 ### Exact routes
 
@@ -674,7 +689,7 @@ ${exactApiLines}
 
 ${dynamicApiLines}
 
-## 8. Data Model
+## 9. Data Model
 
 - Primary persistence pattern: ${context.data_model.primary_pattern}
 - Schema file: ${formatCode(context.data_model.schema_file)}
@@ -684,25 +699,26 @@ ${dynamicApiLines}
 
 ${context.data_model.collections.map((collection) => `- ${formatCode(collection)}`).join("\n")}
 
-## 9. Operational Notes
+## 10. Operational Notes
 
 ${context.operational_notes.map((item) => `- ${item}`).join("\n")}
 
-## 10. Known Constraints and Design Decisions
+## 11. Known Constraints and Design Decisions
 
 ${context.known_constraints.map((item) => `- ${item}`).join("\n")}
 
-## 11. Offline Codex Bootstrap Checklist
+## 12. Offline Codex Bootstrap Checklist
 
 ${context.offline_codex_bootstrap.map((item) => `- ${item}`).join("\n")}
 
-## 12. Historical and Source Notes
+## 13. Historical and Source Notes
 
 - ${formatCode("README.md")} is the current deployment and operator runbook.
 - ${formatCode("memory/PRD.md")} is historically useful for product intent, but parts of it still describe the earlier FastAPI/Mongo era. Use it for background, not as the current architecture source of truth.
 - The machine-readable companion file is ${formatCode("docs/PROJECT_CONTEXT_EXPORT.json")}.
+- Maintainer source pages: ${context.project_summary.maintainer.website} and ${context.project_summary.maintainer.about_url}
 
-## 13. Regeneration Contract
+## 14. Regeneration Contract
 
 Run ${formatCode("npm run context:export")} and commit both export files whenever any of the following change:
 

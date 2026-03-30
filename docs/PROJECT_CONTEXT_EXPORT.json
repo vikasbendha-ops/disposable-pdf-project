@@ -1402,46 +1402,46 @@
     "next_config_summary": "React SPA is mounted through pages/[[...slug]].jsx with same-origin API rewrites for /direct/:token.",
     "prd_note": "memory/PRD.md is historically useful but partially outdated. It still references the earlier FastAPI/Mongo architecture and should be treated as product history, not the active runtime design.",
     "readme_summary": [
-      "# Disposable PDF Project",
+      "# Autodestroy PDF Platform",
       "",
-      "## Next.js + Vercel (Single Deployment, No Python)",
+      "Autodestroy is a multi-tenant SaaS platform for secure PDF delivery. It lets customers upload PDFs, generate controlled-access links, apply strong viewer restrictions, track access, manage custom domains, run subscriptions, and operate the platform from a single admin surface.",
       "",
-      "This repo is now configured so frontend and backend can run under one Vercel project:",
+      "This repository is the active production codebase. It is designed to run as a **single Next.js deployment on Vercel** with:",
       "",
-      "- Next.js frontend at repo root (`pages/` + `frontend/src/` UI code)",
-      "- Next.js API backend (`pages/api/index.js` + `pages/api/[...path].js`)",
-      "- Supabase schema reference at `db/supabase_schema.sql`",
+      "- a Next.js API backend",
+      "- a client-side React application mounted through the Next.js catch-all route",
+      "- Supabase Postgres as the main application database",
+      "- Supabase DB storage and Wasabi S3-compatible storage as supported file backends",
       "",
-      "### Deploy on Vercel",
+      "## Overview",
       "",
-      "1. Import this repository as a Vercel project.",
-      "2. Keep **Root Directory** as repository root.",
-      "3. Build command: `npm run build`",
-      "4. Output: Next.js default (leave empty).",
-      "5. Add env vars from [`.env.example`](/Users/apple/Downloads/Disposable-pdf-main/.env.example).",
+      "The product is built around a secure document-sharing workflow:",
       "",
-      "Optional frontend env override:",
+      "1. A user uploads a PDF",
+      "2. The user generates one or more secure links",
+      "3. Each link can enforce access rules such as expiry, NDA acceptance, IP controls, geo rules, watermarking, fullscreen lock, and single-viewer restrictions",
+      "4. Recipients view the PDF inside a hardened web viewer",
+      "5. The owner and platform admins can manage analytics, billing, domains, storage, translations, and security settings",
       "",
-      "- `NEXT_PUBLIC_BACKEND_URL` (leave empty to use same-origin `/api` on Vercel).",
+      "The system also supports:",
       "",
-      "### Authentication + Email Setup (Supabase Auth)",
+      "- direct PDF links when enabled",
+      "- account teams and workspace sharing",
+      "- admin reporting for subscriptions, revenue, refunds, and operations",
+      "- white-label custom domains for customer-facing links",
       "",
-      "Set these Vercel env vars:",
+      "## Developer and Maintainer",
       "",
-      "1. `SUPABASE_URL=https://<project-ref>.supabase.co`",
-      "2. `SUPABASE_SERVICE_ROLE_KEY=<service-role-key>`",
-      "3. `SUPABASE_PUBLISHABLE_KEY=<publishable-or-anon-key>`",
+      "This project is maintained by **Vikas Bendha**.",
       "",
-      "Notes:",
+      "- Website: [https://vikasbendha.com](https://vikasbendha.com)",
+      "- About: [https://vikasbendha.com/about-us/](https://vikasbendha.com/about-us/)",
       "",
-      "- Registration email verification and password reset emails are sent by Supabase Auth.",
-      "- In Supabase Dashboard, configure `Auth -> URL Configuration` with your app URL and redirect URLs (`/verify-email`, `/reset-password`).",
-      "- Legacy Resend fallback is still supported only if Supabase auth env vars are missing.",
+      "Based on the current public site copy, Vikas Bendha is presented as a full-stack developer focused on building intuitive websites, smart AI automations, and effective digital strategies. The same profile also positions him as a dedicated tech partner working from strategy to launch and beyond, with an emphasis on clarity, collaboration, and measurable business growth.",
       "",
-      "### Main Domain Setup (Vercel)",
+      "## Main Capabilities",
       "",
-      "Use your primary platform domain (example: `securepdf.vikasbendha.com`) as the app origin.",
-      ""
+      "### Secure PDF Delivery"
     ],
     "top_level_entries": [
       {
@@ -1483,6 +1483,10 @@
       {
         "name": "design_guidelines.json",
         "type": "file"
+      },
+      {
+        "name": "docs",
+        "type": "directory"
       },
       {
         "name": "frontend",
@@ -2171,7 +2175,7 @@
       }
     ]
   },
-  "generated_at": "2026-03-30T10:08:20.129Z",
+  "generated_at": "2026-03-30T11:18:41.566Z",
   "generator": "scripts/context/export.cjs",
   "known_constraints": [
     "The active runtime is the root Next.js app. The historical backend/ directory may still exist in the repo, but the production deployment path is pages/ plus frontend/src/.",
@@ -2216,6 +2220,12 @@
       "frontend/ (source assets and legacy CRA-era structure reused by the Next app)",
       "backend/ (historical Python-era area, not the primary runtime)"
     ],
+    "maintainer": {
+      "about_url": "https://vikasbendha.com/about-us/",
+      "name": "Vikas Bendha",
+      "summary": "Public site copy describes Vikas Bendha as a full-stack developer focused on intuitive websites, smart AI automations, effective digital strategies, and end-to-end tech partnership from strategy to launch and beyond.",
+      "website": "https://vikasbendha.com"
+    },
     "name": "disposable-pdf-project",
     "primary_storage_modes": [
       "supabase_db",
@@ -2245,13 +2255,13 @@
   "repository": {
     "branch": "main",
     "clean_worktree": false,
-    "commit": "085f91f7acfe6ebd93e66102c8098d1edabc5639",
+    "commit": "4fb053e1e40617268a9e012278f88291d83890be",
     "git_status_short": [
       "M README.md",
-      " M package.json",
-      "?? scripts/context/"
+      " M docs/README.md",
+      " M scripts/context/export.cjs"
     ],
     "root": "/Users/apple/Downloads/Disposable-pdf-main",
-    "short_commit": "085f91f"
+    "short_commit": "4fb053e"
   }
 }

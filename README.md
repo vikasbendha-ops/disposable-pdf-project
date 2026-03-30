@@ -26,6 +26,15 @@ The system also supports:
 - admin reporting for subscriptions, revenue, refunds, and operations
 - white-label custom domains for customer-facing links
 
+## Developer and Maintainer
+
+This project is maintained by **Vikas Bendha**.
+
+- Website: [https://vikasbendha.com](https://vikasbendha.com)
+- About: [https://vikasbendha.com/about-us/](https://vikasbendha.com/about-us/)
+
+Based on the current public site copy, Vikas Bendha is presented as a full-stack developer focused on building intuitive websites, smart AI automations, and effective digital strategies. The same profile also positions him as a dedicated tech partner working from strategy to launch and beyond, with an emphasis on clarity, collaboration, and measurable business growth.
+
 ## Main Capabilities
 
 ### Secure PDF Delivery
