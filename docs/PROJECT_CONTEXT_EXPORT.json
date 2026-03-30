@@ -1,0 +1,2257 @@
+{
+  "api": {
+    "dynamic_route_count": 25,
+    "dynamic_routes": [
+      {
+        "handler": "handleTeamMemberUpdate",
+        "method": "PUT",
+        "path": "/team/members/:param1",
+        "regex": "/^\\/team\\/members\\/([^/]+)$/",
+        "route_key": "memberMatch"
+      },
+      {
+        "handler": "handleTeamMemberDelete",
+        "method": "DELETE",
+        "path": "/team/members/:param1",
+        "regex": "/^\\/team\\/members\\/([^/]+)$/",
+        "route_key": "memberMatch"
+      },
+      {
+        "handler": "handleFoldersRename",
+        "method": "PUT",
+        "path": "/folders/:param1",
+        "regex": "/^\\/folders\\/([^/]+)$/",
+        "route_key": "match"
+      },
+      {
+        "handler": "handleFoldersDelete",
+        "method": "DELETE",
+        "path": "/folders/:param1",
+        "regex": "/^\\/folders\\/([^/]+)$/",
+        "route_key": "match"
+      },
+      {
+        "handler": "handlePdfsFileGet",
+        "method": "GET",
+        "path": "/pdfs/:param1/file",
+        "regex": "/^\\/pdfs\\/([^/]+)\\/file$/",
+        "route_key": "fileMatch"
+      },
+      {
+        "handler": "handlePdfsRename",
+        "method": "PUT",
+        "path": "/pdfs/:param1/rename",
+        "regex": "/^\\/pdfs\\/([^/]+)\\/rename$/",
+        "route_key": "renameMatch"
+      },
+      {
+        "handler": "handlePdfsMove",
+        "method": "PUT",
+        "path": "/pdfs/:param1/move",
+        "regex": "/^\\/pdfs\\/([^/]+)\\/move$/",
+        "route_key": "moveMatch"
+      },
+      {
+        "handler": "handlePdfsDelete",
+        "method": "DELETE",
+        "path": "/pdfs/:param1",
+        "regex": "/^\\/pdfs\\/([^/]+)$/",
+        "route_key": "deleteMatch"
+      },
+      {
+        "handler": "handleLinksStats",
+        "method": "GET",
+        "path": "/links/:param1/stats",
+        "regex": "/^\\/links\\/([^/]+)\\/stats$/",
+        "route_key": "statsMatch"
+      },
+      {
+        "handler": "handleLinksRevoke",
+        "method": "POST",
+        "path": "/links/:param1/revoke",
+        "regex": "/^\\/links\\/([^/]+)\\/revoke$/",
+        "route_key": "revokeMatch"
+      },
+      {
+        "handler": "handleLinksUpdate",
+        "method": "PUT",
+        "path": "/links/:param1",
+        "regex": "/^\\/links\\/([^/]+)$/",
+        "route_key": "deleteMatch"
+      },
+      {
+        "handler": "handleLinksDelete",
+        "method": "DELETE",
+        "path": "/links/:param1",
+        "regex": "/^\\/links\\/([^/]+)$/",
+        "route_key": "deleteMatch"
+      },
+      {
+        "handler": "handleDirectTokenPdf",
+        "method": "GET",
+        "path": "/direct/:param1",
+        "regex": "/^\\/direct\\/([^/]+)$/",
+        "route_key": "directMatch"
+      },
+      {
+        "handler": "handleViewTokenNdaAccept",
+        "method": "POST",
+        "path": "/view/:param1/nda-accept",
+        "regex": "/^\\/view\\/([^/]+)\\/nda-accept$/",
+        "route_key": "ndaAcceptMatch"
+      },
+      {
+        "handler": "handleViewTokenHeartbeat",
+        "method": "POST",
+        "path": "/view/:param1/heartbeat",
+        "regex": "/^\\/view\\/([^/]+)\\/heartbeat$/",
+        "route_key": "heartbeatMatch"
+      },
+      {
+        "handler": "handleViewTokenPdf",
+        "method": "GET",
+        "path": "/view/:param1/pdf",
+        "regex": "/^\\/view\\/([^/]+)\\/pdf$/",
+        "route_key": "pdfMatch"
+      },
+      {
+        "handler": "handleViewToken",
+        "method": "GET",
+        "path": "/view/:param1",
+        "regex": "/^\\/view\\/([^/]+)$/",
+        "route_key": "viewMatch"
+      },
+      {
+        "handler": "handleSubscriptionStatus",
+        "method": "GET",
+        "path": "/subscription/status/:param1",
+        "regex": "/^\\/subscription\\/status\\/([^/]+)$/",
+        "route_key": "statusMatch"
+      },
+      {
+        "handler": "handleSubscriptionInvoiceDownload",
+        "method": "GET",
+        "path": "/subscription/invoices/:param1/download",
+        "regex": "/^\\/subscription\\/invoices\\/([^/]+)\\/download$/",
+        "route_key": "invoiceDownloadMatch"
+      },
+      {
+        "handler": "handleAdminUsersUpdate",
+        "method": "PUT",
+        "path": "/admin/users/:param1",
+        "regex": "/^\\/admin\\/users\\/([^/]+)$/",
+        "route_key": "userMatch"
+      },
+      {
+        "handler": "handleAdminUsersDelete",
+        "method": "DELETE",
+        "path": "/admin/users/:param1",
+        "regex": "/^\\/admin\\/users\\/([^/]+)$/",
+        "route_key": "userMatch"
+      },
+      {
+        "handler": "handleAdminLinksRevoke",
+        "method": "POST",
+        "path": "/admin/links/:param1/revoke",
+        "regex": "/^\\/admin\\/links\\/([^/]+)\\/revoke$/",
+        "route_key": "revokeMatch"
+      },
+      {
+        "handler": "handleAdminLinksDelete",
+        "method": "DELETE",
+        "path": "/admin/links/:param1",
+        "regex": "/^\\/admin\\/links\\/([^/]+)$/",
+        "route_key": "deleteMatch"
+      },
+      {
+        "handler": "handleDomainsDelete",
+        "method": "DELETE",
+        "path": "/domains/:param1",
+        "regex": "/^\\/domains\\/([^/]+)$/",
+        "route_key": "domainMatch"
+      },
+      {
+        "handler": "handleDomainsVerify",
+        "method": "POST",
+        "path": "/domains/:param1",
+        "regex": "/^\\/domains\\/([^/]+)$/",
+        "route_key": "domainMatch"
+      }
+    ],
+    "dynamic_routes_by_prefix": {
+      "admin": [
+        {
+          "handler": "handleAdminUsersUpdate",
+          "method": "PUT",
+          "path": "/admin/users/:param1",
+          "regex": "/^\\/admin\\/users\\/([^/]+)$/",
+          "route_key": "userMatch"
+        },
+        {
+          "handler": "handleAdminUsersDelete",
+          "method": "DELETE",
+          "path": "/admin/users/:param1",
+          "regex": "/^\\/admin\\/users\\/([^/]+)$/",
+          "route_key": "userMatch"
+        },
+        {
+          "handler": "handleAdminLinksRevoke",
+          "method": "POST",
+          "path": "/admin/links/:param1/revoke",
+          "regex": "/^\\/admin\\/links\\/([^/]+)\\/revoke$/",
+          "route_key": "revokeMatch"
+        },
+        {
+          "handler": "handleAdminLinksDelete",
+          "method": "DELETE",
+          "path": "/admin/links/:param1",
+          "regex": "/^\\/admin\\/links\\/([^/]+)$/",
+          "route_key": "deleteMatch"
+        }
+      ],
+      "direct": [
+        {
+          "handler": "handleDirectTokenPdf",
+          "method": "GET",
+          "path": "/direct/:param1",
+          "regex": "/^\\/direct\\/([^/]+)$/",
+          "route_key": "directMatch"
+        }
+      ],
+      "domains": [
+        {
+          "handler": "handleDomainsDelete",
+          "method": "DELETE",
+          "path": "/domains/:param1",
+          "regex": "/^\\/domains\\/([^/]+)$/",
+          "route_key": "domainMatch"
+        },
+        {
+          "handler": "handleDomainsVerify",
+          "method": "POST",
+          "path": "/domains/:param1",
+          "regex": "/^\\/domains\\/([^/]+)$/",
+          "route_key": "domainMatch"
+        }
+      ],
+      "folders": [
+        {
+          "handler": "handleFoldersRename",
+          "method": "PUT",
+          "path": "/folders/:param1",
+          "regex": "/^\\/folders\\/([^/]+)$/",
+          "route_key": "match"
+        },
+        {
+          "handler": "handleFoldersDelete",
+          "method": "DELETE",
+          "path": "/folders/:param1",
+          "regex": "/^\\/folders\\/([^/]+)$/",
+          "route_key": "match"
+        }
+      ],
+      "links": [
+        {
+          "handler": "handleLinksStats",
+          "method": "GET",
+          "path": "/links/:param1/stats",
+          "regex": "/^\\/links\\/([^/]+)\\/stats$/",
+          "route_key": "statsMatch"
+        },
+        {
+          "handler": "handleLinksRevoke",
+          "method": "POST",
+          "path": "/links/:param1/revoke",
+          "regex": "/^\\/links\\/([^/]+)\\/revoke$/",
+          "route_key": "revokeMatch"
+        },
+        {
+          "handler": "handleLinksUpdate",
+          "method": "PUT",
+          "path": "/links/:param1",
+          "regex": "/^\\/links\\/([^/]+)$/",
+          "route_key": "deleteMatch"
+        },
+        {
+          "handler": "handleLinksDelete",
+          "method": "DELETE",
+          "path": "/links/:param1",
+          "regex": "/^\\/links\\/([^/]+)$/",
+          "route_key": "deleteMatch"
+        }
+      ],
+      "pdfs": [
+        {
+          "handler": "handlePdfsFileGet",
+          "method": "GET",
+          "path": "/pdfs/:param1/file",
+          "regex": "/^\\/pdfs\\/([^/]+)\\/file$/",
+          "route_key": "fileMatch"
+        },
+        {
+          "handler": "handlePdfsRename",
+          "method": "PUT",
+          "path": "/pdfs/:param1/rename",
+          "regex": "/^\\/pdfs\\/([^/]+)\\/rename$/",
+          "route_key": "renameMatch"
+        },
+        {
+          "handler": "handlePdfsMove",
+          "method": "PUT",
+          "path": "/pdfs/:param1/move",
+          "regex": "/^\\/pdfs\\/([^/]+)\\/move$/",
+          "route_key": "moveMatch"
+        },
+        {
+          "handler": "handlePdfsDelete",
+          "method": "DELETE",
+          "path": "/pdfs/:param1",
+          "regex": "/^\\/pdfs\\/([^/]+)$/",
+          "route_key": "deleteMatch"
+        }
+      ],
+      "subscription": [
+        {
+          "handler": "handleSubscriptionStatus",
+          "method": "GET",
+          "path": "/subscription/status/:param1",
+          "regex": "/^\\/subscription\\/status\\/([^/]+)$/",
+          "route_key": "statusMatch"
+        },
+        {
+          "handler": "handleSubscriptionInvoiceDownload",
+          "method": "GET",
+          "path": "/subscription/invoices/:param1/download",
+          "regex": "/^\\/subscription\\/invoices\\/([^/]+)\\/download$/",
+          "route_key": "invoiceDownloadMatch"
+        }
+      ],
+      "team": [
+        {
+          "handler": "handleTeamMemberUpdate",
+          "method": "PUT",
+          "path": "/team/members/:param1",
+          "regex": "/^\\/team\\/members\\/([^/]+)$/",
+          "route_key": "memberMatch"
+        },
+        {
+          "handler": "handleTeamMemberDelete",
+          "method": "DELETE",
+          "path": "/team/members/:param1",
+          "regex": "/^\\/team\\/members\\/([^/]+)$/",
+          "route_key": "memberMatch"
+        }
+      ],
+      "view": [
+        {
+          "handler": "handleViewTokenNdaAccept",
+          "method": "POST",
+          "path": "/view/:param1/nda-accept",
+          "regex": "/^\\/view\\/([^/]+)\\/nda-accept$/",
+          "route_key": "ndaAcceptMatch"
+        },
+        {
+          "handler": "handleViewTokenHeartbeat",
+          "method": "POST",
+          "path": "/view/:param1/heartbeat",
+          "regex": "/^\\/view\\/([^/]+)\\/heartbeat$/",
+          "route_key": "heartbeatMatch"
+        },
+        {
+          "handler": "handleViewTokenPdf",
+          "method": "GET",
+          "path": "/view/:param1/pdf",
+          "regex": "/^\\/view\\/([^/]+)\\/pdf$/",
+          "route_key": "pdfMatch"
+        },
+        {
+          "handler": "handleViewToken",
+          "method": "GET",
+          "path": "/view/:param1",
+          "regex": "/^\\/view\\/([^/]+)$/",
+          "route_key": "viewMatch"
+        }
+      ]
+    },
+    "exact_route_count": 88,
+    "exact_routes": [
+      {
+        "handler": "handleAuthRegister",
+        "method": "POST",
+        "path": "/auth/register"
+      },
+      {
+        "handler": "handleAuthLogin",
+        "method": "POST",
+        "path": "/auth/login"
+      },
+      {
+        "handler": "handleTwoFactorLoginVerify",
+        "method": "POST",
+        "path": "/auth/login/2fa"
+      },
+      {
+        "handler": "handleAuthGoogleStart",
+        "method": "GET",
+        "path": "/auth/google/start"
+      },
+      {
+        "handler": "handleAuthGoogleExchange",
+        "method": "POST",
+        "path": "/auth/google/exchange"
+      },
+      {
+        "handler": "handleAuthGoogleSession",
+        "method": "POST",
+        "path": "/auth/google/session"
+      },
+      {
+        "handler": "handleTwoFactorStatusGet",
+        "method": "GET",
+        "path": "/auth/2fa"
+      },
+      {
+        "handler": "handleTwoFactorSetup",
+        "method": "POST",
+        "path": "/auth/2fa/setup"
+      },
+      {
+        "handler": "handleTwoFactorEnable",
+        "method": "POST",
+        "path": "/auth/2fa/enable"
+      },
+      {
+        "handler": "handleTwoFactorDisable",
+        "method": "POST",
+        "path": "/auth/2fa/disable"
+      },
+      {
+        "handler": "handleAuthMe",
+        "method": "GET",
+        "path": "/auth/me"
+      },
+      {
+        "handler": "handleAuthLogout",
+        "method": "POST",
+        "path": "/auth/logout"
+      },
+      {
+        "handler": "handleAuthLanguage",
+        "method": "PUT",
+        "path": "/auth/language"
+      },
+      {
+        "handler": "handleAuthProfileUpdate",
+        "method": "PUT",
+        "path": "/auth/profile"
+      },
+      {
+        "handler": "handleAuthEmailChangeRequest",
+        "method": "POST",
+        "path": "/auth/email-change/request"
+      },
+      {
+        "handler": "handleAuthEmailChangeConfirm",
+        "method": "POST",
+        "path": "/auth/email-change/confirm"
+      },
+      {
+        "handler": "handleAuthPasswordReset",
+        "method": "POST",
+        "path": "/auth/password-reset"
+      },
+      {
+        "handler": "handleAuthPasswordResetSelf",
+        "method": "POST",
+        "path": "/auth/password-reset/self"
+      },
+      {
+        "handler": "handleAuthPasswordResetValidate",
+        "method": "GET",
+        "path": "/auth/password-reset/validate"
+      },
+      {
+        "handler": "handleAuthPasswordResetConfirm",
+        "method": "POST",
+        "path": "/auth/password-reset/confirm"
+      },
+      {
+        "handler": "handleAuthVerifyEmailConfirm",
+        "method": "POST",
+        "path": "/auth/verify-email/confirm"
+      },
+      {
+        "handler": "handleAuthVerifyEmailResend",
+        "method": "POST",
+        "path": "/auth/verify-email/resend"
+      },
+      {
+        "handler": "handleAuditEventsGet",
+        "method": "GET",
+        "path": "/audit/events"
+      },
+      {
+        "handler": "handleWorkspacesGet",
+        "method": "GET",
+        "path": "/workspaces"
+      },
+      {
+        "handler": "handleTeamGet",
+        "method": "GET",
+        "path": "/team"
+      },
+      {
+        "handler": "handleTeamInvitationPreview",
+        "method": "GET",
+        "path": "/team/invitations/preview"
+      },
+      {
+        "handler": "handleTeamInvitationCreate",
+        "method": "POST",
+        "path": "/team/invitations"
+      },
+      {
+        "handler": "handleTeamInvitationAccept",
+        "method": "POST",
+        "path": "/team/invitations/accept"
+      },
+      {
+        "handler": "handleFoldersGet",
+        "method": "GET",
+        "path": "/folders"
+      },
+      {
+        "handler": "handleFoldersCreate",
+        "method": "POST",
+        "path": "/folders"
+      },
+      {
+        "handler": "handlePdfsUpload",
+        "method": "POST",
+        "path": "/pdfs/upload"
+      },
+      {
+        "handler": "handlePdfsGet",
+        "method": "GET",
+        "path": "/pdfs"
+      },
+      {
+        "handler": "handlePdfsWorkspaceGet",
+        "method": "GET",
+        "path": "/pdfs/workspace"
+      },
+      {
+        "handler": "handleLinksCreate",
+        "method": "POST",
+        "path": "/links"
+      },
+      {
+        "handler": "handleLinksGet",
+        "method": "GET",
+        "path": "/links"
+      },
+      {
+        "handler": "handleSubscriptionCheckout",
+        "method": "POST",
+        "path": "/subscription/checkout"
+      },
+      {
+        "handler": "handleSubscriptionOverview",
+        "method": "GET",
+        "path": "/subscription/overview"
+      },
+      {
+        "handler": "handleSubscriptionBillingPortal",
+        "method": "POST",
+        "path": "/subscription/billing-portal"
+      },
+      {
+        "handler": "handleStripeWebhook",
+        "method": "POST",
+        "path": "/webhook/stripe"
+      },
+      {
+        "handler": "handleSubscriptionPlans",
+        "method": "GET",
+        "path": "/subscription/plans"
+      },
+      {
+        "handler": "handleBrandingGet",
+        "method": "GET",
+        "path": "/branding"
+      },
+      {
+        "handler": "handleLocalizationGet",
+        "method": "GET",
+        "path": "/localization"
+      },
+      {
+        "handler": "handlePublicSiteGet",
+        "method": "GET",
+        "path": "/public-site"
+      },
+      {
+        "handler": "handleSeoGet",
+        "method": "GET",
+        "path": "/seo"
+      },
+      {
+        "handler": "handleAdminUsersGet",
+        "method": "GET",
+        "path": "/admin/users"
+      },
+      {
+        "handler": "handleAdminUsersCreate",
+        "method": "POST",
+        "path": "/admin/users"
+      },
+      {
+        "handler": "handleAdminLinksGet",
+        "method": "GET",
+        "path": "/admin/links"
+      },
+      {
+        "handler": "handleAdminStats",
+        "method": "GET",
+        "path": "/admin/stats"
+      },
+      {
+        "handler": "handleAdminBillingCustomersGet",
+        "method": "GET",
+        "path": "/admin/billing/customers"
+      },
+      {
+        "handler": "handleAdminAuditEventsGet",
+        "method": "GET",
+        "path": "/admin/audit/events"
+      },
+      {
+        "handler": "handleAdminOperationsHealthGet",
+        "method": "GET",
+        "path": "/admin/operations/health"
+      },
+      {
+        "handler": "handleAdminJobsGet",
+        "method": "GET",
+        "path": "/admin/jobs"
+      },
+      {
+        "handler": "handleAdminJobsRun",
+        "method": "POST",
+        "path": "/admin/jobs/run"
+      },
+      {
+        "handler": "handleAdminStorageMigrationCreate",
+        "method": "POST",
+        "path": "/admin/jobs/storage-migration"
+      },
+      {
+        "handler": "handleAdminSettingsPermissionsGet",
+        "method": "GET",
+        "path": "/admin/settings/permissions"
+      },
+      {
+        "handler": "handleAdminSettingsPermissionsPut",
+        "method": "PUT",
+        "path": "/admin/settings/permissions"
+      },
+      {
+        "handler": "handleAdminSettingsHistoryGet",
+        "method": "GET",
+        "path": "/admin/settings/history"
+      },
+      {
+        "handler": "handleAdminStripeGet",
+        "method": "GET",
+        "path": "/admin/settings/stripe"
+      },
+      {
+        "handler": "handleAdminStripePut",
+        "method": "PUT",
+        "path": "/admin/settings/stripe"
+      },
+      {
+        "handler": "handleAdminEmailDeliveryGet",
+        "method": "GET",
+        "path": "/admin/settings/email-delivery"
+      },
+      {
+        "handler": "handleAdminEmailDeliveryPut",
+        "method": "PUT",
+        "path": "/admin/settings/email-delivery"
+      },
+      {
+        "handler": "handleAdminGmailStart",
+        "method": "GET",
+        "path": "/admin/settings/email-delivery/gmail/start"
+      },
+      {
+        "handler": "handleAdminGmailCallback",
+        "method": "GET",
+        "path": "/admin/settings/email-delivery/gmail/callback"
+      },
+      {
+        "handler": "handleAdminOutlookStart",
+        "method": "GET",
+        "path": "/admin/settings/email-delivery/outlook/start"
+      },
+      {
+        "handler": "handleAdminOutlookCallback",
+        "method": "GET",
+        "path": "/admin/settings/email-delivery/outlook/callback"
+      },
+      {
+        "handler": "handleAdminEmailDeliveryTest",
+        "method": "POST",
+        "path": "/admin/settings/email-delivery/test"
+      },
+      {
+        "handler": "handleAdminAuthEmailTemplateGet",
+        "method": "GET",
+        "path": "/admin/settings/auth-email-template"
+      },
+      {
+        "handler": "handleAdminAuthEmailTemplatePut",
+        "method": "PUT",
+        "path": "/admin/settings/auth-email-template"
+      },
+      {
+        "handler": "handleAdminStorageGet",
+        "method": "GET",
+        "path": "/admin/settings/storage"
+      },
+      {
+        "handler": "handleAdminStoragePut",
+        "method": "PUT",
+        "path": "/admin/settings/storage"
+      },
+      {
+        "handler": "handleAdminVercelGet",
+        "method": "GET",
+        "path": "/admin/settings/vercel"
+      },
+      {
+        "handler": "handleAdminVercelPut",
+        "method": "PUT",
+        "path": "/admin/settings/vercel"
+      },
+      {
+        "handler": "handleAdminLocalizationGet",
+        "method": "GET",
+        "path": "/admin/settings/localization"
+      },
+      {
+        "handler": "handleAdminLocalizationPut",
+        "method": "PUT",
+        "path": "/admin/settings/localization"
+      },
+      {
+        "handler": "handleAdminPublicSiteGet",
+        "method": "GET",
+        "path": "/admin/settings/public-site"
+      },
+      {
+        "handler": "handleAdminPublicSitePut",
+        "method": "PUT",
+        "path": "/admin/settings/public-site"
+      },
+      {
+        "handler": "handleAdminBrandingGet",
+        "method": "GET",
+        "path": "/admin/settings/branding"
+      },
+      {
+        "handler": "handleAdminBrandingPut",
+        "method": "PUT",
+        "path": "/admin/settings/branding"
+      },
+      {
+        "handler": "handleAdminSeoGet",
+        "method": "GET",
+        "path": "/admin/settings/seo"
+      },
+      {
+        "handler": "handleAdminSeoPut",
+        "method": "PUT",
+        "path": "/admin/settings/seo"
+      },
+      {
+        "handler": "handleAdminSubscriptionPlansGet",
+        "method": "GET",
+        "path": "/admin/settings/subscription-plans"
+      },
+      {
+        "handler": "handleAdminSubscriptionPlansPut",
+        "method": "PUT",
+        "path": "/admin/settings/subscription-plans"
+      },
+      {
+        "handler": "handleAdminInvoiceTemplateGet",
+        "method": "GET",
+        "path": "/admin/settings/invoice-template"
+      },
+      {
+        "handler": "handleAdminInvoiceTemplatePut",
+        "method": "PUT",
+        "path": "/admin/settings/invoice-template"
+      },
+      {
+        "handler": "handleDomainsCreate",
+        "method": "POST",
+        "path": "/domains"
+      },
+      {
+        "handler": "handleDomainsGet",
+        "method": "GET",
+        "path": "/domains"
+      },
+      {
+        "handler": "handleDomainsDefaultPut",
+        "method": "PUT",
+        "path": "/domains/default"
+      },
+      {
+        "handler": "handleDashboardStats",
+        "method": "GET",
+        "path": "/dashboard/stats"
+      }
+    ],
+    "exact_routes_by_prefix": {
+      "admin": [
+        {
+          "handler": "handleAdminUsersGet",
+          "method": "GET",
+          "path": "/admin/users"
+        },
+        {
+          "handler": "handleAdminUsersCreate",
+          "method": "POST",
+          "path": "/admin/users"
+        },
+        {
+          "handler": "handleAdminLinksGet",
+          "method": "GET",
+          "path": "/admin/links"
+        },
+        {
+          "handler": "handleAdminStats",
+          "method": "GET",
+          "path": "/admin/stats"
+        },
+        {
+          "handler": "handleAdminBillingCustomersGet",
+          "method": "GET",
+          "path": "/admin/billing/customers"
+        },
+        {
+          "handler": "handleAdminAuditEventsGet",
+          "method": "GET",
+          "path": "/admin/audit/events"
+        },
+        {
+          "handler": "handleAdminOperationsHealthGet",
+          "method": "GET",
+          "path": "/admin/operations/health"
+        },
+        {
+          "handler": "handleAdminJobsGet",
+          "method": "GET",
+          "path": "/admin/jobs"
+        },
+        {
+          "handler": "handleAdminJobsRun",
+          "method": "POST",
+          "path": "/admin/jobs/run"
+        },
+        {
+          "handler": "handleAdminStorageMigrationCreate",
+          "method": "POST",
+          "path": "/admin/jobs/storage-migration"
+        },
+        {
+          "handler": "handleAdminSettingsPermissionsGet",
+          "method": "GET",
+          "path": "/admin/settings/permissions"
+        },
+        {
+          "handler": "handleAdminSettingsPermissionsPut",
+          "method": "PUT",
+          "path": "/admin/settings/permissions"
+        },
+        {
+          "handler": "handleAdminSettingsHistoryGet",
+          "method": "GET",
+          "path": "/admin/settings/history"
+        },
+        {
+          "handler": "handleAdminStripeGet",
+          "method": "GET",
+          "path": "/admin/settings/stripe"
+        },
+        {
+          "handler": "handleAdminStripePut",
+          "method": "PUT",
+          "path": "/admin/settings/stripe"
+        },
+        {
+          "handler": "handleAdminEmailDeliveryGet",
+          "method": "GET",
+          "path": "/admin/settings/email-delivery"
+        },
+        {
+          "handler": "handleAdminEmailDeliveryPut",
+          "method": "PUT",
+          "path": "/admin/settings/email-delivery"
+        },
+        {
+          "handler": "handleAdminGmailStart",
+          "method": "GET",
+          "path": "/admin/settings/email-delivery/gmail/start"
+        },
+        {
+          "handler": "handleAdminGmailCallback",
+          "method": "GET",
+          "path": "/admin/settings/email-delivery/gmail/callback"
+        },
+        {
+          "handler": "handleAdminOutlookStart",
+          "method": "GET",
+          "path": "/admin/settings/email-delivery/outlook/start"
+        },
+        {
+          "handler": "handleAdminOutlookCallback",
+          "method": "GET",
+          "path": "/admin/settings/email-delivery/outlook/callback"
+        },
+        {
+          "handler": "handleAdminEmailDeliveryTest",
+          "method": "POST",
+          "path": "/admin/settings/email-delivery/test"
+        },
+        {
+          "handler": "handleAdminAuthEmailTemplateGet",
+          "method": "GET",
+          "path": "/admin/settings/auth-email-template"
+        },
+        {
+          "handler": "handleAdminAuthEmailTemplatePut",
+          "method": "PUT",
+          "path": "/admin/settings/auth-email-template"
+        },
+        {
+          "handler": "handleAdminStorageGet",
+          "method": "GET",
+          "path": "/admin/settings/storage"
+        },
+        {
+          "handler": "handleAdminStoragePut",
+          "method": "PUT",
+          "path": "/admin/settings/storage"
+        },
+        {
+          "handler": "handleAdminVercelGet",
+          "method": "GET",
+          "path": "/admin/settings/vercel"
+        },
+        {
+          "handler": "handleAdminVercelPut",
+          "method": "PUT",
+          "path": "/admin/settings/vercel"
+        },
+        {
+          "handler": "handleAdminLocalizationGet",
+          "method": "GET",
+          "path": "/admin/settings/localization"
+        },
+        {
+          "handler": "handleAdminLocalizationPut",
+          "method": "PUT",
+          "path": "/admin/settings/localization"
+        },
+        {
+          "handler": "handleAdminPublicSiteGet",
+          "method": "GET",
+          "path": "/admin/settings/public-site"
+        },
+        {
+          "handler": "handleAdminPublicSitePut",
+          "method": "PUT",
+          "path": "/admin/settings/public-site"
+        },
+        {
+          "handler": "handleAdminBrandingGet",
+          "method": "GET",
+          "path": "/admin/settings/branding"
+        },
+        {
+          "handler": "handleAdminBrandingPut",
+          "method": "PUT",
+          "path": "/admin/settings/branding"
+        },
+        {
+          "handler": "handleAdminSeoGet",
+          "method": "GET",
+          "path": "/admin/settings/seo"
+        },
+        {
+          "handler": "handleAdminSeoPut",
+          "method": "PUT",
+          "path": "/admin/settings/seo"
+        },
+        {
+          "handler": "handleAdminSubscriptionPlansGet",
+          "method": "GET",
+          "path": "/admin/settings/subscription-plans"
+        },
+        {
+          "handler": "handleAdminSubscriptionPlansPut",
+          "method": "PUT",
+          "path": "/admin/settings/subscription-plans"
+        },
+        {
+          "handler": "handleAdminInvoiceTemplateGet",
+          "method": "GET",
+          "path": "/admin/settings/invoice-template"
+        },
+        {
+          "handler": "handleAdminInvoiceTemplatePut",
+          "method": "PUT",
+          "path": "/admin/settings/invoice-template"
+        }
+      ],
+      "audit": [
+        {
+          "handler": "handleAuditEventsGet",
+          "method": "GET",
+          "path": "/audit/events"
+        }
+      ],
+      "auth": [
+        {
+          "handler": "handleAuthRegister",
+          "method": "POST",
+          "path": "/auth/register"
+        },
+        {
+          "handler": "handleAuthLogin",
+          "method": "POST",
+          "path": "/auth/login"
+        },
+        {
+          "handler": "handleTwoFactorLoginVerify",
+          "method": "POST",
+          "path": "/auth/login/2fa"
+        },
+        {
+          "handler": "handleAuthGoogleStart",
+          "method": "GET",
+          "path": "/auth/google/start"
+        },
+        {
+          "handler": "handleAuthGoogleExchange",
+          "method": "POST",
+          "path": "/auth/google/exchange"
+        },
+        {
+          "handler": "handleAuthGoogleSession",
+          "method": "POST",
+          "path": "/auth/google/session"
+        },
+        {
+          "handler": "handleTwoFactorStatusGet",
+          "method": "GET",
+          "path": "/auth/2fa"
+        },
+        {
+          "handler": "handleTwoFactorSetup",
+          "method": "POST",
+          "path": "/auth/2fa/setup"
+        },
+        {
+          "handler": "handleTwoFactorEnable",
+          "method": "POST",
+          "path": "/auth/2fa/enable"
+        },
+        {
+          "handler": "handleTwoFactorDisable",
+          "method": "POST",
+          "path": "/auth/2fa/disable"
+        },
+        {
+          "handler": "handleAuthMe",
+          "method": "GET",
+          "path": "/auth/me"
+        },
+        {
+          "handler": "handleAuthLogout",
+          "method": "POST",
+          "path": "/auth/logout"
+        },
+        {
+          "handler": "handleAuthLanguage",
+          "method": "PUT",
+          "path": "/auth/language"
+        },
+        {
+          "handler": "handleAuthProfileUpdate",
+          "method": "PUT",
+          "path": "/auth/profile"
+        },
+        {
+          "handler": "handleAuthEmailChangeRequest",
+          "method": "POST",
+          "path": "/auth/email-change/request"
+        },
+        {
+          "handler": "handleAuthEmailChangeConfirm",
+          "method": "POST",
+          "path": "/auth/email-change/confirm"
+        },
+        {
+          "handler": "handleAuthPasswordReset",
+          "method": "POST",
+          "path": "/auth/password-reset"
+        },
+        {
+          "handler": "handleAuthPasswordResetSelf",
+          "method": "POST",
+          "path": "/auth/password-reset/self"
+        },
+        {
+          "handler": "handleAuthPasswordResetValidate",
+          "method": "GET",
+          "path": "/auth/password-reset/validate"
+        },
+        {
+          "handler": "handleAuthPasswordResetConfirm",
+          "method": "POST",
+          "path": "/auth/password-reset/confirm"
+        },
+        {
+          "handler": "handleAuthVerifyEmailConfirm",
+          "method": "POST",
+          "path": "/auth/verify-email/confirm"
+        },
+        {
+          "handler": "handleAuthVerifyEmailResend",
+          "method": "POST",
+          "path": "/auth/verify-email/resend"
+        }
+      ],
+      "branding": [
+        {
+          "handler": "handleBrandingGet",
+          "method": "GET",
+          "path": "/branding"
+        }
+      ],
+      "dashboard": [
+        {
+          "handler": "handleDashboardStats",
+          "method": "GET",
+          "path": "/dashboard/stats"
+        }
+      ],
+      "domains": [
+        {
+          "handler": "handleDomainsCreate",
+          "method": "POST",
+          "path": "/domains"
+        },
+        {
+          "handler": "handleDomainsGet",
+          "method": "GET",
+          "path": "/domains"
+        },
+        {
+          "handler": "handleDomainsDefaultPut",
+          "method": "PUT",
+          "path": "/domains/default"
+        }
+      ],
+      "folders": [
+        {
+          "handler": "handleFoldersGet",
+          "method": "GET",
+          "path": "/folders"
+        },
+        {
+          "handler": "handleFoldersCreate",
+          "method": "POST",
+          "path": "/folders"
+        }
+      ],
+      "links": [
+        {
+          "handler": "handleLinksCreate",
+          "method": "POST",
+          "path": "/links"
+        },
+        {
+          "handler": "handleLinksGet",
+          "method": "GET",
+          "path": "/links"
+        }
+      ],
+      "localization": [
+        {
+          "handler": "handleLocalizationGet",
+          "method": "GET",
+          "path": "/localization"
+        }
+      ],
+      "pdfs": [
+        {
+          "handler": "handlePdfsUpload",
+          "method": "POST",
+          "path": "/pdfs/upload"
+        },
+        {
+          "handler": "handlePdfsGet",
+          "method": "GET",
+          "path": "/pdfs"
+        },
+        {
+          "handler": "handlePdfsWorkspaceGet",
+          "method": "GET",
+          "path": "/pdfs/workspace"
+        }
+      ],
+      "public-site": [
+        {
+          "handler": "handlePublicSiteGet",
+          "method": "GET",
+          "path": "/public-site"
+        }
+      ],
+      "seo": [
+        {
+          "handler": "handleSeoGet",
+          "method": "GET",
+          "path": "/seo"
+        }
+      ],
+      "subscription": [
+        {
+          "handler": "handleSubscriptionCheckout",
+          "method": "POST",
+          "path": "/subscription/checkout"
+        },
+        {
+          "handler": "handleSubscriptionOverview",
+          "method": "GET",
+          "path": "/subscription/overview"
+        },
+        {
+          "handler": "handleSubscriptionBillingPortal",
+          "method": "POST",
+          "path": "/subscription/billing-portal"
+        },
+        {
+          "handler": "handleSubscriptionPlans",
+          "method": "GET",
+          "path": "/subscription/plans"
+        }
+      ],
+      "team": [
+        {
+          "handler": "handleTeamGet",
+          "method": "GET",
+          "path": "/team"
+        },
+        {
+          "handler": "handleTeamInvitationPreview",
+          "method": "GET",
+          "path": "/team/invitations/preview"
+        },
+        {
+          "handler": "handleTeamInvitationCreate",
+          "method": "POST",
+          "path": "/team/invitations"
+        },
+        {
+          "handler": "handleTeamInvitationAccept",
+          "method": "POST",
+          "path": "/team/invitations/accept"
+        }
+      ],
+      "webhook": [
+        {
+          "handler": "handleStripeWebhook",
+          "method": "POST",
+          "path": "/webhook/stripe"
+        }
+      ],
+      "workspaces": [
+        {
+          "handler": "handleWorkspacesGet",
+          "method": "GET",
+          "path": "/workspaces"
+        }
+      ]
+    }
+  },
+  "architecture": {
+    "key_files": [
+      {
+        "path": "README.md",
+        "purpose": "Deployment and main operator runbook for Vercel, domains, and env configuration."
+      },
+      {
+        "path": "pages/[[...slug]].jsx",
+        "purpose": "Next.js catch-all page that mounts the React SPA and injects SSR SEO metadata."
+      },
+      {
+        "path": "frontend/src/App.js",
+        "purpose": "Client app shell, React Router route map, providers, auth context, and shared config loading."
+      },
+      {
+        "path": "pages/api/[...path].js",
+        "purpose": "Catch-all Next.js API entrypoint."
+      },
+      {
+        "path": "lib/api/router.js",
+        "purpose": "Route dispatcher that maps API paths and methods to handlers."
+      },
+      {
+        "path": "lib/api-handler.js",
+        "purpose": "Main backend business logic for auth, PDFs, links, billing, domains, team workspaces, and admin features."
+      },
+      {
+        "path": "lib/store.js",
+        "purpose": "Supabase Postgres-backed document store abstraction built on app_documents/app_files."
+      },
+      {
+        "path": "db/supabase_schema.sql",
+        "purpose": "Schema and indexes for app_documents/app_files plus JSONB collection indexes."
+      },
+      {
+        "path": "frontend/src/contexts/LanguageContext.jsx",
+        "purpose": "Runtime language resolution, translation overrides, and localization bootstrapping."
+      },
+      {
+        "path": "frontend/src/components/DashboardLayout.jsx",
+        "purpose": "Shared authenticated layout, sidebar navigation, workspace switching, and account footer."
+      },
+      {
+        "path": "frontend/src/pages/SecureViewer.jsx",
+        "purpose": "Secure PDF viewing surface with anti-copy deterrence, watermarking, NDA, focus lock, and timers."
+      },
+      {
+        "path": "frontend/src/pages/PDFManagement.jsx",
+        "purpose": "Primary workspace for PDFs, folders, links, bulk actions, and secure-link editing."
+      },
+      {
+        "path": "frontend/src/pages/AdminDashboard.jsx",
+        "purpose": "Admin reporting dashboard including revenue, subscription, refund, and usage drilldowns."
+      },
+      {
+        "path": "frontend/src/pages/AdminSettings.jsx",
+        "purpose": "Platform control surface wrapping grouped settings tabs."
+      },
+      {
+        "path": "frontend/src/components/admin-settings/AdminSettingsTabs.jsx",
+        "purpose": "Extracted admin settings tab UI bodies."
+      },
+      {
+        "path": "frontend/src/pages/Settings.jsx",
+        "purpose": "User account settings wrapper including billing, security, link defaults, domains, and team access."
+      },
+      {
+        "path": "frontend/src/components/settings/SettingsTabs.jsx",
+        "purpose": "Extracted end-user settings tab UI bodies."
+      },
+      {
+        "path": "scripts/db/migrate.cjs",
+        "purpose": "Applies Supabase/Postgres schema migrations."
+      },
+      {
+        "path": "scripts/db/seed.cjs",
+        "purpose": "Seeds admin/sample users and starter platform data."
+      },
+      {
+        "path": "scripts/vercel/build.cjs",
+        "purpose": "Vercel production build wrapper that can run DB migrations before next build."
+      }
+    ],
+    "next_config_excerpt": [
+      "const path = require(\"path\");",
+      "",
+      "/** @type {import('next').NextConfig} */",
+      "const nextConfig = {",
+      "  reactStrictMode: true,",
+      "  async rewrites() {",
+      "    return {",
+      "      beforeFiles: [",
+      "        {",
+      "          source: \"/direct/:token\",",
+      "          destination: \"/api/direct/:token\",",
+      "        },",
+      "      ],",
+      "    };",
+      "  },",
+      "  webpack: (config) => {",
+      "    config.resolve.alias[\"@\"] = path.join(__dirname, \"frontend/src\");",
+      "    return config;",
+      "  },",
+      "};",
+      "",
+      "module.exports = nextConfig;",
+      ""
+    ],
+    "next_config_summary": "React SPA is mounted through pages/[[...slug]].jsx with same-origin API rewrites for /direct/:token.",
+    "prd_note": "memory/PRD.md is historically useful but partially outdated. It still references the earlier FastAPI/Mongo architecture and should be treated as product history, not the active runtime design.",
+    "readme_summary": [
+      "# Disposable PDF Project",
+      "",
+      "## Next.js + Vercel (Single Deployment, No Python)",
+      "",
+      "This repo is now configured so frontend and backend can run under one Vercel project:",
+      "",
+      "- Next.js frontend at repo root (`pages/` + `frontend/src/` UI code)",
+      "- Next.js API backend (`pages/api/index.js` + `pages/api/[...path].js`)",
+      "- Supabase schema reference at `db/supabase_schema.sql`",
+      "",
+      "### Deploy on Vercel",
+      "",
+      "1. Import this repository as a Vercel project.",
+      "2. Keep **Root Directory** as repository root.",
+      "3. Build command: `npm run build`",
+      "4. Output: Next.js default (leave empty).",
+      "5. Add env vars from [`.env.example`](/Users/apple/Downloads/Disposable-pdf-main/.env.example).",
+      "",
+      "Optional frontend env override:",
+      "",
+      "- `NEXT_PUBLIC_BACKEND_URL` (leave empty to use same-origin `/api` on Vercel).",
+      "",
+      "### Authentication + Email Setup (Supabase Auth)",
+      "",
+      "Set these Vercel env vars:",
+      "",
+      "1. `SUPABASE_URL=https://<project-ref>.supabase.co`",
+      "2. `SUPABASE_SERVICE_ROLE_KEY=<service-role-key>`",
+      "3. `SUPABASE_PUBLISHABLE_KEY=<publishable-or-anon-key>`",
+      "",
+      "Notes:",
+      "",
+      "- Registration email verification and password reset emails are sent by Supabase Auth.",
+      "- In Supabase Dashboard, configure `Auth -> URL Configuration` with your app URL and redirect URLs (`/verify-email`, `/reset-password`).",
+      "- Legacy Resend fallback is still supported only if Supabase auth env vars are missing.",
+      "",
+      "### Main Domain Setup (Vercel)",
+      "",
+      "Use your primary platform domain (example: `securepdf.vikasbendha.com`) as the app origin.",
+      ""
+    ],
+    "top_level_entries": [
+      {
+        "name": ".DS_Store",
+        "type": "file"
+      },
+      {
+        "name": ".emergent",
+        "type": "directory"
+      },
+      {
+        "name": ".env",
+        "type": "file"
+      },
+      {
+        "name": ".env.example",
+        "type": "file"
+      },
+      {
+        "name": ".env.save",
+        "type": "file"
+      },
+      {
+        "name": ".local",
+        "type": "directory"
+      },
+      {
+        "name": ".next",
+        "type": "directory"
+      },
+      {
+        "name": "backend",
+        "type": "directory"
+      },
+      {
+        "name": "db",
+        "type": "directory"
+      },
+      {
+        "name": "design_guidelines.json",
+        "type": "file"
+      },
+      {
+        "name": "frontend",
+        "type": "directory"
+      },
+      {
+        "name": "git-push-test.txt",
+        "type": "file"
+      },
+      {
+        "name": "jsconfig.json",
+        "type": "file"
+      },
+      {
+        "name": "lib",
+        "type": "directory"
+      },
+      {
+        "name": "memory",
+        "type": "directory"
+      },
+      {
+        "name": "next.config.js",
+        "type": "file"
+      },
+      {
+        "name": "package-lock.json",
+        "type": "file"
+      },
+      {
+        "name": "package.json",
+        "type": "file"
+      },
+      {
+        "name": "pages",
+        "type": "directory"
+      },
+      {
+        "name": "postcss.config.js",
+        "type": "file"
+      },
+      {
+        "name": "public",
+        "type": "directory"
+      },
+      {
+        "name": "README.md",
+        "type": "file"
+      },
+      {
+        "name": "scripts",
+        "type": "directory"
+      },
+      {
+        "name": "tailwind.config.js",
+        "type": "file"
+      },
+      {
+        "name": "test_reports",
+        "type": "directory"
+      },
+      {
+        "name": "test_result.md",
+        "type": "file"
+      },
+      {
+        "name": "tests",
+        "type": "directory"
+      },
+      {
+        "name": "vercel.json",
+        "type": "file"
+      }
+    ]
+  },
+  "capabilities": [
+    {
+      "items": [
+        "Email/password auth",
+        "Google login and signup through Supabase OAuth",
+        "Email verification and password reset",
+        "Verified email change flow",
+        "Admin and super admin two-factor authentication (QR plus TOTP)",
+        "Role model: user, admin, super_admin"
+      ],
+      "name": "Authentication and Identity"
+    },
+    {
+      "items": [
+        "PDF upload and storage",
+        "Secure link generation with countdown, fixed date, and manual revoke modes",
+        "Direct access tokens for non-secure PDF viewing when enabled",
+        "Focus lock, idle timeout, fullscreen requirement, NDA gate, single-viewer session lock",
+        "Watermark modes: basic details, custom text, uploaded logo",
+        "IP allowlist, first-IP lock, country allow/block restrictions",
+        "Expired page customization and manual link revocation"
+      ],
+      "name": "Secure PDF and Link Controls"
+    },
+    {
+      "items": [
+        "Supabase Postgres-backed app_files storage provider",
+        "Wasabi S3-compatible storage provider",
+        "Admin storage settings with migration jobs and operations health",
+        "Same-origin /api deployment model on Vercel"
+      ],
+      "name": "Storage and Delivery"
+    },
+    {
+      "items": [
+        "Stripe subscriptions and checkout",
+        "Admin-managed plans with public visibility toggles and direct plan links",
+        "Billing portal support",
+        "Admin refund workflow with full and partial refund support",
+        "Admin revenue, subscription, and refund reporting with date-range filters",
+        "Invoice template customization and PDF invoice generation"
+      ],
+      "name": "Billing, Plans, and Revenue"
+    },
+    {
+      "items": [
+        "Supported languages: English, Spanish, French, German, Italian, Hindi, Slovenian",
+        "Platform default language plus per-user override",
+        "Admin manual translation manager with string overrides and advanced JSON editing",
+        "Editable branding, SEO, public-site, and auth email content from admin settings"
+      ],
+      "name": "Localization and Content"
+    },
+    {
+      "items": [
+        "User custom domains for secure and direct PDF links",
+        "DNS verification with TXT, CNAME, and apex A-record support",
+        "Optional Vercel API automation for domain attach and verification",
+        "SSL state tracking and enforcement before domain use"
+      ],
+      "name": "Custom Domains and White Label"
+    },
+    {
+      "items": [
+        "Owner/admin/member workspace roles for customer accounts",
+        "Team invitations with accept and decline flows",
+        "Workspace switching in the authenticated UI",
+        "Audit events for platform settings, PDFs, links, folders, billing, and team actions",
+        "Settings permissions, settings history, and background jobs for admin operations"
+      ],
+      "name": "Team Workspaces and Auditing"
+    }
+  ],
+  "commands": {
+    "notable_commands": [
+      "npm install",
+      "npm run dev",
+      "npm run build",
+      "npm run db:migrate",
+      "npm run db:seed",
+      "npm run i18n:validate",
+      "npm run context:export"
+    ],
+    "npm_scripts": {
+      "build": "node scripts/vercel/build.cjs",
+      "build:next": "next build",
+      "context:export": "node scripts/context/export.cjs",
+      "db:migrate": "node scripts/db/migrate.cjs",
+      "db:seed": "node scripts/db/seed.cjs",
+      "db:setup": "npm run db:migrate && npm run db:seed",
+      "dev": "next dev",
+      "i18n:validate": "node scripts/i18n/validate.cjs",
+      "start": "next start"
+    }
+  },
+  "data_model": {
+    "collections": [
+      "audit_events",
+      "domains",
+      "email_change_requests",
+      "email_verifications",
+      "folders",
+      "jobs",
+      "links",
+      "password_resets",
+      "payment_transactions",
+      "pdfs",
+      "platform_settings",
+      "settings_history",
+      "team_invitations",
+      "team_memberships",
+      "user_sessions",
+      "users"
+    ],
+    "primary_pattern": "Document collections stored in public.app_documents (jsonb) plus binary payloads in public.app_files.",
+    "schema_file": "db/supabase_schema.sql",
+    "store_file": "lib/store.js"
+  },
+  "environment": {
+    "entries": [
+      {
+        "comments": [
+          "Optional override for frontend API target.",
+          "Leave empty for same-origin /api in local + Vercel."
+        ],
+        "example": "",
+        "key": "NEXT_PUBLIC_BACKEND_URL",
+        "section": "Optional override for frontend API target."
+      },
+      {
+        "comments": [
+          "Supabase Postgres connection used by Next.js API (required).",
+          "If password has special chars, URL-encode them (e.g. # => %23, ! => %21)."
+        ],
+        "example": "postgresql://postgres.<project-ref>:<url-encoded-password>@<pooler-host>:6543/postgres",
+        "key": "SUPABASE_DB_URL",
+        "section": "Supabase Postgres connection used by Next.js API (required)."
+      },
+      {
+        "comments": [],
+        "example": "https://<project-ref>.supabase.co",
+        "key": "SUPABASE_URL",
+        "section": "Supabase Postgres connection used by Next.js API (required)."
+      },
+      {
+        "comments": [],
+        "example": "<service-role-key>",
+        "key": "SUPABASE_SERVICE_ROLE_KEY",
+        "section": "Supabase Postgres connection used by Next.js API (required)."
+      },
+      {
+        "comments": [],
+        "example": "<publishable-or-anon-key>",
+        "key": "SUPABASE_PUBLISHABLE_KEY",
+        "section": "Supabase Postgres connection used by Next.js API (required)."
+      },
+      {
+        "comments": [
+          "Optional fallback for server-side auth calls if publishable key is not set."
+        ],
+        "example": "secure-pdfs",
+        "key": "SUPABASE_STORAGE_BUCKET",
+        "section": "Supabase Postgres connection used by Next.js API (required)."
+      },
+      {
+        "comments": [],
+        "example": "true",
+        "key": "SUPABASE_AUTO_DISCOVER_POOLER",
+        "section": "Supabase Postgres connection used by Next.js API (required)."
+      },
+      {
+        "comments": [],
+        "example": "2.0",
+        "key": "SUPABASE_POOLER_DISCOVERY_TIMEOUT",
+        "section": "Supabase Postgres connection used by Next.js API (required)."
+      },
+      {
+        "comments": [
+          "Build-time DB migration behavior",
+          "On Vercel production deploys, migration runs by default.",
+          "Override with RUN_DB_MIGRATIONS_ON_BUILD=true/false."
+        ],
+        "example": "true",
+        "key": "RUN_DB_MIGRATIONS_ON_BUILD",
+        "section": "Build-time DB migration behavior"
+      },
+      {
+        "comments": [
+          "Emergency flag to skip migration even when enabled"
+        ],
+        "example": "false",
+        "key": "SKIP_DB_MIGRATE",
+        "section": "Build-time DB migration behavior"
+      },
+      {
+        "comments": [
+          "App security"
+        ],
+        "example": "<long-random-secret>",
+        "key": "JWT_SECRET_KEY",
+        "section": "App security"
+      },
+      {
+        "comments": [],
+        "example": "https://securepdf.yourdomain.com",
+        "key": "APP_BASE_URL",
+        "section": "App security"
+      },
+      {
+        "comments": [],
+        "example": "connect@vikasbendha.com",
+        "key": "SUPER_ADMIN_EMAILS",
+        "section": "App security"
+      },
+      {
+        "comments": [
+          "Email delivery",
+          "Choose one:",
+          "- `supabase`: Supabase Auth sends reset/verification emails (configure custom SMTP in Supabase for production)",
+          "- `gmail`: Google OAuth mailer configured from the admin panel",
+          "- `mailgun`: Mailgun API mailer configured from the admin panel",
+          "- `outlook`: Microsoft 365 / Outlook OAuth mailer configured from the admin panel",
+          "- `smtp`: Other SMTP mailer configured below or overridden from the admin panel",
+          "- `resend`: this app sends emails using Resend env vars"
+        ],
+        "example": "supabase",
+        "key": "EMAIL_DELIVERY_PROVIDER",
+        "section": "Email delivery"
+      },
+      {
+        "comments": [],
+        "example": "<optional-resend-api-key>",
+        "key": "RESEND_API_KEY",
+        "section": "Email delivery"
+      },
+      {
+        "comments": [],
+        "example": "onboarding@resend.dev",
+        "key": "EMAIL_FROM",
+        "section": "Email delivery"
+      },
+      {
+        "comments": [],
+        "example": "",
+        "key": "SMTP_HOST",
+        "section": "Email delivery"
+      },
+      {
+        "comments": [],
+        "example": "587",
+        "key": "SMTP_PORT",
+        "section": "Email delivery"
+      },
+      {
+        "comments": [],
+        "example": "false",
+        "key": "SMTP_SECURE",
+        "section": "Email delivery"
+      },
+      {
+        "comments": [],
+        "example": "",
+        "key": "SMTP_USERNAME",
+        "section": "Email delivery"
+      },
+      {
+        "comments": [],
+        "example": "",
+        "key": "SMTP_PASSWORD",
+        "section": "Email delivery"
+      },
+      {
+        "comments": [],
+        "example": "",
+        "key": "SMTP_FROM_EMAIL",
+        "section": "Email delivery"
+      },
+      {
+        "comments": [],
+        "example": "",
+        "key": "SMTP_FROM_NAME",
+        "section": "Email delivery"
+      },
+      {
+        "comments": [],
+        "example": "",
+        "key": "SMTP_REPLY_TO",
+        "section": "Email delivery"
+      },
+      {
+        "comments": [
+          "Super admin can override SMTP settings from the admin panel at runtime."
+        ],
+        "example": "24",
+        "key": "EMAIL_VERIFICATION_EXPIRE_HOURS",
+        "section": "Email delivery"
+      },
+      {
+        "comments": [],
+        "example": "60",
+        "key": "PASSWORD_RESET_EXPIRE_MINUTES",
+        "section": "Email delivery"
+      },
+      {
+        "comments": [],
+        "example": "false",
+        "key": "AUTH_DEBUG_TOKENS",
+        "section": "Email delivery"
+      },
+      {
+        "comments": [
+          "Storage provider"
+        ],
+        "example": "supabase_db",
+        "key": "DEFAULT_STORAGE_PROVIDER",
+        "section": "Storage provider"
+      },
+      {
+        "comments": [],
+        "example": "",
+        "key": "WASABI_ENDPOINT",
+        "section": "Storage provider"
+      },
+      {
+        "comments": [],
+        "example": "us-east-1",
+        "key": "WASABI_REGION",
+        "section": "Storage provider"
+      },
+      {
+        "comments": [],
+        "example": "",
+        "key": "WASABI_BUCKET",
+        "section": "Storage provider"
+      },
+      {
+        "comments": [],
+        "example": "",
+        "key": "WASABI_ACCESS_KEY_ID",
+        "section": "Storage provider"
+      },
+      {
+        "comments": [],
+        "example": "",
+        "key": "WASABI_SECRET_ACCESS_KEY",
+        "section": "Storage provider"
+      },
+      {
+        "comments": [],
+        "example": "true",
+        "key": "WASABI_FORCE_PATH_STYLE",
+        "section": "Storage provider"
+      },
+      {
+        "comments": [
+          "Optional Stripe settings"
+        ],
+        "example": "<optional-stripe-secret-key>",
+        "key": "STRIPE_API_KEY",
+        "section": "Optional Stripe settings"
+      },
+      {
+        "comments": [],
+        "example": "<optional-stripe-webhook-secret>",
+        "key": "STRIPE_WEBHOOK_SECRET",
+        "section": "Optional Stripe settings"
+      },
+      {
+        "comments": [
+          "Comma-separated frontend origins"
+        ],
+        "example": "https://securepdf.yourdomain.com,https://your-domain.vercel.app,http://localhost:3000",
+        "key": "CORS_ORIGINS",
+        "section": "Comma-separated frontend origins"
+      },
+      {
+        "comments": [
+          "Custom domain verification + DNS targets"
+        ],
+        "example": "_autodestroy",
+        "key": "CUSTOM_DOMAIN_TXT_PREFIX",
+        "section": "Custom domain verification + DNS targets"
+      },
+      {
+        "comments": [],
+        "example": "cname.vercel-dns.com",
+        "key": "CUSTOM_DOMAIN_VERCEL_CNAME_TARGET",
+        "section": "Custom domain verification + DNS targets"
+      },
+      {
+        "comments": [
+          "Optional extra accepted CNAME targets, comma-separated"
+        ],
+        "example": "",
+        "key": "CUSTOM_DOMAIN_CNAME_TARGETS",
+        "section": "Custom domain verification + DNS targets"
+      },
+      {
+        "comments": [
+          "Optional A targets for apex domains, comma-separated"
+        ],
+        "example": "76.76.21.21",
+        "key": "CUSTOM_DOMAIN_A_TARGETS",
+        "section": "Custom domain verification + DNS targets"
+      },
+      {
+        "comments": [],
+        "example": "6000",
+        "key": "CUSTOM_DOMAIN_VERIFY_TIMEOUT_MS",
+        "section": "Custom domain verification + DNS targets"
+      },
+      {
+        "comments": [
+          "Optional seed settings (used by npm run db:seed)"
+        ],
+        "example": "admin@autodestroy.local",
+        "key": "SEED_ADMIN_EMAIL",
+        "section": "Optional seed settings (used by npm run db:seed)"
+      },
+      {
+        "comments": [],
+        "example": "Admin@123456",
+        "key": "SEED_ADMIN_PASSWORD",
+        "section": "Optional seed settings (used by npm run db:seed)"
+      },
+      {
+        "comments": [],
+        "example": "true",
+        "key": "SEED_CREATE_SAMPLE_USER",
+        "section": "Optional seed settings (used by npm run db:seed)"
+      },
+      {
+        "comments": [],
+        "example": "connect@vikasbendha.com",
+        "key": "SEED_USER_EMAIL",
+        "section": "Optional seed settings (used by npm run db:seed)"
+      },
+      {
+        "comments": [],
+        "example": "User@123456",
+        "key": "SEED_USER_PASSWORD",
+        "section": "Optional seed settings (used by npm run db:seed)"
+      }
+    ],
+    "note": "This export includes placeholders and examples only. Real secrets must stay in local env files or Vercel/Supabase settings.",
+    "source": ".env.example"
+  },
+  "frontend": {
+    "route_count": 23,
+    "routes": [
+      {
+        "access": "public",
+        "component": "Landing",
+        "path": "/",
+        "redirects": false,
+        "source": "./pages/Landing"
+      },
+      {
+        "access": "public",
+        "component": "Login",
+        "path": "/login",
+        "redirects": false,
+        "source": "./pages/Login"
+      },
+      {
+        "access": "public",
+        "component": "Register",
+        "path": "/register",
+        "redirects": false,
+        "source": "./pages/Register"
+      },
+      {
+        "access": "public",
+        "component": "ForgotPassword",
+        "path": "/forgot-password",
+        "redirects": false,
+        "source": "./pages/ForgotPassword"
+      },
+      {
+        "access": "public",
+        "component": "ResetPassword",
+        "path": "/reset-password",
+        "redirects": false,
+        "source": "./pages/ResetPassword"
+      },
+      {
+        "access": "public",
+        "component": "VerifyEmail",
+        "path": "/verify-email",
+        "redirects": false,
+        "source": "./pages/VerifyEmail"
+      },
+      {
+        "access": "public",
+        "component": "VerifyEmailChange",
+        "path": "/verify-email-change",
+        "redirects": false,
+        "source": "./pages/VerifyEmailChange"
+      },
+      {
+        "access": "public",
+        "component": "AuthCallback",
+        "path": "/auth/callback",
+        "redirects": false,
+        "source": "./pages/AuthCallback"
+      },
+      {
+        "access": "public",
+        "component": "TeamInvitation",
+        "path": "/team-invite",
+        "redirects": false,
+        "source": "./pages/TeamInvitation"
+      },
+      {
+        "access": "public",
+        "component": "Pricing",
+        "path": "/pricing",
+        "redirects": false,
+        "source": "./pages/Pricing"
+      },
+      {
+        "access": "public",
+        "component": "SecureViewer",
+        "path": "/view/:token",
+        "redirects": false,
+        "source": "./pages/SecureViewer"
+      },
+      {
+        "access": "public",
+        "component": "ExpiredPage",
+        "path": "/expired",
+        "redirects": false,
+        "source": "./pages/ExpiredPage"
+      },
+      {
+        "access": "authenticated",
+        "component": "Dashboard",
+        "path": "/dashboard",
+        "redirects": false,
+        "source": "./pages/Dashboard"
+      },
+      {
+        "access": "authenticated",
+        "component": "PDFManagement",
+        "path": "/pdfs",
+        "redirects": false,
+        "source": "./pages/PDFManagement"
+      },
+      {
+        "access": "authenticated",
+        "component": null,
+        "path": "/links",
+        "redirects": true,
+        "source": null
+      },
+      {
+        "access": "authenticated",
+        "component": "LinkGenerator",
+        "path": "/links/create",
+        "redirects": false,
+        "source": "./pages/LinkGenerator"
+      },
+      {
+        "access": "authenticated",
+        "component": "Settings",
+        "path": "/settings",
+        "redirects": false,
+        "source": "./pages/Settings"
+      },
+      {
+        "access": "admin",
+        "component": "AdminDashboard",
+        "path": "/admin",
+        "redirects": false,
+        "source": "./pages/AdminDashboard"
+      },
+      {
+        "access": "admin",
+        "component": "AdminUsers",
+        "path": "/admin/users",
+        "redirects": false,
+        "source": "./pages/AdminUsers"
+      },
+      {
+        "access": "admin",
+        "component": "AdminLinks",
+        "path": "/admin/links",
+        "redirects": false,
+        "source": "./pages/AdminLinks"
+      },
+      {
+        "access": "admin",
+        "component": "AdminAuditLogs",
+        "path": "/admin/audit-events",
+        "redirects": false,
+        "source": "./pages/AdminAuditLogs"
+      },
+      {
+        "access": "admin",
+        "component": "AdminSettings",
+        "path": "/admin/settings",
+        "redirects": false,
+        "source": "./pages/AdminSettings"
+      },
+      {
+        "access": "public",
+        "component": null,
+        "path": "*",
+        "redirects": true,
+        "source": null
+      }
+    ]
+  },
+  "generated_at": "2026-03-30T10:08:20.129Z",
+  "generator": "scripts/context/export.cjs",
+  "known_constraints": [
+    "The active runtime is the root Next.js app. The historical backend/ directory may still exist in the repo, but the production deployment path is pages/ plus frontend/src/.",
+    "The app is a React SPA mounted inside a Next.js catch-all page, not a pure App Router Next.js app.",
+    "Screenshot prevention is deterrence-only. Browser code can increase friction, but cannot reliably block OS-level screenshots.",
+    "Countdown links are per public IP. Browsers or devices sharing the same public IP share the same countdown state for that link.",
+    "Billing and subscriptions are owner-account based. Team members act inside the owner's workspace but do not have separate subscription billing.",
+    "The document store uses JSONB collections inside public.app_documents, so schema evolution is mostly application-level rather than table-per-entity.",
+    "NEXT_PUBLIC_BACKEND_URL is usually left empty on Vercel so the frontend uses same-origin /api. Setting it to another host can cause custom-domain or CORS issues.",
+    "Build-time DB migration is enabled by default on Vercel production builds through scripts/vercel/build.cjs. Local builds do not run DB migrations unless asked explicitly."
+  ],
+  "offline_codex_bootstrap": [
+    "Read docs/PROJECT_CONTEXT_EXPORT.md first for the full system map.",
+    "Treat README.md as the operator deployment runbook.",
+    "Start backend orientation from lib/api/router.js, then lib/api-handler.js, then lib/store.js.",
+    "Start frontend orientation from pages/[[...slug]].jsx, then frontend/src/App.js, then DashboardLayout, Settings, AdminSettings, PDFManagement, and SecureViewer.",
+    "Assume the live app is deployed as a single Vercel project using same-origin /api.",
+    "Do not assume the legacy backend/ folder is the active runtime unless the code explicitly references it.",
+    "Regenerate the context export before handoff if you change routes, env vars, schema, auth, billing, security, storage, translations, or team-workspace behavior."
+  ],
+  "operational_notes": [
+    "Copy .env.example values into Vercel or local env files. Do not store real secrets in the context export.",
+    "Run npm install before local development.",
+    "Run npm run db:migrate when schema/index changes land.",
+    "Use npm run db:seed only when you intentionally want seed data.",
+    "Use npm run build before pushing structural changes.",
+    "Use npm run context:export after major changes to routes, env vars, schema, admin controls, storage, billing, or security flows.",
+    "Commit docs/PROJECT_CONTEXT_EXPORT.md and docs/PROJECT_CONTEXT_EXPORT.json with the related code changes so another Codex instance gets an accurate snapshot."
+  ],
+  "project_summary": {
+    "active_runtime": "Next.js at repository root",
+    "deployment_model": "Single Vercel project using Next.js pages plus a client-side React SPA mounted at the catch-all route.",
+    "email_delivery_modes": [
+      "supabase",
+      "gmail",
+      "mailgun",
+      "outlook",
+      "smtp",
+      "resend"
+    ],
+    "legacy_areas": [
+      "frontend/ (source assets and legacy CRA-era structure reused by the Next app)",
+      "backend/ (historical Python-era area, not the primary runtime)"
+    ],
+    "name": "disposable-pdf-project",
+    "primary_storage_modes": [
+      "supabase_db",
+      "wasabi_s3"
+    ],
+    "supported_languages": [
+      "en",
+      "es",
+      "fr",
+      "de",
+      "it",
+      "hi",
+      "sl"
+    ],
+    "team_roles": [
+      "owner",
+      "admin",
+      "member"
+    ],
+    "user_roles": [
+      "user",
+      "admin",
+      "super_admin"
+    ],
+    "version": "1.0.0"
+  },
+  "repository": {
+    "branch": "main",
+    "clean_worktree": false,
+    "commit": "085f91f7acfe6ebd93e66102c8098d1edabc5639",
+    "git_status_short": [
+      "M README.md",
+      " M package.json",
+      "?? scripts/context/"
+    ],
+    "root": "/Users/apple/Downloads/Disposable-pdf-main",
+    "short_commit": "085f91f"
+  }
+}

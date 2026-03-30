@@ -111,3 +111,18 @@ Control flags:
 
 - `RUN_DB_MIGRATIONS_ON_BUILD=true|false` (default: auto true only on Vercel production)
 - `SKIP_DB_MIGRATE=true|false` (emergency override to skip migration)
+
+### Context Export for Offline Codex / Emergency Handoff
+
+This repo includes a generated project handoff pack that can be committed to git and used by another Codex instance on a different machine.
+
+Run:
+
+- `npm run context:export`
+
+Generated files:
+
+- `docs/PROJECT_CONTEXT_EXPORT.md`
+- `docs/PROJECT_CONTEXT_EXPORT.json`
+
+Regenerate and commit these files whenever routes, env vars, schema, auth, billing, storage, localization, or team/workspace behavior changes.
