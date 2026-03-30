@@ -508,16 +508,16 @@ Regenerate and commit these when any of the following change:
 - team/workspace behavior
 - admin settings structure
 
-## Recommended Documentation Set
+## Documentation Set
 
-If we want this repository to feel fully enterprise-grade, the next supporting docs to add would be:
+Additional focused docs now live under [docs/README.md](/Users/apple/Downloads/Disposable-pdf-main/docs/README.md):
 
-1. `docs/OPERATIONS_RUNBOOK.md`
-2. `docs/SECURITY_MODEL.md`
-3. `docs/BILLING_AND_REFUNDS.md`
-4. `docs/CUSTOM_DOMAINS.md`
-5. `docs/STORAGE_MIGRATION.md`
-6. `docs/TEAM_WORKSPACES.md`
+1. [docs/OPERATIONS_RUNBOOK.md](/Users/apple/Downloads/Disposable-pdf-main/docs/OPERATIONS_RUNBOOK.md)
+2. [docs/SECURITY_MODEL.md](/Users/apple/Downloads/Disposable-pdf-main/docs/SECURITY_MODEL.md)
+3. [docs/BILLING_AND_REFUNDS.md](/Users/apple/Downloads/Disposable-pdf-main/docs/BILLING_AND_REFUNDS.md)
+4. [docs/CUSTOM_DOMAINS.md](/Users/apple/Downloads/Disposable-pdf-main/docs/CUSTOM_DOMAINS.md)
+5. [docs/STORAGE_MIGRATION.md](/Users/apple/Downloads/Disposable-pdf-main/docs/STORAGE_MIGRATION.md)
+6. [docs/TEAM_WORKSPACES.md](/Users/apple/Downloads/Disposable-pdf-main/docs/TEAM_WORKSPACES.md)
 
 ## Notes for Future Maintainers
 
