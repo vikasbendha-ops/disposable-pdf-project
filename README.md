@@ -1,128 +1,530 @@
-# Disposable PDF Project
+# Autodestroy PDF Platform
 
-## Next.js + Vercel (Single Deployment, No Python)
+Autodestroy is a multi-tenant SaaS platform for secure PDF delivery. It lets customers upload PDFs, generate controlled-access links, apply strong viewer restrictions, track access, manage custom domains, run subscriptions, and operate the platform from a single admin surface.
 
-This repo is now configured so frontend and backend can run under one Vercel project:
+This repository is the active production codebase. It is designed to run as a **single Next.js deployment on Vercel** with:
 
-- Next.js frontend at repo root (`pages/` + `frontend/src/` UI code)
-- Next.js API backend (`pages/api/index.js` + `pages/api/[...path].js`)
-- Supabase schema reference at `db/supabase_schema.sql`
+- a Next.js API backend
+- a client-side React application mounted through the Next.js catch-all route
+- Supabase Postgres as the main application database
+- Supabase DB storage and Wasabi S3-compatible storage as supported file backends
 
-### Deploy on Vercel
+## Overview
 
-1. Import this repository as a Vercel project.
-2. Keep **Root Directory** as repository root.
-3. Build command: `npm run build`
-4. Output: Next.js default (leave empty).
-5. Add env vars from [`.env.example`](/Users/apple/Downloads/Disposable-pdf-main/.env.example).
+The product is built around a secure document-sharing workflow:
 
-Optional frontend env override:
+1. A user uploads a PDF
+2. The user generates one or more secure links
+3. Each link can enforce access rules such as expiry, NDA acceptance, IP controls, geo rules, watermarking, fullscreen lock, and single-viewer restrictions
+4. Recipients view the PDF inside a hardened web viewer
+5. The owner and platform admins can manage analytics, billing, domains, storage, translations, and security settings
 
-- `NEXT_PUBLIC_BACKEND_URL` (leave empty to use same-origin `/api` on Vercel).
+The system also supports:
 
-### Authentication + Email Setup (Supabase Auth)
+- direct PDF links when enabled
+- account teams and workspace sharing
+- admin reporting for subscriptions, revenue, refunds, and operations
+- white-label custom domains for customer-facing links
 
-Set these Vercel env vars:
+## Main Capabilities
 
-1. `SUPABASE_URL=https://<project-ref>.supabase.co`
-2. `SUPABASE_SERVICE_ROLE_KEY=<service-role-key>`
-3. `SUPABASE_PUBLISHABLE_KEY=<publishable-or-anon-key>`
+### Secure PDF Delivery
+
+- PDF upload and storage
+- secure PDF viewer with anti-copy deterrence
+- direct PDF links for unrestricted viewing when allowed
+- per-link security settings
+- per-account secure-link defaults
+
+### Link Expiry Modes
+
+- `Countdown`: starts after first approved open and is tracked per public IP
+- `Fixed Date`: expires globally at a specific UTC datetime
+- `Manual`: stays active until revoked by the owner or admin
+
+### Advanced Link Security
+
+- focus lock
+- idle timeout
+- NDA gate
+- lock to first IP
+- explicit IP allowlist
+- country allow / block rules
+- single active viewer session
+- fullscreen requirement
+- strict security mode
+- enhanced watermarking
+
+### Watermark Modes
+
+- basic viewer metadata watermark
+- custom text watermark
+- uploaded logo watermark
+
+### Account and Team Features
+
+- normal users
+- admins
+- super admins
+- customer workspaces with:
+  - owner
+  - admin
+  - member
+- invitation and workspace switching flows
+
+### Platform Operations
+
+- Stripe subscriptions and checkout
+- admin refunds
+- invoice PDF generation
+- plan management and pricing-page visibility controls
+- storage provider switching and storage migration jobs
+- domain verification and SSL tracking
+- email delivery provider configuration
+- manual translation management
+- settings permissions and settings history
+- operations health and background jobs
+
+## Active Tech Stack
+
+### Runtime
+
+- Next.js 15
+- React 19
+- React Router inside the mounted client app
+- Node.js runtime on Vercel
+
+### Data and Storage
+
+- Supabase Postgres
+- JSON document model stored in `public.app_documents`
+- binary file storage in `public.app_files`
+- optional Wasabi S3-compatible object storage
+
+### UI
+
+- Tailwind CSS
+- Radix UI primitives
+- custom app components under `frontend/src/components`
+
+### Payments and External Integrations
+
+- Stripe
+- Supabase Auth
+- Google OAuth via Supabase
+- Resend / Gmail / Mailgun / Outlook / SMTP delivery options
+- Vercel domains API
+
+## Repository Structure
+
+```text
+.
+├── db/                         # SQL schema and index reference
+├── docs/                       # Generated context export and supporting docs
+├── frontend/                   # React application source used by the Next.js shell
+│   └── src/
+│       ├── components/
+│       ├── contexts/
+│       ├── i18n/
+│       ├── lib/
+│       └── pages/
+├── lib/                        # Backend business logic, store, SEO helpers, router
+│   └── api/
+├── memory/                     # Historical product notes / PRD
+├── pages/                      # Next.js pages and API entrypoints
+│   └── api/
+├── public/                     # Static assets
+├── scripts/                    # Build, DB, i18n, and context export scripts
+└── README.md
+```
+
+## Important Files
+
+| File | Purpose |
+| --- | --- |
+| [pages/[[...slug]].jsx](/Users/apple/Downloads/Disposable-pdf-main/pages/[[...slug]].jsx) | Next.js catch-all page that mounts the React SPA and injects SEO metadata |
+| [frontend/src/App.js](/Users/apple/Downloads/Disposable-pdf-main/frontend/src/App.js) | client route map, providers, auth bootstrap, shared config loading |
+| [pages/api/[...path].js](/Users/apple/Downloads/Disposable-pdf-main/pages/api/[...path].js) | catch-all API entrypoint |
+| [lib/api/router.js](/Users/apple/Downloads/Disposable-pdf-main/lib/api/router.js) | API route dispatcher |
+| [lib/api-handler.js](/Users/apple/Downloads/Disposable-pdf-main/lib/api-handler.js) | main backend business logic |
+| [lib/store.js](/Users/apple/Downloads/Disposable-pdf-main/lib/store.js) | Supabase/Postgres-backed document store |
+| [db/supabase_schema.sql](/Users/apple/Downloads/Disposable-pdf-main/db/supabase_schema.sql) | schema and indexes |
+| [frontend/src/pages/SecureViewer.jsx](/Users/apple/Downloads/Disposable-pdf-main/frontend/src/pages/SecureViewer.jsx) | secure PDF viewer |
+| [frontend/src/pages/PDFManagement.jsx](/Users/apple/Downloads/Disposable-pdf-main/frontend/src/pages/PDFManagement.jsx) | workspace PDF and folder management |
+| [frontend/src/pages/AdminDashboard.jsx](/Users/apple/Downloads/Disposable-pdf-main/frontend/src/pages/AdminDashboard.jsx) | admin metrics and revenue reporting |
+| [frontend/src/pages/AdminSettings.jsx](/Users/apple/Downloads/Disposable-pdf-main/frontend/src/pages/AdminSettings.jsx) | grouped admin platform settings |
+
+## Current Runtime Architecture
+
+This is not a separate frontend plus separate Python backend deployment anymore.
+
+The active application model is:
+
+- **frontend shell**: Next.js pages
+- **client app**: React SPA in `frontend/src`
+- **backend**: Next.js API routes under `pages/api`
+- **database**: Supabase Postgres
+- **deployment target**: one Vercel project
+
+The historical `backend/` directory may still exist in the repository, but it is not the primary runtime path for the deployed product.
+
+## Roles and Access Model
+
+### Platform Roles
+
+- `user`
+- `admin`
+- `super_admin`
+
+### Workspace Roles
+
+- `owner`
+- `admin`
+- `member`
+
+Platform roles control access to platform-level admin surfaces.
+Workspace roles control what a customer team member can do inside a shared account workspace.
+
+## Secure Link Behavior
+
+### Countdown Links
+
+- countdown begins after first approved open
+- countdown is tracked per public IP
+- different browsers or devices on the same public IP share the same countdown state
+
+### Fixed-Date Links
+
+- expire globally at the configured datetime
+- all devices and IPs see the same expiry state
+
+### Manual Links
+
+- remain active until revoked
+
+### Security Notes
+
+This platform can **increase friction and deterrence** around copying, screenshots, and redistribution, but no browser application can guarantee full screenshot prevention at the operating-system level.
+
+## Billing and Revenue Features
+
+- plan management from admin settings
+- public / hidden plans for pricing page display
+- direct plan links for sharing
+- Stripe subscription checkout
+- billing portal access
+- invoice generation
+- refund workflow
+- admin revenue and refund reporting
+- reporting tabs and date filters on admin dashboard
+
+## Localization
+
+Supported languages:
+
+- English
+- Spanish
+- French
+- German
+- Italian
+- Hindi
+- Slovenian
+
+The platform supports:
+
+- admin-set primary platform language
+- user language override
+- manual translation overrides
+- advanced translation editing
+
+## Custom Domains
+
+Customers can connect custom domains for secure and direct PDF links.
+
+Supported verification/routing model:
+
+- TXT ownership record
+- CNAME routing for subdomains
+- A record support for apex/root domains
+- SSL verification and readiness tracking
+- optional Vercel API automation for domain attachment and verification
+
+## Storage Model
+
+Supported storage providers:
+
+- `supabase_db`
+- `wasabi_s3`
+
+The application includes:
+
+- storage provider settings
+- migration job creation
+- operations health visibility
+- file serving through the platform’s secure access logic
+
+## Email Delivery
+
+Supported delivery providers:
+
+- `supabase`
+- `gmail`
+- `mailgun`
+- `outlook`
+- `smtp`
+- `resend`
+
+Admin can manage provider-specific delivery settings from the platform settings area.
+
+## Environment Variables
+
+Use [`.env.example`](/Users/apple/Downloads/Disposable-pdf-main/.env.example) as the source of truth for environment setup.
+
+Main categories:
+
+- Supabase DB and auth
+- app security
+- email delivery
+- storage provider
+- Stripe
+- CORS
+- custom domain verification
+- seed settings
+
+Do not commit real credentials into this repository.
+
+## Local Development
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run the app locally:
+
+```bash
+npm run dev
+```
+
+The app runs as a Next.js project from the repository root.
+
+## Build and Validation
+
+Main commands:
+
+```bash
+npm run build
+npm run db:migrate
+npm run db:seed
+npm run i18n:validate
+```
 
 Notes:
 
-- Registration email verification and password reset emails are sent by Supabase Auth.
-- In Supabase Dashboard, configure `Auth -> URL Configuration` with your app URL and redirect URLs (`/verify-email`, `/reset-password`).
-- Legacy Resend fallback is still supported only if Supabase auth env vars are missing.
+- production builds on Vercel use [scripts/vercel/build.cjs](/Users/apple/Downloads/Disposable-pdf-main/scripts/vercel/build.cjs)
+- DB migration is enabled by default for Vercel production deploys
+- local builds do not automatically migrate unless explicitly requested
 
-### Main Domain Setup (Vercel)
+## Vercel Deployment
 
-Use your primary platform domain (example: `securepdf.vikasbendha.com`) as the app origin.
+### Project Setup
 
-1. Add the domain in Vercel Project -> `Settings` -> `Domains`.
-2. Set Vercel env vars:
-   - `APP_BASE_URL=https://securepdf.vikasbendha.com`
-   - `NEXT_PUBLIC_BACKEND_URL=` (empty, so frontend uses same-origin `/api`)
-   - `CORS_ORIGINS=https://securepdf.vikasbendha.com,https://disposable-pdf-project.vercel.app,http://localhost:3000`
-3. Redeploy.
+1. Import this repository into Vercel
+2. Keep the **Root Directory** as the repository root
+3. Use:
+   - build command: `npm run build`
+   - output directory: Next.js default
+4. Add env vars from `.env.example`
 
-If `NEXT_PUBLIC_BACKEND_URL` is set to another host, custom-domain pages may fail due cross-origin/CORS mismatch.
+### Recommended Vercel Environment
 
-### User Custom Domain Flow (DNS + SSL)
+- `APP_BASE_URL=https://your-live-domain`
+- `NEXT_PUBLIC_BACKEND_URL=`
+  Keep this empty when using same-origin `/api`
 
-After users add a domain in **Settings -> Custom Domains**, they will see exact DNS records to add:
+### CORS
 
-1. TXT ownership record:
-   - host: `_autodestroy.<their-domain>`
-   - value: generated token shown in UI
-2. Routing record:
-   - CNAME: `<their-subdomain> -> cname.vercel-dns.com`
-   - or apex/root domain A record: `76.76.21.21`
-3. Add that same domain to the Vercel project domains.
-4. Click **Verify DNS & SSL** in the app.
+Set `CORS_ORIGINS` to include:
 
-The domain is only usable for secure/direct links after:
-- DNS ownership + routing verify, and
-- SSL certificate is active (issued automatically by Vercel/Let's Encrypt).
+- the main live domain
+- the Vercel deployment domain if needed
+- localhost for development
 
-### Super Admin: Automatic Vercel Domain Attach/Verify
+## Supabase Setup
 
-To make the user flow mostly automatic, configure Vercel API access in:
+Required env vars:
 
-- **Admin Settings -> Vercel Domain Automation**
+- `SUPABASE_DB_URL`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_PUBLISHABLE_KEY`
+
+Apply schema:
+
+```bash
+npm run db:migrate
+```
+
+Optional seed:
+
+```bash
+npm run db:seed
+```
+
+## Google Login Setup
+
+Google login/signup is handled through Supabase Auth.
+
+Typical requirements:
+
+1. enable Google provider in Supabase Auth
+2. use the Google OAuth client ID and secret there
+3. configure the Supabase callback URL in Google Cloud
+4. configure Supabase site URL and redirect URLs for the live domain and localhost
+
+## Main Domain Setup
+
+Use your main platform domain, for example:
+
+- `https://securepdf.yourdomain.com`
 
 Set:
 
-1. `Project ID` (your Vercel project id)
-2. `Team ID` (optional, only if project is under a team)
-3. `API Token` (Vercel token with project/domain permissions)
-4. Keep **Auto-attach domains** enabled
+- `APP_BASE_URL=https://securepdf.yourdomain.com`
+- `NEXT_PUBLIC_BACKEND_URL=` (empty)
+- appropriate `CORS_ORIGINS`
 
-What this does:
+## Customer Custom Domain Flow
 
-- When a user adds a domain, backend tries to attach it to your Vercel project automatically.
-- When user clicks **Verify DNS & SSL**, backend also calls Vercel verify API and stores status (`pending/verified/error`) visible in Settings UI.
-- Domain is still blocked for link usage until DNS ownership + routing + active SSL checks pass.
+End users add domains from:
 
-### What End Users See
+- `Settings -> Custom Domains`
 
-Normal users do not need access to Vercel. They only need:
+They are shown the exact DNS records needed:
 
-1. **Settings -> Custom Domains**
-2. Copy DNS values shown per domain:
-   - TXT host/value
-   - CNAME target (or A record for apex)
-3. Click **Verify DNS & SSL**
+1. TXT ownership record
+2. routing record:
+   - CNAME for subdomains
+   - or A record for apex domains
+3. verify DNS and SSL in the app
 
-The UI already shows:
+The domain becomes usable only after ownership, routing, and SSL checks pass.
 
-- DNS status
-- SSL status
-- Vercel status
-- precise DNS records required for their domain
+## Admin Areas
 
-### Automatic DB Migration on Vercel
+### Admin Dashboard
 
-This project now uses a Vercel build wrapper (`scripts/vercel/build.cjs`):
+Includes:
 
-- On **Vercel production** deployments, DB migration runs automatically before `next build`.
-- On local builds and preview builds, migration is skipped by default.
+- user and subscription totals
+- revenue metrics
+- refund metrics
+- plan performance
+- recent refund visibility
+- reporting tabs and date filters
 
-Control flags:
+### Admin Settings
 
-- `RUN_DB_MIGRATIONS_ON_BUILD=true|false` (default: auto true only on Vercel production)
-- `SKIP_DB_MIGRATE=true|false` (emergency override to skip migration)
+Grouped areas include:
 
-### Context Export for Offline Codex / Emergency Handoff
+- operations
+- commerce
+- platform
+- infrastructure
+- access
 
-This repo includes a generated project handoff pack that can be committed to git and used by another Codex instance on a different machine.
+These areas cover payments, plans, email, localization, branding, SEO, storage, domains, permissions, jobs, and history.
+
+## Reporting and Refunds
+
+The admin dashboard supports:
+
+- overview metrics
+- revenue reporting
+- subscription reporting
+- refund reporting
+- date filters:
+  - 7 days
+  - 30 days
+  - 90 days
+  - 365 days
+  - all time
+  - custom date range
+
+Admin refund tools support:
+
+- full refunds
+- partial refunds
+- refund reasons
+- internal refund notes
+
+## Team Workspaces
+
+Customer accounts support team collaboration:
+
+- invite team members
+- accept or decline invitations
+- switch workspaces
+- operate inside the owner account’s workspace
+
+This affects PDFs, folders, links, domains, and dashboard data.
+
+## Audit and Operational Visibility
+
+The system includes:
+
+- audit events
+- settings change history
+- background jobs
+- operations health
+- platform-level admin logs
+
+## Offline Codex Handoff
+
+This repository includes a generated handoff pack for another Codex instance or offline machine.
 
 Run:
 
-- `npm run context:export`
+```bash
+npm run context:export
+```
 
 Generated files:
 
-- `docs/PROJECT_CONTEXT_EXPORT.md`
-- `docs/PROJECT_CONTEXT_EXPORT.json`
+- [docs/PROJECT_CONTEXT_EXPORT.md](/Users/apple/Downloads/Disposable-pdf-main/docs/PROJECT_CONTEXT_EXPORT.md)
+- [docs/PROJECT_CONTEXT_EXPORT.json](/Users/apple/Downloads/Disposable-pdf-main/docs/PROJECT_CONTEXT_EXPORT.json)
 
-Regenerate and commit these files whenever routes, env vars, schema, auth, billing, storage, localization, or team/workspace behavior changes.
+Regenerate and commit these when any of the following change:
+
+- routes
+- env vars
+- schema
+- auth flows
+- billing flows
+- secure link logic
+- storage providers
+- localization model
+- team/workspace behavior
+- admin settings structure
+
+## Recommended Documentation Set
+
+If we want this repository to feel fully enterprise-grade, the next supporting docs to add would be:
+
+1. `docs/OPERATIONS_RUNBOOK.md`
+2. `docs/SECURITY_MODEL.md`
+3. `docs/BILLING_AND_REFUNDS.md`
+4. `docs/CUSTOM_DOMAINS.md`
+5. `docs/STORAGE_MIGRATION.md`
+6. `docs/TEAM_WORKSPACES.md`
+
+## Notes for Future Maintainers
+
+- start with [README.md](/Users/apple/Downloads/Disposable-pdf-main/README.md) for the operator and project overview
+- use [docs/PROJECT_CONTEXT_EXPORT.md](/Users/apple/Downloads/Disposable-pdf-main/docs/PROJECT_CONTEXT_EXPORT.md) for the detailed machine handoff
+- treat [memory/PRD.md](/Users/apple/Downloads/Disposable-pdf-main/memory/PRD.md) as historical product context, not the current runtime source of truth
+
+## License / Internal Use
+
+Add your final license statement or internal usage policy here if you want this repository to be shared beyond the current team.
